@@ -337,6 +337,24 @@ and top-level key when it upserts `rea`. WorkBuddy also reads a project-level
 user-level file only. Loading this registration and real REA tool calls
 through WorkBuddy are verified.
 
+## IBM Bob
+
+For IBM Bob, setup writes `mcpServers.rea` into the global
+`~/.bob/settings/mcp.json` (`%userprofile%\.bob\settings\mcp.json` on Windows).
+Entries carry `command`, `args`, and `env`; stdio is the default transport. Bob
+discovers personal skills from `~/.bob/skills`, so setup installs its skill copy
+there.
+
+Setup preserves every other server and top-level key when it upserts `rea`.
+Bob also reads a project-level `<project>/.bob/mcp.json`, which setup does not
+touch: it registers the user-level file only. Bob's documentation names
+`~/.bob/mcp.json` (IDE) and `~/.bob/mcp_settings.json` (Bob Shell) as global
+locations, while Bob installations and its marketplace write MCP servers under
+`~/.bob/settings/`. On one Windows Bob IDE installation without
+`~/.bob/mcp.json`, the IDE loaded a `rea` server registered in
+`~/.bob/settings/mcp.json`. Loading this registration in other Bob versions and
+in Bob Shell remains unverified.
+
 ## ZCode
 
 For [ZCode](https://zcode.z.ai/en/docs/mcp-services), setup registers `rea` in the nested `mcp.servers` table of the
