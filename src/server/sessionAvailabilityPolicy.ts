@@ -6,6 +6,7 @@ export interface SessionAvailabilityDefaults {
   readonly optionalProviderLoadFailures?:
     | OptionalProviderLoadFailures
     | undefined;
+  readonly hostUnsupported?: AvailabilityPolicy["hostUnsupported"];
   readonly optionalFeatures?: Pick<
     AvailabilityPolicy,
     | "packetCaptureEnabled"
@@ -34,6 +35,9 @@ export const sessionAvailabilityPolicy = (
   const policy =
     configured ??
     (() => ({
+      ...(defaults.hostUnsupported === undefined
+        ? {}
+        : { hostUnsupported: defaults.hostUnsupported }),
       packetCaptureEnabled:
         defaults.optionalFeatures?.packetCaptureEnabled ?? false,
       signalRecordingEnabled:

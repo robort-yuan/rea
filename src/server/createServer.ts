@@ -211,8 +211,25 @@ const installSessionToolAvailability = (
   const linuxX64 = linux && process.arch === "x64";
   const pwntools =
     linuxX64 && isAbsolute(environment.REA_PWNTOOLS_PYTHON ?? "");
+  // Injected services own their availability. Otherwise each integration's
+  // execution guard admits only its verified host, whatever is configured.
+  const outsideVerifiedHost = (injected: unknown, verifiedHost: boolean) =>
+    injected === undefined && !verifiedHost;
   const basePolicy = sessionAvailabilityPolicy(options.availabilityPolicy, {
     optionalProviderLoadFailures: options.optionalProviderLoadFailures,
+    hostUnsupported: {
+      packetCapture: outsideVerifiedHost(options.packetCapture, linux),
+      signalRecording: outsideVerifiedHost(options.signalRecording, linux),
+      evmInterface: outsideVerifiedHost(options.evmInterface, linuxX64),
+      binaryLayout: outsideVerifiedHost(options.binaryLayout, linuxX64),
+      recordedCrash: outsideVerifiedHost(options.recordedCrash, linuxX64),
+      firmwareInspection: outsideVerifiedHost(options.firmwareAnalysis, linux),
+      firmwareExtraction: outsideVerifiedHost(options.firmwareAnalysis, linux),
+      javascriptRecovery: outsideVerifiedHost(
+        options.javascriptRecovery,
+        linuxX64,
+      ),
+    },
     optionalFeatures: {
       packetCaptureEnabled:
         options.packetCapture !== undefined ||
