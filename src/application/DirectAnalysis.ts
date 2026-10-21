@@ -384,7 +384,6 @@ const runAnalysis = async (
       if (
         isWorkflowEvidenceTool(tool) &&
         tool !== "trace_native_ui_action" &&
-        tool !== "decompile_all" &&
         snapshotPath !== undefined &&
         evidence !== undefined &&
         session.allowsSnapshotReplay(tool)
