@@ -3,8 +3,8 @@ import type {
   File,
   ImportExpression,
   Node,
-  StringLiteral,
 } from "@babel/types";
+import { readExactJavaScriptLiteral } from "./javascript/javascriptAstValues.js";
 import { traverseJavaScriptAst } from "./javascript/javascriptSemanticTraversal.js";
 import {
   parseRecoveredJavaScript,
@@ -82,18 +82,15 @@ const resolveSpecifier = (
   return "external";
 };
 
-const isModuleExpression = (
-  expression: Node | null | undefined,
-): expression is StringLiteral | CallExpression =>
-  isStringLiteral(expression) || isCallExpression(expression);
-
 const moduleSpecifierFromExpression = (
   expression: Node | null | undefined,
 ):
   | { specifier: string; parseState: ReferenceSourceImportParseState }
   | undefined => {
-  if (isStringLiteral(expression))
-    return { specifier: expression.value, parseState: "parsed" };
+  if (expression === null || expression === undefined) return undefined;
+  const literal = readExactJavaScriptLiteral(expression);
+  if (literal.found && typeof literal.value === "string")
+    return { specifier: literal.value, parseState: "parsed" };
   if (
     isCallExpression(expression) &&
     isImport(expression.callee) &&
@@ -256,11 +253,7 @@ const extractRequireAndDynamicImports = (
       continue;
     }
     const first = call.arguments[0];
-    if (
-      isRequireCallee(call.callee) &&
-      unshadowedRequireCalls.has(call) &&
-      isModuleExpression(first)
-    ) {
+    if (isRequireCallee(call.callee) && unshadowedRequireCalls.has(call)) {
       const result = moduleSpecifierFromExpression(first);
       if (result !== undefined) {
         appendRelationship(relationships, limitations, {
@@ -274,7 +267,7 @@ const extractRequireAndDynamicImports = (
       continue;
     }
 
-    if (isImport(call.callee) && isModuleExpression(first)) {
+    if (isImport(call.callee)) {
       const result = moduleSpecifierFromExpression(first);
       if (result !== undefined) {
         appendRelationship(relationships, limitations, {

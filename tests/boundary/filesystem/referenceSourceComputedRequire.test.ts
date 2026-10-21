@@ -67,7 +67,7 @@ it("distinguishes computed require member values from literal members in source 
       "function load(target) {",
       ...literalCallees.flatMap((callee) => [
         `  ${callee}(target);`,
-        `  ${callee}(\`./dep.js\`);`,
+        `  ${callee}(\`./\${target}.js\`);`,
         `  ${callee}(getTarget());`,
         `  ${callee}();`,
       ]),
