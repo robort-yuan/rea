@@ -182,7 +182,14 @@ const runUpdateWorkflow = async (
   host: UpdateHost,
   output: UpdateOutput,
 ): Promise<UpdateResult> => {
-  const unverifiedBunAncestor = await host.unverifiedBunAncestor?.();
+  const installation = await host.installation();
+  // A verified manager owns the package even when its path also sits inside an
+  // ancestor project Bun could use. Only refuse the unverified ancestor when
+  // no package-manager boundary proved ownership.
+  const unverifiedBunAncestor =
+    installation === undefined
+      ? await host.unverifiedBunAncestor?.()
+      : undefined;
   if (unverifiedBunAncestor !== undefined)
     return {
       status: "failed",
@@ -191,7 +198,6 @@ const runUpdateWorkflow = async (
       reason: "unknown-install-method",
       remediation: `REA found its running package in Bun's ancestor project ${unverifiedBunAncestor}, but cannot prove Bun installed it. It left that project unchanged. Update it with the package manager that owns the installation, or resolve the package-manager ownership manually before retrying.`,
     };
-  const installation = await host.installation();
   const release = await host.latestVersion(installation);
   const latestVersion = release.ok ? release.value : null;
   const targetVersion = release.ok ? valid(release.value) : null;

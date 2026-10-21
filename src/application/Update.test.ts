@@ -35,6 +35,7 @@ class FakeUpdateHost implements UpdateHost {
   };
   installedVersions: string[] = [];
   installationInspected = false;
+  latestVersionInspected = false;
   unverifiedBunAncestorPath: string | undefined;
   verifiedInstallation: UpdateInstallation | undefined;
   maintenanceInspected = false;
@@ -47,8 +48,10 @@ class FakeUpdateHost implements UpdateHost {
   };
   unverifiedBunAncestor = (): Promise<string | undefined> =>
     Promise.resolve(this.unverifiedBunAncestorPath);
-  latestVersion = (): Promise<Result<string, ReleaseLookupFailure>> =>
-    Promise.resolve(this.release);
+  latestVersion = (): Promise<Result<string, ReleaseLookupFailure>> => {
+    this.latestVersionInspected = true;
+    return Promise.resolve(this.release);
+  };
   installVersion = (
     _installation: UpdateInstallation,
     version: string,
@@ -223,6 +226,7 @@ describe("REA update", () => {
 describe("unverified installation recovery", () => {
   it("refuses an unverified Bun ancestor before lookup or package-manager execution", async () => {
     const host = new FakeUpdateHost();
+    host.installationResult = undefined;
     host.unverifiedBunAncestorPath = "/home/user";
     expect(await runUpdate("3.2.1", host)).toEqual({
       status: "failed",
@@ -233,8 +237,22 @@ describe("unverified installation recovery", () => {
         "cannot prove Bun installed it. It left that project unchanged",
       ),
     });
-    expect(host.installationInspected).toBe(false);
+    expect(host.installationInspected).toBe(true);
+    expect(host.latestVersionInspected).toBe(false);
     expect(host.installedVersions).toEqual([]);
+  });
+
+  it("uses verified npm ownership when its prefix is also a Bun ancestor project", async () => {
+    const host = new FakeUpdateHost();
+    host.unverifiedBunAncestorPath = "/home/user";
+
+    expect(await runUpdate("3.2.1", host)).toMatchObject({
+      status: "updated",
+      installMethod: "npm",
+      installedVersion: "3.3.0",
+    });
+    expect(host.latestVersionInspected).toBe(true);
+    expect(host.installedVersions).toEqual(["3.3.0"]);
   });
 });
 
