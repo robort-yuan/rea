@@ -1,6 +1,9 @@
 import type { ToolResultDelivery } from "./toolResult.js";
 import type { EvidenceMcpServer } from "./EvidenceMcpServer.js";
-import { summarizeRetainedAnalysis } from "../application/analysisView/AnalysisViewService.js";
+import {
+  requireAnalysisViewRetention,
+  summarizeRetainedAnalysis,
+} from "../application/analysisView/AnalysisViewService.js";
 import type { EvidenceLookup } from "../application/EvidenceInputResolver.js";
 import type { EvidenceWriter } from "../application/investigation/InvestigationRecordPort.js";
 import {
@@ -106,6 +109,13 @@ export const registerElectronTools = (
         analyzeContract,
         { input, context },
         async ({ detail, ...request }, { signal, progress }) => {
+          if (detail === "summary") {
+            const ready = requireAnalysisViewRetention(
+              analyzeContract.name,
+              options,
+            );
+            if (!ready.ok) return ready;
+          }
           const analyzed = await analyzeJavaScriptApplicationValidated(
             request,
             options.artifactResources,

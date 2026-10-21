@@ -198,3 +198,33 @@ it.each(["different-path", "invalid-digest", "outside-range"])(
     });
   },
 );
+
+it("gives cancellation precedence over malformed raw input on every entry point", async () => {
+  const controller = new AbortController();
+  controller.abort();
+  let calls = 0;
+  const service = new BinaryLayoutService({
+    inspectAndClose(input, options) {
+      return this.inspect(input, options);
+    },
+    identity: BINARY_LAYOUT_TEST_PROVIDER,
+    inspect: () => {
+      calls++;
+      return Promise.resolve(ok(binaryLayoutFixture()));
+    },
+  });
+  const malformed = { path: "relative.elf" };
+  expect(service.validate(malformed)).toMatchObject({
+    ok: false,
+    error: { _tag: "AnalysisInputError" },
+  });
+  for (const run of [
+    service.inspect(malformed, { signal: controller.signal }),
+    service.inspectAndClose(malformed, { signal: controller.signal }),
+  ])
+    expect(await run).toMatchObject({
+      ok: false,
+      error: { _tag: "AnalysisCancelledError" },
+    });
+  expect(calls).toBe(0);
+});

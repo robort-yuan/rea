@@ -116,7 +116,8 @@ coverage, limitations, and `normalized_result.parent_evidence_id`. Pass that ID
 to `inspect_analysis_view` for module pages or items, or to the application
 workflows as a retained reference. The summary does not repeat or truncate the
 analysis; a server without session retention refuses summary detail with
-`capability_unavailable`. CLI output is unchanged and always complete.
+`capability_unavailable` before any analysis starts. CLI output is unchanged
+and always complete.
 
 With a connected MCP `client` and the caller-selected absolute `inputPath`, this
 recipe analyzes once and pages module identities using the returned ID:

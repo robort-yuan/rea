@@ -1,6 +1,9 @@
 import type { EvidenceMcpServer } from "./EvidenceMcpServer.js";
 
-import { summarizeRetainedAnalysis } from "../application/analysisView/AnalysisViewService.js";
+import {
+  requireAnalysisViewRetention,
+  summarizeRetainedAnalysis,
+} from "../application/analysisView/AnalysisViewService.js";
 import type { BinaryLayoutService } from "../application/binaryDiagnostics/BinaryLayoutService.js";
 import type { EvidenceLookup } from "../application/EvidenceInputResolver.js";
 import type { EvidenceWriter } from "../application/investigation/InvestigationRecordPort.js";
@@ -35,14 +38,24 @@ export const registerBinaryDiagnosticsTools = (
             logger,
             contract.name,
             async () => {
-              const inspected = await service.inspect(request, {
-                signal: context.mcpReq.signal,
-              });
+              const validated = service.validate(request);
+              if (!validated.ok) return validated;
+              const retention = { recordEvidence, evidenceById };
+              if (detail === "summary") {
+                const ready = requireAnalysisViewRetention(
+                  contract.name,
+                  retention,
+                );
+                if (!ready.ok) return ready;
+              }
+              const inspected = await service.inspectValidated(
+                validated.value,
+                {
+                  signal: context.mcpReq.signal,
+                },
+              );
               return detail === "summary" && inspected.ok
-                ? summarizeRetainedAnalysis(inspected.value, {
-                    recordEvidence,
-                    evidenceById,
-                  })
+                ? summarizeRetainedAnalysis(inspected.value, retention)
                 : inspected;
             },
           );
