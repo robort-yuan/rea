@@ -13,6 +13,7 @@ import { err, ok } from "../../src/domain/result.js";
 import { runUpdate, type UpdateResult } from "../../src/application/Update.js";
 import { PRODUCT_IDENTITY } from "../../src/identity.js";
 import { supportedClients } from "../../src/application/SupportedClients.js";
+import { OwnedFileHandle } from "../../src/filesystem/OwnedFileHandle.js";
 import {
   existingMaintenanceScope,
   planIntegrationMaintenance,
@@ -718,6 +719,64 @@ describe.skipIf(process.platform === "win32")(
 describe.skipIf(process.platform === "win32")(
   "legacy Linux installer npm ownership with ambiguous scope",
   () => {
+    it.each(["file", "directory"] as const)(
+      "refuses an ambiguous Bun lock path of type %s after overrides disappear",
+      async (lockType) => {
+        const root = await createTestTempDirectory(
+          "rea-linux-user-prefix-bun-lock-",
+        );
+        try {
+          const fixture = await linuxUserPrefixFixture(root);
+          const bunGlobalDirectory = join(fixture.prefix, "lib");
+          await writeFile(join(bunGlobalDirectory, "package.json"), "{}\n");
+          const bunLock = join(bunGlobalDirectory, "bun.lock");
+          if (lockType === "directory") await mkdir(bunLock);
+          else await writeFile(bunLock, "{}\n");
+          const result = await systemUpdateHost(
+            fixture.packageRoot,
+            fixture.selectedHome,
+            fixture.environment,
+            "linux",
+          ).installation();
+          expect(result).toBeUndefined();
+          expect(await readCommandInvocations(fixture.npmLog)).toEqual([]);
+        } finally {
+          await rm(root, { recursive: true, force: true });
+        }
+      },
+    );
+
+    it("retains and retries a failed package-manifest close through host cleanup", async () => {
+      const root = await createTestTempDirectory(
+        "rea-linux-user-prefix-manifest-close-",
+      );
+      const originalClose = OwnedFileHandle.prototype.close;
+      let attempts = 0;
+      const close = vi
+        .spyOn(OwnedFileHandle.prototype, "close")
+        .mockImplementation(async function (this: OwnedFileHandle) {
+          attempts += 1;
+          if (attempts <= 2) throw new Error("injected manifest close failure");
+          return originalClose.call(this);
+        });
+      try {
+        const fixture = await linuxUserPrefixFixture(root);
+        const host = systemUpdateHost(
+          fixture.packageRoot,
+          fixture.selectedHome,
+          fixture.environment,
+          "linux",
+        );
+        expect(await host.installation()).toBeUndefined();
+        expect(attempts).toBe(2);
+        expect(await host.close?.()).toBeUndefined();
+        expect(attempts).toBe(3);
+      } finally {
+        close.mockRestore();
+        await rm(root, { recursive: true, force: true });
+      }
+    });
+
     it("does not apply the Linux installer layout on other platforms", async () => {
       const root = await createTestTempDirectory(
         "rea-linux-user-prefix-platform-",

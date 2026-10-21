@@ -189,6 +189,7 @@ export const detectNpmInstallation = async (
 const detectLinuxInstallerNpmInstallation = async (
   packageRoot: string,
   home: string,
+  resources: ArtifactResourceScope,
 ): Promise<NpmInstallation | undefined> => {
   try {
     const prefix = await realpath(join(home, ".local"));
@@ -209,6 +210,7 @@ const detectLinuxInstallerNpmInstallation = async (
     const manifestText = await readRegularFileText(
       join(expectedRoot, "package.json"),
       {
+        resources,
         symlinks: "reject",
         admit: (metadata) => {
           if (metadata.size > 256 * 1024)
@@ -257,6 +259,53 @@ const detectLinuxInstallerNpmInstallation = async (
   } catch {
     return undefined;
   }
+};
+
+type LinuxInstallerBunEvidence = "present" | "absent" | "unknown";
+
+/** A Bun lockfile in the exact Linux installer namespace blocks npm fallback. */
+const linuxInstallerBunEvidence = async (
+  packageRoot: string,
+  home: string,
+): Promise<LinuxInstallerBunEvidence> => {
+  let prefix: string;
+  let canonicalPackageRoot: string;
+  let expectedRoot: string;
+  try {
+    prefix = await realpath(join(home, ".local"));
+    const bunGlobalDirectory = await realpath(join(prefix, "lib"));
+    canonicalPackageRoot = await realpath(packageRoot);
+    expectedRoot = await realpath(
+      join(bunGlobalDirectory, "node_modules", PRODUCT_IDENTITY.packageName),
+    );
+  } catch (cause: unknown) {
+    if (
+      typeof cause === "object" &&
+      cause !== null &&
+      "code" in cause &&
+      cause.code === "ENOENT"
+    )
+      return "absent";
+    return "unknown";
+  }
+  if (canonicalPackageRoot !== expectedRoot) return "absent";
+
+  for (const lockName of ["bun.lock", "bun.lockb"]) {
+    try {
+      await lstat(join(prefix, "lib", lockName));
+      return "present";
+    } catch (cause: unknown) {
+      if (
+        typeof cause === "object" &&
+        cause !== null &&
+        "code" in cause &&
+        cause.code === "ENOENT"
+      )
+        continue;
+      return "unknown";
+    }
+  }
+  return "absent";
 };
 
 const nonemptyEnvironment = (value: string | undefined): string | undefined =>
@@ -471,6 +520,15 @@ export const systemUpdateHost = (
         bunHost,
       );
       if (bunInstallation !== undefined) return bunInstallation;
+      if (platform === "linux") {
+        const bunEvidence = await linuxInstallerBunEvidence(
+          packageRoot,
+          selectedHome,
+        );
+        // A leftover Bun lock is evidence of an ambiguous former owner, not
+        // authority to select Bun after its configured root disappeared.
+        if (bunEvidence !== "absent") return undefined;
+      }
       const npmInstallation = await detectNpmInstallation(packageRoot, {
         canonicalPath: realpath,
         globalRoot: () =>
@@ -488,7 +546,11 @@ export const systemUpdateHost = (
       )
         return undefined;
       return platform === "linux"
-        ? detectLinuxInstallerNpmInstallation(packageRoot, selectedHome)
+        ? detectLinuxInstallerNpmInstallation(
+            packageRoot,
+            selectedHome,
+            resources,
+          )
         : undefined;
     },
     unverifiedBunAncestor: () =>
