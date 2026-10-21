@@ -274,6 +274,84 @@ describe("managed member comparison", () => {
   });
 });
 
+describe("managed member comparison of local initialization", () => {
+  it.each([false, true])(
+    "detects InitLocals changing from %s with identical CIL",
+    (initializesLocals) => {
+      const observe = (initLocals: boolean, path: string) => {
+        // ldc.i4.4; conv.u; localloc; ldind.i4; ret. InitLocals determines
+        // whether the allocated memory is initialized even though CIL is equal.
+        const il = Buffer.from([0x1a, 0xe0, 0xfe, 0x0f, 0x4a, 0x2a]);
+        const header = Buffer.alloc(12);
+        header.writeUInt16LE(initLocals ? 0x3013 : 0x3003, 0);
+        header.writeUInt16LE(1, 2);
+        header.writeUInt32LE(il.length, 4);
+        return inspect(
+          buildManagedPeFixture({
+            methodSignature: Buffer.from([0x00, 0x00, 0x08]),
+            ilBody: Buffer.concat([header, il]),
+          }),
+          path,
+        );
+      };
+      const left = observe(initializesLocals, "/tmp/left-init-locals.dll");
+      const right = observe(!initializesLocals, "/tmp/right-init-locals.dll");
+      const leftBody = left.result.methods[0]?.body;
+      const rightBody = right.result.methods[0]?.body;
+      expect(leftBody).toMatchObject({
+        status: "present",
+        init_locals: initializesLocals,
+        opcode_counts: { localloc: 1 },
+      });
+      expect(rightBody).toMatchObject({
+        status: "present",
+        init_locals: !initializesLocals,
+        il_sha256: leftBody?.il_sha256,
+        normalized_il_sha256: leftBody?.normalized_il_sha256,
+      });
+      expect(compareManagedMembers(left, right).methods[0]).toMatchObject({
+        status: "changed",
+        match: { status: "matched", basis: "exact-il-signature" },
+        dimensions: ["metadata"],
+      });
+      expect(
+        compareManagedMembers(
+          left,
+          observe(initializesLocals, "/tmp/same-init-locals.dll"),
+        ).methods[0],
+      ).toMatchObject({ status: "unchanged", dimensions: [] });
+    },
+  );
+
+  it("keeps unavailable initialization unknown when a method header is malformed", () => {
+    const present = inspect(
+      buildManagedPeFixture(),
+      "/tmp/present-init-locals.dll",
+    );
+    const malformed = inspect(
+      buildManagedPeFixture({ ilBody: Buffer.from([0x00]) }),
+      "/tmp/malformed-init-locals.dll",
+    );
+    expect(present.result.methods[0]?.body).toMatchObject({
+      status: "present",
+      init_locals: false,
+    });
+    expect(malformed.result.methods[0]?.body).toMatchObject({
+      status: "malformed",
+      init_locals: null,
+    });
+    for (const comparison of [
+      compareManagedMembers(present, malformed),
+      compareManagedMembers(malformed, present),
+    ])
+      expect(comparison.methods[0]).toMatchObject({
+        status: "unknown",
+        match: { status: "matched", basis: "exact-signature" },
+        dimensions: ["body-coverage"],
+      });
+  });
+});
+
 describe("managed member comparison with equal decoded fingerprints", () => {
   it.each([
     { name: "Main", basis: "exact-signature" },

@@ -66,14 +66,20 @@ const methodDimensions = (
   readonly bodyUnknown: boolean;
 } => {
   const dimensions: MethodItem["dimensions"] = [];
-  if (left.flags !== right.flags || left.impl_flags !== right.impl_flags)
-    dimensions.push("metadata");
-  if (signatureIdentity(left.signature) !== signatureIdentity(right.signature))
-    dimensions.push("signature");
   const leftBodyComplete =
     left.body.status === "present" && left.body.truncated_instructions === 0;
   const rightBodyComplete =
     right.body.status === "present" && right.body.truncated_instructions === 0;
+  if (
+    left.flags !== right.flags ||
+    left.impl_flags !== right.impl_flags ||
+    (leftBodyComplete &&
+      rightBodyComplete &&
+      left.body.init_locals !== right.body.init_locals)
+  )
+    dimensions.push("metadata");
+  if (signatureIdentity(left.signature) !== signatureIdentity(right.signature))
+    dimensions.push("signature");
   const bothAbsent =
     left.body.status === "absent" && right.body.status === "absent";
   if (
