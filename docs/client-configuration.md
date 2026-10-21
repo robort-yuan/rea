@@ -375,11 +375,14 @@ advertised payload exceeds 300 KB. It logs `tool payload is too large` and the
 agent reports having no MCP tools. With the published 6.7.0 package, which
 advertises full input schemas by default, the payload was 742 KB. Setting only
 `REA_MCP_OUTPUT_SCHEMA_PROFILE=off` did not clear the warning;
-`REA_MCP_INPUT_SCHEMA_PROFILE=compact` did. Releases that include the compact
-input-schema default (#5975) should not need the setting, but that has not been
-checked against Bob Shell. If Bob reports no REA tools, add
-`"REA_MCP_INPUT_SCHEMA_PROFILE": "compact"` to the `env` object of the
-`mcpServers.rea` entry and restart Bob.
+`REA_MCP_INPUT_SCHEMA_PROFILE=compact` did. For that reason setup adds
+`REA_MCP_INPUT_SCHEMA_PROFILE=compact` to the `env` of a new or refreshed Bob
+registration, as it does for Kimi Code, and keeps an existing
+`REA_MCP_INPUT_SCHEMA_PROFILE` value if the entry already sets one. Releases that
+include the compact input-schema default (#5975) do not need it, but that has
+not been checked against Bob Shell. To fix an existing registration, run
+`rea setup --client bob` or add `"REA_MCP_INPUT_SCHEMA_PROFILE": "compact"` to
+the `env` object of the `mcpServers.rea` entry, then restart Bob.
 
 All of these checks were run on Windows only. Other Bob versions, macOS and
 Linux, and a Bob Shell session against a release that defaults to compact

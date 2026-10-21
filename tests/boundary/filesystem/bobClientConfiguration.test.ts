@@ -88,6 +88,7 @@ describe("IBM Bob JSON registration", () => {
     expect(parsed.mcpServers.rea).toEqual({
       command: command[0],
       args: command.slice(1),
+      env: { REA_MCP_INPUT_SCHEMA_PROFILE: "compact" },
     });
 
     expect(await configureClientConfiguration(client, {}, command)).toEqual({
@@ -113,6 +114,44 @@ describe("IBM Bob JSON registration", () => {
     expect(parsed.mcpServers.rea).toEqual({
       command: command[0],
       args: command.slice(1),
+      env: { REA_MCP_INPUT_SCHEMA_PROFILE: "compact" },
+    });
+  });
+
+  it("adds compact to an existing entry that sets no profile", async () => {
+    const { client } = await bobClient();
+    await writeFile(
+      client.configPath,
+      JSON.stringify({
+        mcpServers: { rea: { command: command[0], args: command.slice(1) } },
+      }),
+    );
+    expect(
+      (await configureClientConfiguration(client, {}, command)).status,
+    ).toBe("configured");
+    expect(
+      JSON.parse(await readFile(client.configPath, "utf8")).mcpServers.rea.env,
+    ).toEqual({ REA_MCP_INPUT_SCHEMA_PROFILE: "compact" });
+  });
+
+  it("keeps an explicitly configured input schema profile", async () => {
+    const { client } = await bobClient();
+    await writeFile(
+      client.configPath,
+      JSON.stringify({
+        mcpServers: {
+          rea: {
+            command: command[0],
+            args: command.slice(1),
+            env: { REA_MCP_INPUT_SCHEMA_PROFILE: "full" },
+          },
+        },
+      }),
+    );
+    await configureClientConfiguration(client, {}, command);
+    const parsed = JSON.parse(await readFile(client.configPath, "utf8"));
+    expect(parsed.mcpServers.rea.env).toEqual({
+      REA_MCP_INPUT_SCHEMA_PROFILE: "full",
     });
   });
 
