@@ -462,7 +462,7 @@ export const managedMemberInspectionSchema = z.object({
     .nullable()
     .default(null)
     .describe(
-      "Signature type-name resolution was examined, including unresolved operands; null means historical Evidence without this attestation.",
+      "Signature type-name resolution was examined, including unresolved operands; null means no attestation, including historical or capacity-limited Evidence.",
     ),
   artifact: z.object({
     path: z.string().min(1),
