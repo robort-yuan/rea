@@ -727,19 +727,30 @@ describe("verified npm ownership in a Bun ancestor project", () => {
       ].join("\n"),
     );
     await writeFile(
-      npmRecorder.replace(/record-npm\.mjs$/, "npm"),
-      `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(npmRecorder)} "$@"\n`,
-      { mode: 0o755 },
-    );
-    await writeFile(
       bunRecorder,
       `import { appendFileSync } from "node:fs";\nappendFileSync(${JSON.stringify(bunLog)}, JSON.stringify(process.argv.slice(2)) + "\\n");\nprocess.exitCode = 2;\n`,
     );
-    await writeFile(
-      join(binDirectory, "bun"),
-      `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(bunRecorder)} "$@"\n`,
-      { mode: 0o755 },
-    );
+    if (process.platform === "win32") {
+      await writeFile(
+        join(binDirectory, "npm.cmd"),
+        `@"${process.execPath}" "${npmRecorder}" %*\r\n`,
+      );
+      await writeFile(
+        join(binDirectory, "bun.cmd"),
+        `@"${process.execPath}" "${bunRecorder}" %*\r\n`,
+      );
+    } else {
+      await writeFile(
+        join(binDirectory, "npm"),
+        `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(npmRecorder)} "$@"\n`,
+        { mode: 0o755 },
+      );
+      await writeFile(
+        join(binDirectory, "bun"),
+        `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(bunRecorder)} "$@"\n`,
+        { mode: 0o755 },
+      );
+    }
     const pathKey =
       Object.keys(process.env).find((key) => key.toUpperCase() === "PATH") ??
       "PATH";
@@ -770,6 +781,105 @@ describe("verified npm ownership in a Bun ancestor project", () => {
       expect(npmCalls).toContainEqual(
         expect.arrayContaining(["install", "--global", "--ignore-scripts"]),
       );
+      await expect(readFile(bunLog, "utf8")).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    } finally {
+      process.chdir(callerDirectory);
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("unverified npm path shapes in a Bun ancestor project", () => {
+  it("refuses a lib/node_modules path when npm reports another global root", async () => {
+    const root = await createTestTempDirectory(
+      "rea-update-unverified-npm-shape-",
+    );
+    const projectDirectory = join(root, "tools", "lib");
+    const globalDirectory = join(projectDirectory, "bun-global");
+    const packageRoot = join(
+      projectDirectory,
+      "node_modules",
+      PRODUCT_IDENTITY.packageName,
+    );
+    const npmRoot = join(root, "unrelated-npm-root", "node_modules");
+    const npmLog = join(root, "npm-invocations.jsonl");
+    const bunLog = join(root, "bun-invocations.jsonl");
+    const binDirectory = join(root, "bin");
+    const npmRecorder = join(binDirectory, "record-npm.mjs");
+    const bunRecorder = join(binDirectory, "record-bun.mjs");
+    await mkdir(packageRoot, { recursive: true });
+    await mkdir(globalDirectory, { recursive: true });
+    await mkdir(binDirectory);
+    await writeFile(join(projectDirectory, "package.json"), "{}\n");
+    await writeFile(
+      npmRecorder,
+      [
+        'import { appendFileSync } from "node:fs";',
+        "const args = process.argv.slice(2);",
+        `appendFileSync(${JSON.stringify(npmLog)}, JSON.stringify(args) + "\\n");`,
+        `if (JSON.stringify(args) === '["root","--global"]') console.log(${JSON.stringify(npmRoot)});`,
+        `else if (JSON.stringify(args) === '["prefix","--global"]') console.log(${JSON.stringify(root)});`,
+        `else if (args[0] === "view") process.stdout.write('"3.3.0"\\n');`,
+        "else process.exitCode = 2;",
+        "",
+      ].join("\n"),
+    );
+    await writeFile(
+      bunRecorder,
+      `import { appendFileSync } from "node:fs";\nappendFileSync(${JSON.stringify(bunLog)}, JSON.stringify(process.argv.slice(2)) + "\\n");\nprocess.exitCode = 2;\n`,
+    );
+    if (process.platform === "win32") {
+      await writeFile(
+        join(binDirectory, "npm.cmd"),
+        `@"${process.execPath}" "${npmRecorder}" %*\r\n`,
+      );
+      await writeFile(
+        join(binDirectory, "bun.cmd"),
+        `@"${process.execPath}" "${bunRecorder}" %*\r\n`,
+      );
+    } else {
+      await writeFile(
+        join(binDirectory, "npm"),
+        `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(npmRecorder)} "$@"\n`,
+        { mode: 0o755 },
+      );
+      await writeFile(
+        join(binDirectory, "bun"),
+        `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(bunRecorder)} "$@"\n`,
+        { mode: 0o755 },
+      );
+    }
+    const pathKey =
+      Object.keys(process.env).find((key) => key.toUpperCase() === "PATH") ??
+      "PATH";
+    const environment: NodeJS.ProcessEnv = {
+      ...process.env,
+      [pathKey]: `${binDirectory}${delimiter}${process.env[pathKey] ?? ""}`,
+      BUN_INSTALL_GLOBAL_DIR: globalDirectory,
+    };
+    delete environment.BUN_INSTALL;
+
+    const callerDirectory = process.cwd();
+    try {
+      process.chdir(root);
+      const result = await runUpdate(
+        "3.2.1",
+        systemUpdateHost(packageRoot, projectDirectory, environment),
+        "structured",
+      );
+      expect(result).toMatchObject({
+        status: "failed",
+        reason: "unknown-install-method",
+        latestVersion: null,
+        remediation: expect.stringContaining(
+          "cannot prove Bun installed it. It left that project unchanged",
+        ),
+      });
+      expect(await readCommandInvocations(npmLog)).toEqual([
+        ["root", "--global"],
+      ]);
       await expect(readFile(bunLog, "utf8")).rejects.toMatchObject({
         code: "ENOENT",
       });

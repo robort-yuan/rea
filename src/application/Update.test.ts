@@ -389,15 +389,25 @@ describe("npm installation ownership", () => {
     ).resolves.toEqual({ manager: "npm", prefix: "/usr/local", packageRoot });
   });
 
-  it("retains the curl installer's custom Unix prefix", async () => {
+  it("accepts a custom Unix npm prefix only when npm reports its global root", async () => {
     const packageRoot = "/home/user/.local/lib/node_modules/rea-agents";
     await expect(
-      detectNpmInstallation(packageRoot, host("/usr/local/lib/node_modules")),
+      detectNpmInstallation(
+        packageRoot,
+        host("/home/user/.local/lib/node_modules", "/home/user/.local"),
+      ),
     ).resolves.toEqual({
       manager: "npm",
       prefix: "/home/user/.local",
       packageRoot,
     });
+  });
+
+  it("does not infer npm ownership from a lib/node_modules path", async () => {
+    const packageRoot = "/opt/tools/lib/node_modules/rea-agents";
+    await expect(
+      detectNpmInstallation(packageRoot, host("/usr/local/lib/node_modules")),
+    ).resolves.toBeUndefined();
   });
 
   it.each([

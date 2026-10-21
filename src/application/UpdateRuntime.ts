@@ -1,6 +1,6 @@
 import { realpath, stat } from "node:fs/promises";
 import { homeDirectoryFromEnvironment } from "../config/homeDirectory.js";
-import { basename, dirname, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import spawn from "cross-spawn";
 import { ProviderProcessSupervisor } from "../process/ProviderProcess.js";
@@ -153,34 +153,29 @@ export const detectNpmInstallation = async (
     void cause;
     return undefined;
   }
+  let npmRoot: string;
   try {
-    const npmRoot = await host.globalRoot();
-    const globalPackageRoot = await host.canonicalPath(
+    npmRoot = await host.globalRoot();
+  } catch {
+    return undefined;
+  }
+  let globalPackageRoot: string;
+  try {
+    globalPackageRoot = await host.canonicalPath(
       resolve(npmRoot, PRODUCT_IDENTITY.packageName),
     );
-    if (canonicalPackageRoot === globalPackageRoot) {
-      const prefix = await host.globalPrefix();
-      return prefix.length === 0
-        ? undefined
-        : { manager: "npm", prefix, packageRoot: canonicalPackageRoot };
-    }
-  } catch (cause: unknown) {
-    // The curl installer uses a Unix prefix that may differ from npm's current default.
-    void cause;
-  }
-  const nodeModules = dirname(canonicalPackageRoot);
-  const library = dirname(nodeModules);
-  if (
-    basename(canonicalPackageRoot) !== PRODUCT_IDENTITY.packageName ||
-    basename(nodeModules) !== "node_modules" ||
-    basename(library) !== "lib"
-  )
+  } catch {
     return undefined;
-  return {
-    manager: "npm",
-    prefix: dirname(library),
-    packageRoot: canonicalPackageRoot,
-  };
+  }
+  if (canonicalPackageRoot !== globalPackageRoot) return undefined;
+  try {
+    const prefix = await host.globalPrefix();
+    return prefix.length === 0
+      ? undefined
+      : { manager: "npm", prefix, packageRoot: canonicalPackageRoot };
+  } catch {
+    return undefined;
+  }
 };
 
 const nonemptyEnvironment = (value: string | undefined): string | undefined =>
