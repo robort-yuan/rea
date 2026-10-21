@@ -6,7 +6,10 @@ import type { BrowserObservationOperation } from "../../domain/browserObservatio
 import { ProviderCleanupError } from "../../domain/providerCleanupError.js";
 import { analysisErrorWithCleanupFailure } from "../../domain/analysisErrorCleanup.js";
 import { CdpTargetSessionOwner } from "../CdpTargetSessionOwner.js";
-import { sanitizeBrowserUrl } from "../../domain/browserObservation.js";
+import {
+  classifyCdpFrameUrl,
+  observeMainFrameUrl,
+} from "../CdpCaptureDocuments.js";
 import {
   WEB_RUNTIME_LIMITS,
   type webRuntimeTargetSchema,
@@ -73,25 +76,23 @@ export class CdpRuntimeSession {
         owner,
       );
       try {
-        const tree = runtimeFrameTreeSchema.parse(
+        const frame = runtimeMainFrame(
           await authorizedMainFrame({
             ...transport,
             allowedOrigins,
             signal,
             operation,
           }),
+          allowedOrigins,
+          operation,
         );
-        const frame = tree.frameTree.frame;
-        const url = sanitizeBrowserUrl(frame.url);
-        if (url.origin === null)
-          throw new BrowserObservationError(operation, "target_not_allowed");
         return new CdpRuntimeSession(
           transport,
           discovery,
           {
             target_id: target.id,
-            initial_url: url.url,
-            origin: url.origin,
+            initial_url: frame.url,
+            origin: frame.origin,
             frame_id: frame.id,
             loader_id: frame.loaderId ?? null,
           },
@@ -172,21 +173,18 @@ export class CdpRuntimeSession {
 
   /** Check document identity before joining any live node or final coverage evidence. */
   async assertDocument(): Promise<void> {
-    const frame = runtimeFrameTreeSchema.parse(
+    const frame = runtimeMainFrame(
       await this.command("Page.getFrameTree"),
-    ).frameTree.frame;
-    const url = sanitizeBrowserUrl(frame.url);
+      this.allowedOrigins,
+      this.operation,
+    );
     if (
       frame.id !== this.target.frame_id ||
       (frame.loaderId ?? null) !== this.target.loader_id ||
-      (this.target.loader_id === null && url.url !== this.target.initial_url)
+      (this.target.loader_id === null && frame.url !== this.target.initial_url)
     )
       throw new BrowserObservationError(this.operation, "target_changed", {
         detail: `Selected target ${this.target.target_id} changed document during ${this.operation}.`,
-      });
-    if (url.origin === null || !this.allowedOrigins.has(url.origin))
-      throw new BrowserObservationError(this.operation, "target_not_allowed", {
-        detail: `Selected target ${this.target.target_id} moved to an unselected origin during ${this.operation}.`,
       });
   }
 
@@ -284,6 +282,24 @@ export class CdpRuntimeSession {
         );
   }
 }
+
+/** CDP owns URL reconstruction; the runtime schema validates only document IDs. */
+const runtimeMainFrame = (
+  result: unknown,
+  allowedOrigins: ReadonlySet<string>,
+  operation: BrowserObservationOperation,
+) => {
+  const frame = runtimeFrameTreeSchema.parse(result).frameTree.frame;
+  const facts = classifyCdpFrameUrl(
+    observeMainFrameUrl(result),
+    allowedOrigins,
+  );
+  if (facts.scope === "outside_policy" || facts.scope === "unsupported")
+    throw new BrowserObservationError(operation, "target_not_allowed");
+  if (facts.url === undefined || facts.origin === null)
+    throw new BrowserObservationError(operation, "protocol_error");
+  return { ...frame, url: facts.url, origin: facts.origin };
+};
 
 /** Apply a disposable command deadline without turning timeout into caller cancellation. */
 export const runtimeDeadline = async <T>(
