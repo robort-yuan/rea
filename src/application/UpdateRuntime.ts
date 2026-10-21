@@ -209,22 +209,6 @@ export const bunGlobalDirectory = (
   return resolve(cacheRoot, ".bun", "install", "global");
 };
 
-/** Lockfiles Bun writes into a project it installs packages into. */
-const BUN_LOCKFILES = ["bun.lock", "bun.lockb"] as const;
-
-/**
- * npm lockfiles, including the hidden lockfile npm keeps in node_modules.
- * Bun migrates a project's npm lockfile and leaves it in place.
- */
-const NPM_LOCKFILES = [
-  "npm-shrinkwrap.json",
-  "package-lock.json",
-  join("node_modules", ".package-lock.json"),
-] as const;
-
-/** Lockfiles of other package managers whose records REA does not parse. */
-const UNPARSED_LOCKFILES = ["yarn.lock", "pnpm-lock.yaml"] as const;
-
 /**
  * Bun installs global packages into the nearest directory, starting at its
  * global directory, that has a package.json. Without a global manifest that is
@@ -243,72 +227,10 @@ const bunGlobalProject = async (
   return directory;
 };
 
-const hasBunLockfile = async (
-  directory: string,
-  host: BunInstallationHost,
-): Promise<boolean> => {
-  for (const lockfile of BUN_LOCKFILES)
-    if (await host.isFile(join(directory, lockfile))) return true;
-  return false;
-};
-
 /**
- * Whether an ancestor project is Bun's alone for this package: Bun has a
- * lockfile there and no other package manager's lockfile may record the
- * package. Bun copies npm's records when it migrates a lockfile, so a Bun
- * lockfile alone does not show that Bun installed the package.
- */
-const bunOwnsAncestorProject = async (
-  directory: string,
-  host: BunInstallationHost,
-): Promise<boolean> => {
-  if (!(await hasBunLockfile(directory, host))) return false;
-  for (const lockfile of UNPARSED_LOCKFILES)
-    if (await host.isFile(join(directory, lockfile))) return false;
-  for (const lockfile of NPM_LOCKFILES) {
-    const text = await host.readText(join(directory, lockfile));
-    if (text !== undefined && npmLockfileMayRecordPackage(text)) return false;
-  }
-  return true;
-};
-
-/**
- * Whether npm lockfile text may record the top-level package. Lockfile v2 and
- * v3 key installed packages by path; v1 lists dependencies by name. Text that
- * is not a lockfile object leaves the record unknown.
- */
-const npmLockfileMayRecordPackage = (text: string): boolean => {
-  const decoded = safeParseJson(text);
-  const lockfile = decoded.ok ? decoded.value : undefined;
-  if (
-    typeof lockfile !== "object" ||
-    lockfile === null ||
-    Array.isArray(lockfile)
-  )
-    return true;
-  const name = PRODUCT_IDENTITY.packageName;
-  return (
-    [
-      ["packages", `node_modules/${name}`],
-      ["dependencies", name],
-    ] as const
-  ).some(([member, key]) => {
-    const section: unknown = Reflect.get(lockfile, member);
-    return (
-      section !== undefined &&
-      (typeof section !== "object" ||
-        section === null ||
-        Array.isArray(section) ||
-        Object.hasOwn(section, key))
-    );
-  });
-};
-
-/**
- * Identify the running package as Bun's global installation: the project Bun
- * installs global packages into must own this package root. An ancestor
- * project must also be Bun's alone for this package, so Bun never updates a
- * package that another package manager installed.
+ * Identify only a manifest in Bun's configured global directory as an owned
+ * installation. An ancestor project does not prove which package manager
+ * installed the running package.
  */
 export const detectBunInstallation = async (
   packageRoot: string,
@@ -317,12 +239,7 @@ export const detectBunInstallation = async (
 ): Promise<BunInstallation | undefined> => {
   try {
     const projectDirectory = await bunGlobalProject(globalDirectory, host);
-    if (
-      projectDirectory === undefined ||
-      (projectDirectory !== globalDirectory &&
-        !(await bunOwnsAncestorProject(projectDirectory, host)))
-    )
-      return undefined;
+    if (projectDirectory !== globalDirectory) return undefined;
     const canonicalPackageRoot = await host.canonicalPath(packageRoot);
     const projectPackageRoot = await host.canonicalPath(
       join(projectDirectory, "node_modules", PRODUCT_IDENTITY.packageName),
@@ -337,6 +254,28 @@ export const detectBunInstallation = async (
   } catch (cause: unknown) {
     // best-effort cleanup: optional install-location probing; unknown means not Bun-managed.
     void cause;
+    return undefined;
+  }
+};
+
+/** Return an ancestor location for a fail-closed manual-recovery result. */
+const unverifiedBunAncestor = async (
+  packageRoot: string,
+  globalDirectory: string,
+  host: BunInstallationHost,
+): Promise<string | undefined> => {
+  try {
+    const projectDirectory = await bunGlobalProject(globalDirectory, host);
+    if (projectDirectory === undefined || projectDirectory === globalDirectory)
+      return undefined;
+    const canonicalPackageRoot = await host.canonicalPath(packageRoot);
+    const projectPackageRoot = await host.canonicalPath(
+      join(projectDirectory, "node_modules", PRODUCT_IDENTITY.packageName),
+    );
+    return canonicalPackageRoot === projectPackageRoot
+      ? projectDirectory
+      : undefined;
+  } catch {
     return undefined;
   }
 };
@@ -456,12 +395,13 @@ export const systemUpdateHost = (
   environment: Readonly<NodeJS.ProcessEnv> = process.env,
 ): UpdateHost => {
   const resources = new ArtifactResourceScope();
+  const bunHost = { canonicalPath: realpath, isFile, readText };
   return {
     installation: async () =>
       (await detectBunInstallation(
         packageRoot,
         bunGlobalDirectory(environment, process.platform),
-        { canonicalPath: realpath, isFile, readText },
+        bunHost,
       )) ??
       detectNpmInstallation(packageRoot, {
         canonicalPath: realpath,
@@ -470,6 +410,12 @@ export const systemUpdateHost = (
         globalPrefix: () =>
           requireCommandOutput(["npm", "prefix", "--global"], environment),
       }),
+    unverifiedBunAncestor: () =>
+      unverifiedBunAncestor(
+        packageRoot,
+        bunGlobalDirectory(environment, process.platform),
+        bunHost,
+      ),
     latestVersion: async (installation) => {
       const context = packageManagerContext(installation, environment);
       if (installation?.manager === "bun") {

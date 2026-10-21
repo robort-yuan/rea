@@ -535,7 +535,7 @@ describe("Bun global installation update", () => {
     ["1.4.2", "install-failed", "absolute", UPDATE_COMMAND_OUTPUT_BYTES + 1, 2],
     ["1.2.17", "updated", "absolute", 0, 0],
     ["1.2.17", "updated", "relative", 0, 0],
-    ["1.2.17", "updated", "ancestor", 0, 0],
+    ["1.2.17", "unknown", "ancestor", 0, 0],
     ["1.2.14", "failed", "absolute", 0, 0],
     ["1.2.17-canary.1", "failed", "absolute", 0, 0],
     ["unknown", "failed", "absolute", 0, 0],
@@ -589,10 +589,14 @@ describe("Bun global installation update", () => {
         process.chdir(callerDirectory);
       }
 
-      const invocations = (await readFile(logPath, "utf8"))
-        .trim()
-        .split("\n")
-        .map((line): unknown => JSON.parse(line));
+      const invocations =
+        status === "unknown"
+          ? []
+          : (await readFile(logPath, "utf8"))
+              .trim()
+              .split("\n")
+              .filter(Boolean)
+              .map((line): unknown => JSON.parse(line));
       const versionInvocation = {
         args: ["--version"],
         cwd: projectDirectory,
@@ -607,6 +611,21 @@ describe("Bun global installation update", () => {
           remediation: `REA updates for Bun global installations require Bun 1.2.17 or later; bun --version returned ${JSON.stringify(bunVersion)}. Upgrade Bun manually, then rerun rea update.`,
         });
         expect(invocations).toEqual([versionInvocation]);
+        expect(await readFile(versionPath, "utf8")).toBe("3.2.1");
+        return;
+      }
+
+      if (status === "unknown") {
+        expect(result).toMatchObject({
+          status: "failed",
+          currentVersion: "3.2.1",
+          latestVersion: null,
+          reason: "unknown-install-method",
+          remediation: expect.stringContaining(
+            "cannot prove Bun installed it. It left that project unchanged",
+          ),
+        });
+        expect(invocations).toEqual([]);
         expect(await readFile(versionPath, "utf8")).toBe("3.2.1");
         return;
       }

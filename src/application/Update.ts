@@ -38,6 +38,8 @@ export type ReleaseLookupFailure =
 /** Effects used to update and verify one identified REA installation. */
 export interface UpdateHost {
   installation(): Promise<UpdateInstallation | undefined>;
+  /** Project Bun would choose when it contains the running package but ownership is unproved. */
+  unverifiedBunAncestor?(): Promise<string | undefined>;
   latestVersion(
     installation: UpdateInstallation | undefined,
   ): Promise<Result<string, ReleaseLookupFailure>>;
@@ -180,6 +182,15 @@ const runUpdateWorkflow = async (
   host: UpdateHost,
   output: UpdateOutput,
 ): Promise<UpdateResult> => {
+  const unverifiedBunAncestor = await host.unverifiedBunAncestor?.();
+  if (unverifiedBunAncestor !== undefined)
+    return {
+      status: "failed",
+      currentVersion,
+      latestVersion: null,
+      reason: "unknown-install-method",
+      remediation: `REA found its running package in Bun's ancestor project ${unverifiedBunAncestor}, but cannot prove Bun installed it. It left that project unchanged. Update it with the package manager that owns the installation, or resolve the package-manager ownership manually before retrying.`,
+    };
   const installation = await host.installation();
   const release = await host.latestVersion(installation);
   const latestVersion = release.ok ? release.value : null;
