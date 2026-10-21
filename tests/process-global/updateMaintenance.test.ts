@@ -1,4 +1,11 @@
-import { mkdir, readFile, rm, writeFile, access } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+  access,
+} from "node:fs/promises";
 import { delimiter, dirname, join, relative, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -542,6 +549,256 @@ const readCommandInvocations = async (logPath: string): Promise<unknown[]> => {
     throw cause;
   }
 };
+
+const linuxUserPrefixFixture = async (root: string) => {
+  const selectedHome = join(root, "home");
+  const prefix = join(selectedHome, ".local");
+  const packageRoot = join(
+    prefix,
+    "lib",
+    "node_modules",
+    PRODUCT_IDENTITY.packageName,
+  );
+  const packageEntry = join(packageRoot, "scripts", "rea.mjs");
+  const versionPath = join(root, "installed-version");
+  const npmRoot = join(root, "npm-default", "lib", "node_modules");
+  const npmPrefix = join(root, "npm-default");
+  const npmLog = join(root, "npm-invocations.jsonl");
+  const binDirectory = join(root, "bin");
+  const npmRecorder = join(binDirectory, "record-npm.mjs");
+  await mkdir(dirname(packageEntry), { recursive: true });
+  await mkdir(join(prefix, "bin"), { recursive: true });
+  await mkdir(binDirectory);
+  await writeFile(versionPath, "3.2.1");
+  await writeFile(
+    join(packageRoot, "package.json"),
+    JSON.stringify({
+      name: PRODUCT_IDENTITY.packageName,
+      bin: { rea: "scripts/rea.mjs" },
+    }),
+  );
+  await writeFile(
+    packageEntry,
+    `import { readFileSync } from "node:fs";\nprocess.stdout.write(readFileSync(${JSON.stringify(versionPath)}, "utf8") + "\\n");\n`,
+  );
+  await symlink(
+    relative(join(prefix, "bin"), packageEntry),
+    join(prefix, "bin", "rea"),
+  );
+  await writeFile(
+    npmRecorder,
+    [
+      'import { appendFileSync, writeFileSync } from "node:fs";',
+      "const args = process.argv.slice(2);",
+      `appendFileSync(${JSON.stringify(npmLog)}, JSON.stringify(args) + "\\n");`,
+      `if (JSON.stringify(args) === '["root","--global"]') console.log(${JSON.stringify(npmRoot)});`,
+      `else if (JSON.stringify(args) === '["prefix","--global"]') console.log(${JSON.stringify(npmPrefix)});`,
+      `else if (args[0] === "view") process.stdout.write('"3.3.0"\\n');`,
+      `else if (args[0] === "install") writeFileSync(${JSON.stringify(versionPath)}, "3.3.0");`,
+      "else process.exitCode = 2;",
+      "",
+    ].join("\n"),
+  );
+  const executable = join(binDirectory, "npm");
+  await writeFile(
+    executable,
+    `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(npmRecorder)} "$@"\n`,
+    { mode: 0o755 },
+  );
+  const pathKey =
+    Object.keys(process.env).find((key) => key.toUpperCase() === "PATH") ??
+    "PATH";
+  const environment: NodeJS.ProcessEnv = {
+    ...process.env,
+    HOME: selectedHome,
+    XDG_CACHE_HOME: join(root, "cache"),
+    [pathKey]: `${binDirectory}${delimiter}${process.env[pathKey] ?? ""}`,
+  };
+  delete environment.BUN_INSTALL;
+  delete environment.BUN_INSTALL_GLOBAL_DIR;
+  return {
+    environment,
+    npmLog,
+    packageEntry,
+    packageRoot,
+    prefix,
+    selectedHome,
+    versionPath,
+  };
+};
+
+describe.skipIf(process.platform === "win32")(
+  "legacy Linux installer npm ownership",
+  () => {
+    it("updates the owned .local package when npm now reports another prefix", async () => {
+      const root = await createTestTempDirectory("rea-linux-user-prefix-");
+      try {
+        const fixture = await linuxUserPrefixFixture(root);
+        const result = await runUpdate(
+          "3.2.1",
+          systemUpdateHost(
+            fixture.packageRoot,
+            fixture.selectedHome,
+            fixture.environment,
+            "linux",
+          ),
+          "structured",
+        );
+        expect(result).toMatchObject({
+          status: "updated",
+          installMethod: "npm",
+          installedVersion: "3.3.0",
+          command: expect.arrayContaining(["--prefix", fixture.prefix]),
+        });
+        expect(await readFile(fixture.versionPath, "utf8")).toBe("3.3.0");
+        const calls = await readCommandInvocations(fixture.npmLog);
+        expect(calls).toContainEqual(["root", "--global"]);
+        expect(calls).toContainEqual([
+          "view",
+          "--global",
+          "--prefix",
+          fixture.prefix,
+          PRODUCT_IDENTITY.packageName,
+          "dist-tags.latest",
+          "--json",
+          "--fetch-retries=0",
+          "--fetch-timeout=10000",
+        ]);
+        expect(calls).toContainEqual([
+          "install",
+          "--global",
+          "--ignore-scripts",
+          "--prefix",
+          fixture.prefix,
+          `${PRODUCT_IDENTITY.packageName}@3.3.0`,
+        ]);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    });
+
+    it("refuses the .local layout when its command link targets a foreign file", async () => {
+      const root = await createTestTempDirectory(
+        "rea-linux-user-prefix-foreign-bin-",
+      );
+      try {
+        const fixture = await linuxUserPrefixFixture(root);
+        const foreign = join(root, "foreign-rea.mjs");
+        const commandPath = join(fixture.prefix, "bin", "rea");
+        await writeFile(foreign, "process.exit(0);\n");
+        await rm(commandPath);
+        await symlink(relative(dirname(commandPath), foreign), commandPath);
+        const result = await runUpdate(
+          "3.2.1",
+          systemUpdateHost(
+            fixture.packageRoot,
+            fixture.selectedHome,
+            fixture.environment,
+            "linux",
+          ),
+          "structured",
+        );
+        expect(result).toMatchObject({
+          status: "failed",
+          reason: "unknown-install-method",
+          latestVersion: "3.3.0",
+        });
+        expect(
+          (await readCommandInvocations(fixture.npmLog)).some(
+            (call) => Array.isArray(call) && call[0] === "install",
+          ),
+        ).toBe(false);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    });
+  },
+);
+
+describe.skipIf(process.platform === "win32")(
+  "legacy Linux installer npm ownership with ambiguous scope",
+  () => {
+    it("does not apply the Linux installer layout on other platforms", async () => {
+      const root = await createTestTempDirectory(
+        "rea-linux-user-prefix-platform-",
+      );
+      try {
+        const fixture = await linuxUserPrefixFixture(root);
+        const result = await runUpdate(
+          "3.2.1",
+          systemUpdateHost(
+            fixture.packageRoot,
+            fixture.selectedHome,
+            fixture.environment,
+            "darwin",
+          ),
+          "structured",
+        );
+        expect(result).toMatchObject({
+          status: "failed",
+          reason: "unknown-install-method",
+          latestVersion: "3.3.0",
+        });
+        expect(
+          (await readCommandInvocations(fixture.npmLog)).some(
+            (call) => Array.isArray(call) && call[0] === "install",
+          ),
+        ).toBe(false);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    });
+
+    it("refuses a .local link that is also exposed through an unresolved Bun ancestor", async () => {
+      const root = await createTestTempDirectory(
+        "rea-linux-user-prefix-bun-ancestor-",
+      );
+      try {
+        const fixture = await linuxUserPrefixFixture(root);
+        const ancestorPackage = join(
+          fixture.selectedHome,
+          "node_modules",
+          PRODUCT_IDENTITY.packageName,
+        );
+        const bunGlobal = join(
+          fixture.selectedHome,
+          ".bun",
+          "install",
+          "global",
+        );
+        await mkdir(dirname(ancestorPackage), { recursive: true });
+        await mkdir(bunGlobal, { recursive: true });
+        await writeFile(join(fixture.selectedHome, "package.json"), "{}\n");
+        await symlink(
+          relative(dirname(ancestorPackage), fixture.packageRoot),
+          ancestorPackage,
+        );
+        fixture.environment.BUN_INSTALL_GLOBAL_DIR = bunGlobal;
+        const result = await runUpdate(
+          "3.2.1",
+          systemUpdateHost(
+            ancestorPackage,
+            fixture.selectedHome,
+            fixture.environment,
+            "linux",
+          ),
+          "structured",
+        );
+        expect(result).toMatchObject({
+          status: "failed",
+          reason: "unknown-install-method",
+          latestVersion: null,
+          remediation: expect.stringContaining("cannot prove Bun installed it"),
+        });
+        expect(await readCommandInvocations(fixture.npmLog)).toEqual([
+          ["root", "--global"],
+        ]);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    });
+  },
+);
 
 describe("Bun global installation update", () => {
   it.each([

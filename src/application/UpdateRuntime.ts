@@ -1,6 +1,6 @@
-import { realpath, stat } from "node:fs/promises";
+import { lstat, realpath, stat } from "node:fs/promises";
 import { homeDirectoryFromEnvironment } from "../config/homeDirectory.js";
-import { dirname, join, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import spawn from "cross-spawn";
 import { ProviderProcessSupervisor } from "../process/ProviderProcess.js";
@@ -11,6 +11,8 @@ import { PRODUCT_IDENTITY } from "../identity.js";
 import { ArtifactResourceScope } from "../artifacts/ArtifactResourceScope.js";
 import { err, ok, type Result } from "../domain/result.js";
 import { safeParseJson } from "../domain/safeJson.js";
+import { readRegularFileText } from "./RegularFileRead.js";
+import { z } from "zod";
 import {
   updateInstallCommand,
   type BunInstallation,
@@ -173,6 +175,85 @@ export const detectNpmInstallation = async (
     return prefix.length === 0
       ? undefined
       : { manager: "npm", prefix, packageRoot: canonicalPackageRoot };
+  } catch {
+    return undefined;
+  }
+};
+
+/**
+ * Recognize the documented Linux installer layout when npm's current global
+ * prefix no longer reports the prefix that `install.sh` explicitly selected.
+ * The fixed ~/.local namespace, package manifest identity and npm-style bin
+ * symlink must all bind to this exact running package.
+ */
+const detectLinuxInstallerNpmInstallation = async (
+  packageRoot: string,
+  home: string,
+): Promise<NpmInstallation | undefined> => {
+  try {
+    const prefix = await realpath(join(home, ".local"));
+    const canonicalPackageRoot = await realpath(packageRoot);
+    const expectedRoot = await realpath(
+      join(prefix, "lib", "node_modules", PRODUCT_IDENTITY.packageName),
+    );
+    const packageRelativeToPrefix = relative(prefix, expectedRoot);
+    if (
+      canonicalPackageRoot !== expectedRoot ||
+      packageRelativeToPrefix === ".." ||
+      packageRelativeToPrefix.startsWith("../") ||
+      packageRelativeToPrefix.startsWith("..\\") ||
+      isAbsolute(packageRelativeToPrefix)
+    )
+      return undefined;
+
+    const manifestText = await readRegularFileText(
+      join(expectedRoot, "package.json"),
+      {
+        symlinks: "reject",
+        admit: (metadata) => {
+          if (metadata.size > 256 * 1024)
+            throw new Error(
+              "Package manifest exceeds the updater metadata read budget.",
+            );
+        },
+      },
+    );
+    const decoded = safeParseJson(manifestText);
+    if (!decoded.ok) return undefined;
+    const manifest = z
+      .looseObject({
+        name: z.string(),
+        bin: z.record(z.string(), z.string()),
+      })
+      .safeParse(decoded.value);
+    if (
+      !manifest.success ||
+      manifest.data.name !== PRODUCT_IDENTITY.packageName
+    )
+      return undefined;
+    const entry = manifest.data.bin.rea;
+    if (entry === undefined || entry.length === 0 || isAbsolute(entry))
+      return undefined;
+
+    const canonicalEntry = await realpath(resolve(expectedRoot, entry));
+    const entryRelativeToPackage = relative(expectedRoot, canonicalEntry);
+    if (
+      entryRelativeToPackage === ".." ||
+      entryRelativeToPackage.startsWith("../") ||
+      entryRelativeToPackage.startsWith("..\\") ||
+      isAbsolute(entryRelativeToPackage)
+    )
+      return undefined;
+    if (!(await stat(canonicalEntry)).isFile()) return undefined;
+
+    const commandPath = join(prefix, "bin", "rea");
+    if (!(await lstat(commandPath)).isSymbolicLink()) return undefined;
+    if ((await realpath(commandPath)) !== canonicalEntry) return undefined;
+    return {
+      manager: "npm",
+      prefix,
+      packageRoot: canonicalPackageRoot,
+    };
   } catch {
     return undefined;
   }
@@ -376,27 +457,44 @@ export const systemUpdateHost = (
   packageRoot = fileURLToPath(new URL("../..", import.meta.url)),
   home: string | undefined = undefined,
   environment: Readonly<NodeJS.ProcessEnv> = process.env,
+  platform: NodeJS.Platform = process.platform,
 ): UpdateHost => {
   const resources = new ArtifactResourceScope();
   const bunHost = { canonicalPath: realpath, isFile };
+  const selectedHome =
+    home ?? homeDirectoryFromEnvironment(environment, platform);
   return {
-    installation: async () =>
-      (await detectBunInstallation(
+    installation: async () => {
+      const bunInstallation = await detectBunInstallation(
         packageRoot,
-        bunGlobalDirectory(environment, process.platform),
+        bunGlobalDirectory(environment, platform),
         bunHost,
-      )) ??
-      detectNpmInstallation(packageRoot, {
+      );
+      if (bunInstallation !== undefined) return bunInstallation;
+      const npmInstallation = await detectNpmInstallation(packageRoot, {
         canonicalPath: realpath,
         globalRoot: () =>
           requireCommandOutput(["npm", "root", "--global"], environment),
         globalPrefix: () =>
           requireCommandOutput(["npm", "prefix", "--global"], environment),
-      }),
+      });
+      if (npmInstallation !== undefined) return npmInstallation;
+      if (
+        (await unverifiedBunAncestor(
+          packageRoot,
+          bunGlobalDirectory(environment, platform),
+          bunHost,
+        )) !== undefined
+      )
+        return undefined;
+      return platform === "linux"
+        ? detectLinuxInstallerNpmInstallation(packageRoot, selectedHome)
+        : undefined;
+    },
     unverifiedBunAncestor: () =>
       unverifiedBunAncestor(
         packageRoot,
-        bunGlobalDirectory(environment, process.platform),
+        bunGlobalDirectory(environment, platform),
         bunHost,
       ),
     latestVersion: async (installation) => {
@@ -451,7 +549,7 @@ export const systemUpdateHost = (
       ),
     planMaintenance: (installation) =>
       planIntegrationMaintenance(
-        home ?? homeDirectoryFromEnvironment(environment, process.platform),
+        selectedHome,
         join(installation.packageRoot, "scripts", "rea.mjs"),
         environment,
         (command) => runUpdateCommand(command, environment),
