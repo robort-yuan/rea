@@ -219,6 +219,28 @@ export class ArtifactReaderFailure extends Error {
     this.boundary = options?.boundary;
   }
 
+  /** Normalize a boundary error without asserting a resource cleanup failure. */
+  static from(cause: unknown): ArtifactReaderFailure {
+    return cause instanceof ArtifactReaderFailure
+      ? cause
+      : new ArtifactReaderFailure("io", errorMessage(cause), {
+          cause,
+          ...(cause instanceof AnalysisError
+            ? {
+                partialObservation: cause.partialObservation,
+                ...(cause.cleanupIncomplete
+                  ? {
+                      cleanup: ArtifactReaderFailure.cleanupObservation(
+                        cause,
+                        [],
+                      ),
+                    }
+                  : {}),
+              }
+            : {}),
+        });
+  }
+
   /** Preserve the primary failure and observation. Supplied leases must cover all merged cleanup. */
   static withCleanup(
     cause: unknown,
@@ -226,25 +248,7 @@ export class ArtifactReaderFailure extends Error {
     partialObservation?: AnalysisPartialObservation,
     cleanupLeases?: readonly AnalysisCleanupLease[],
   ): ArtifactReaderFailure {
-    const primary =
-      cause instanceof ArtifactReaderFailure
-        ? cause
-        : new ArtifactReaderFailure("io", errorMessage(cause), {
-            cause,
-            ...(cause instanceof AnalysisError
-              ? {
-                  partialObservation: cause.partialObservation,
-                  ...(cause.cleanupIncomplete
-                    ? {
-                        cleanup: ArtifactReaderFailure.cleanupObservation(
-                          cause,
-                          [],
-                        ),
-                      }
-                    : {}),
-                }
-              : {}),
-          });
+    const primary = ArtifactReaderFailure.from(cause);
     const mergedObservation = partialObservation ?? primary.partialObservation;
     return new ArtifactReaderFailure(
       primary.reason,

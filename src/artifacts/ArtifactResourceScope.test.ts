@@ -9,6 +9,8 @@ import { ArtifactResourceRetryFailure } from "./ArtifactResourceScope.js";
 import { ProviderCleanupError } from "../domain/providerCleanupError.js";
 import { expect, it } from "vitest";
 
+import { projectAnalysisError } from "../domain/analysisErrorProjection.js";
+import { createEvidence } from "../domain/evidence.js";
 import { err } from "../domain/result.js";
 import { AnalysisOutputError } from "../domain/analysisErrorCore.js";
 import {
@@ -551,6 +553,97 @@ it.each(["artifact", "domain"] as const)(
       expect(error.cleanupResources).toEqual([]);
     } finally {
       children = [];
+      await scope.close();
+    }
+  },
+);
+
+it.each(
+  ["completed", "failed"].flatMap((outcome) =>
+    [false, true].flatMap((nested) =>
+      [false, true].map((releaseBeforeConversion) => ({
+        outcome,
+        nested,
+        releaseBeforeConversion,
+      })),
+    ),
+  ),
+)(
+  "retains scope composition and observations across retries: %j",
+  async ({ outcome, nested, releaseBeforeConversion }) => {
+    const scope = new ArtifactResourceScope();
+    let denied = true;
+    const partial = createEvidence(
+      undefined,
+      { id: "fixture", name: "Fixture", version: null },
+      {
+        operation: "inspect",
+        parameters: {},
+        result: { retained_fact: true },
+        confidence: "observed",
+        locations: [],
+        limitations: [],
+      },
+    );
+    const primary = new ArtifactReaderFailure("limit", "file-size bound", {
+      boundary: "file-size",
+    });
+    const attempt = async (resource: string) => {
+      const result = await scope.release({
+        kind: "lease",
+        resource,
+        lease: {
+          async release() {
+            if (denied) throw new Error("close denied");
+          },
+        },
+      });
+      if (result.kind !== "failed") throw new Error("Expected retained owner");
+      return result;
+    };
+    try {
+      const first = await attempt("first");
+      let raw = scope.cleanupFailure(
+        outcome === "failed"
+          ? { kind: "failed", cause: primary }
+          : { kind: "completed" },
+        [first],
+        partial,
+      );
+      if (nested)
+        raw = scope.cleanupFailure(
+          { kind: "failed", cause: raw },
+          [await attempt("second")],
+          partial,
+        );
+      if (outcome === "failed") expect(raw.boundary).toBe("file-size");
+      if (releaseBeforeConversion) {
+        denied = false;
+        await scope.retryCleanup();
+      }
+      const error = translateArtifactFailure("inventory_artifact", raw);
+      expect(error.cleanupIncomplete).toBe(!releaseBeforeConversion);
+      expect(error.cleanupResources).toEqual(
+        releaseBeforeConversion ? [] : nested ? ["first", "second"] : ["first"],
+      );
+      expect(projectAnalysisError(error).details?.partial_observation).toEqual(
+        partial,
+      );
+      denied = false;
+      await scope.retryCleanup();
+      expect(error.cleanupIncomplete).toBe(false);
+      expect(error.cleanupResources).toEqual([]);
+      expect(projectAnalysisError(error).details?.partial_observation).toEqual(
+        partial,
+      );
+      if (outcome === "failed")
+        expect(projectAnalysisError(error).code).toBe(
+          projectAnalysisError(
+            translateArtifactFailure("inventory_artifact", primary),
+          ).code,
+        );
+    } finally {
+      denied = false;
       await scope.close();
     }
   },
