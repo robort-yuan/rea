@@ -407,18 +407,11 @@ describe("npm installation ownership", () => {
 });
 
 // Fixture paths are POSIX; join() may produce Windows separators on Windows hosts.
-const bunInstallationHost = (
-  files: readonly string[],
-  contents: Readonly<Record<string, string>> = {},
-): BunInstallationHost => {
+const bunInstallationHost = (files: readonly string[]): BunInstallationHost => {
   const posix = (path: string): string => path.replaceAll("\\", "/");
   return {
     canonicalPath: (path) => Promise.resolve(posix(path)),
-    isFile: (path) =>
-      Promise.resolve(
-        files.includes(posix(path)) || Object.hasOwn(contents, posix(path)),
-      ),
-    readText: (path) => Promise.resolve(contents[posix(path)]),
+    isFile: (path) => Promise.resolve(files.includes(posix(path))),
   };
 };
 

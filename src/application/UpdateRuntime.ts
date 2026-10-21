@@ -1,4 +1,4 @@
-import { readFile, realpath, stat } from "node:fs/promises";
+import { realpath, stat } from "node:fs/promises";
 import { homeDirectoryFromEnvironment } from "../config/homeDirectory.js";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -34,8 +34,6 @@ export interface NpmInstallationHost {
 export interface BunInstallationHost {
   canonicalPath(path: string): Promise<string>;
   isFile(path: string): Promise<boolean>;
-  /** Text of the file, or undefined when the path does not exist. */
-  readText(path: string): Promise<string | undefined>;
 }
 
 /** Aggregate raw-byte retention policy for package-manager replies and diagnostics. */
@@ -354,16 +352,6 @@ const isFile = async (path: string): Promise<boolean> => {
   }
 };
 
-const readText = async (path: string): Promise<string | undefined> => {
-  try {
-    return await readFile(path, "utf8");
-  } catch (cause: unknown) {
-    if (cause instanceof Error && "code" in cause && cause.code === "ENOENT")
-      return undefined;
-    throw cause;
-  }
-};
-
 /**
  * Environment and working directory for package-manager subprocesses.
  * Bun commands run inside the identified project, which is also pinned as
@@ -395,7 +383,7 @@ export const systemUpdateHost = (
   environment: Readonly<NodeJS.ProcessEnv> = process.env,
 ): UpdateHost => {
   const resources = new ArtifactResourceScope();
-  const bunHost = { canonicalPath: realpath, isFile, readText };
+  const bunHost = { canonicalPath: realpath, isFile };
   return {
     installation: async () =>
       (await detectBunInstallation(
