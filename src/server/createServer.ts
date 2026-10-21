@@ -723,7 +723,10 @@ const registerConfiguredAnalysisTools = (
     artifactResources,
   }: ServerToolContext,
   android: AndroidAnalysisPort,
-  wasmArtifact: Pick<WasmArtifactService, "inspect" | "close">,
+  wasmArtifact: Pick<
+    WasmArtifactService,
+    "inspect" | "validate" | "inspectValidated" | "close"
+  >,
   evmInterface: EvmInterfaceService,
   jeb: JebAnalysisPort,
   firmwareAnalysis: FirmwareAnalysisService,

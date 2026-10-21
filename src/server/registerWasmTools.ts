@@ -7,7 +7,10 @@ import type { EvidenceMcpServer } from "./EvidenceMcpServer.js";
 import type { WasmArtifactService } from "../application/wasm/WasmArtifactService.js";
 import type { EvidenceWriter } from "../application/investigation/InvestigationRecordPort.js";
 import type { EvidenceLookup } from "../application/EvidenceInputResolver.js";
-import { summarizeRetainedAnalysis } from "../application/analysisView/AnalysisViewService.js";
+import {
+  requireAnalysisViewRetention,
+  summarizeRetainedAnalysis,
+} from "../application/analysisView/AnalysisViewService.js";
 import { analysisInputErrorFromIssues } from "../domain/inputIssueProjection.js";
 import { err } from "../domain/result.js";
 import { wasmArtifactModule } from "../composition/wasm.js";
@@ -19,7 +22,7 @@ import { toolRegistrationOptions } from "./toolRegistrationOptions.js";
 /** Bind the named WASM contract to shared validation and session Evidence recording. */
 export const registerWasmTools = (
   server: EvidenceMcpServer,
-  service: Pick<WasmArtifactService, "inspect">,
+  service: Pick<WasmArtifactService, "validate" | "inspectValidated">,
   logger: Logger,
   recordEvidence?: EvidenceWriter["recordEvidence"],
   withAdmittedAnalysis?: WithAdmittedAnalysis,
@@ -72,12 +75,19 @@ export const registerWasmTools = (
           ),
         );
       const { detail, ...input } = parsed.data;
-      const inspected = await service.inspect(input, options);
+      const validated = service.validate(input);
+      if (!validated.ok) return validated;
+      const retention = { recordEvidence, evidenceById };
+      if (detail === "summary") {
+        const ready = requireAnalysisViewRetention(contract.name, retention);
+        if (!ready.ok) return ready;
+      }
+      const inspected = await service.inspectValidated(
+        validated.value,
+        options,
+      );
       return detail === "summary" && inspected.ok
-        ? summarizeRetainedAnalysis(inspected.value, {
-            recordEvidence,
-            evidenceById,
-          })
+        ? summarizeRetainedAnalysis(inspected.value, retention)
         : inspected;
     },
     logger,
