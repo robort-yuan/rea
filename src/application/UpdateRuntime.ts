@@ -520,6 +520,14 @@ export const systemUpdateHost = (
         bunHost,
       );
       if (bunInstallation !== undefined) return bunInstallation;
+      const npmInstallation = await detectNpmInstallation(packageRoot, {
+        canonicalPath: realpath,
+        globalRoot: () =>
+          requireCommandOutput(["npm", "root", "--global"], environment),
+        globalPrefix: () =>
+          requireCommandOutput(["npm", "prefix", "--global"], environment),
+      });
+      if (npmInstallation !== undefined) return npmInstallation;
       if (platform === "linux") {
         const bunEvidence = await linuxInstallerBunEvidence(
           packageRoot,
@@ -529,14 +537,6 @@ export const systemUpdateHost = (
         // authority to select Bun after its configured root disappeared.
         if (bunEvidence !== "absent") return undefined;
       }
-      const npmInstallation = await detectNpmInstallation(packageRoot, {
-        canonicalPath: realpath,
-        globalRoot: () =>
-          requireCommandOutput(["npm", "root", "--global"], environment),
-        globalPrefix: () =>
-          requireCommandOutput(["npm", "prefix", "--global"], environment),
-      });
-      if (npmInstallation !== undefined) return npmInstallation;
       if (
         (await unverifiedBunAncestor(
           packageRoot,

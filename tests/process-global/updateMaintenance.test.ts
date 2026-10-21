@@ -1,5 +1,6 @@
 import {
   mkdir,
+  realpath,
   readFile,
   rm,
   symlink,
@@ -551,7 +552,10 @@ const readCommandInvocations = async (logPath: string): Promise<unknown[]> => {
   }
 };
 
-const linuxUserPrefixFixture = async (root: string) => {
+const linuxUserPrefixFixture = async (
+  root: string,
+  npmReportsUserPrefix = false,
+) => {
   const selectedHome = join(root, "home");
   const prefix = join(selectedHome, ".local");
   const packageRoot = join(
@@ -562,8 +566,10 @@ const linuxUserPrefixFixture = async (root: string) => {
   );
   const packageEntry = join(packageRoot, "scripts", "rea.mjs");
   const versionPath = join(root, "installed-version");
-  const npmRoot = join(root, "npm-default", "lib", "node_modules");
-  const npmPrefix = join(root, "npm-default");
+  const npmRoot = npmReportsUserPrefix
+    ? join(prefix, "lib", "node_modules")
+    : join(root, "npm-default", "lib", "node_modules");
+  const npmPrefix = npmReportsUserPrefix ? prefix : join(root, "npm-default");
   const npmLog = join(root, "npm-invocations.jsonl");
   const binDirectory = join(root, "bin");
   const npmRecorder = join(binDirectory, "record-npm.mjs");
@@ -719,6 +725,38 @@ describe.skipIf(process.platform === "win32")(
 describe.skipIf(process.platform === "win32")(
   "legacy Linux installer npm ownership with ambiguous scope",
   () => {
+    it("honors an exact npm root despite a leftover Bun lockfile", async () => {
+      const root = await createTestTempDirectory(
+        "rea-linux-user-prefix-npm-proof-",
+      );
+      try {
+        const fixture = await linuxUserPrefixFixture(root, true);
+        await writeFile(join(fixture.prefix, "lib", "bun.lock"), "{}\n");
+        const result = await systemUpdateHost(
+          fixture.packageRoot,
+          fixture.selectedHome,
+          fixture.environment,
+          "linux",
+        ).installation();
+        expect(result).toEqual({
+          manager: "npm",
+          prefix: fixture.prefix,
+          packageRoot: await realpath(fixture.packageRoot),
+        });
+        expect(await readCommandInvocations(fixture.npmLog)).toEqual([
+          ["root", "--global"],
+          ["prefix", "--global"],
+        ]);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    });
+  },
+);
+
+describe.skipIf(process.platform === "win32")(
+  "legacy Linux installer Bun ambiguity and cleanup ownership",
+  () => {
     it.each(["file", "directory"] as const)(
       "refuses an ambiguous Bun lock path of type %s after overrides disappear",
       async (lockType) => {
@@ -739,7 +777,9 @@ describe.skipIf(process.platform === "win32")(
             "linux",
           ).installation();
           expect(result).toBeUndefined();
-          expect(await readCommandInvocations(fixture.npmLog)).toEqual([]);
+          expect(await readCommandInvocations(fixture.npmLog)).toEqual([
+            ["root", "--global"],
+          ]);
         } finally {
           await rm(root, { recursive: true, force: true });
         }
@@ -1080,9 +1120,10 @@ describe("verified npm ownership in a Bun ancestor project", () => {
     const callerDirectory = process.cwd();
     try {
       process.chdir(root);
+      await symlink(".local", join(projectDirectory, ".local"));
       const result = await runUpdate(
         "3.2.1",
-        systemUpdateHost(packageRoot, projectDirectory, environment),
+        systemUpdateHost(packageRoot, projectDirectory, environment, "linux"),
         "structured",
       );
       expect(result).toMatchObject({
