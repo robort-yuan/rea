@@ -644,6 +644,8 @@ const readExceptionClauses = (
         : bytes.readUInt8(clause + 7),
       class_token:
         flags === 0 ? `0x${extra.toString(16).padStart(8, "0")}` : null,
+      // The body reader names the class once operand identities are known.
+      class_identity_sha256: null,
       filter_offset: flags === 1 ? extra : null,
     });
   }

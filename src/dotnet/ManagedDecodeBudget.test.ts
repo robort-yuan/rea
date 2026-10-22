@@ -92,3 +92,27 @@ describe("managed decoding bounds", () => {
     expect(() => budget.admitTransient(bound, null)).not.toThrow();
   });
 });
+
+describe("managed nested decoding bounds", () => {
+  it("bounds a nested lookup with the live item and leaves the item admitted", () => {
+    const budget = new ManagedDecodeBudget();
+    const item = 30 * 1024 * 1024;
+    const nested = 20 * 1024 * 1024;
+    budget.admitTransient(item, null);
+
+    // The enclosing item and the lookup are live together.
+    expect(() =>
+      budget.admitNestedTransient(nested, null, () =>
+        budget.reserve(item, null),
+      ),
+    ).toThrow(ManagedReaderFailure);
+    expect(budget.admitNestedTransient(nested, null, () => "named")).toBe(
+      "named",
+    );
+    // The lookup ended; the item's decoding did not.
+    expect(() => budget.admitTransient(item + nested, null)).toThrow(
+      ManagedReaderFailure,
+    );
+    expect(() => budget.admitTransient(nested, null)).not.toThrow();
+  });
+});

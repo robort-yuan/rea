@@ -1,9 +1,16 @@
+import { createHash } from "node:crypto";
+
 import {
   admitManagedProjection,
   type ManagedDecodeBudget,
 } from "./ManagedDecodeBudget.js";
+import type { CilOperandIdentity } from "./ManagedCilOperandIdentity.js";
 import type { ManagedPeLayout } from "./ManagedPeReader.js";
-import type { ManagedMethodBody } from "./ManagedMemberInspectorCore.js";
+import type {
+  ManagedExceptionRegion,
+  ManagedMethodBody,
+  ParsedInstruction,
+} from "./ManagedMemberInspectorCore.js";
 import {
   decodeInstructions,
   parseExceptionRegions,
@@ -66,6 +73,76 @@ const readMethodBodyHeader = (
   };
 };
 
+/** Operand kinds whose value is a 4-byte metadata token. */
+const TOKEN_OPERAND_KINDS: ReadonlySet<ParsedInstruction["operandKind"]> =
+  new Set(["method", "field", "type", "string", "signature", "token"]);
+
+/**
+ * Digest the raw CIL with each token operand's four bytes replaced by its
+ * 32-byte nominal identity. An opcode fixes its operand's form, so the
+ * substituted stream still parses into exactly one instruction sequence, and
+ * no raw bytes can stand in for an identity. Null when any operand has none.
+ */
+const nominalIlSha256 = (
+  il: Buffer,
+  instructions: readonly ParsedInstruction[],
+  identity: CilOperandIdentity,
+): string | null => {
+  const hash = createHash("sha256");
+  let copied = 0;
+  for (const { offset, operandKind } of instructions) {
+    if (!TOKEN_OPERAND_KINDS.has(operandKind)) continue;
+    // A token operand directly follows its one- or two-byte (0xfe) opcode.
+    const operandOffset = offset + (il[offset] === 0xfe ? 2 : 1);
+    const named = identity(il.readUInt32LE(operandOffset));
+    if (named === null) return null;
+    hash.update(il.subarray(copied, operandOffset)).update(named);
+    copied = operandOffset + 4;
+  }
+  return hash.update(il.subarray(copied)).digest("hex");
+};
+
+const classIdentity = (
+  region: ManagedExceptionRegion,
+  identity: CilOperandIdentity | undefined,
+): string | null =>
+  region.class_token === null || identity === undefined
+    ? null
+    : (identity(Number.parseInt(region.class_token.slice(2), 16))?.toString(
+        "hex",
+      ) ?? null);
+
+/**
+ * Name a body's token operands and its typed clauses' classes. Only a
+ * completely decoded body has a nominal digest; clause classes are named
+ * whenever identities are available, like their raw tokens.
+ */
+const nominalOperands = ({
+  il,
+  instructions,
+  regions,
+  complete,
+  identity,
+}: {
+  readonly il: Buffer;
+  readonly instructions: readonly ParsedInstruction[];
+  readonly regions: readonly ManagedExceptionRegion[];
+  readonly complete: boolean;
+  readonly identity: CilOperandIdentity | undefined;
+}): {
+  readonly ilSha256: string | null;
+  readonly regions: ManagedExceptionRegion[];
+} => ({
+  ilSha256:
+    complete && identity !== undefined
+      ? nominalIlSha256(il, instructions, identity)
+      : null,
+  regions: regions.map((region) => ({
+    ...region,
+    class_identity_sha256: classIdentity(region, identity),
+  })),
+});
+
 /** Decode admitted managed CIL, retaining unavailable implementation metadata as partial. */
 export const methodBody = (
   bytes: Buffer,
@@ -75,7 +152,14 @@ export const methodBody = (
     implFlags: 0,
     flags: 0,
   },
-  budget?: ManagedDecodeBudget,
+  {
+    budget,
+    operandIdentity,
+  }: {
+    readonly budget?: ManagedDecodeBudget;
+    /** Nominal operand identities; without them no nominal digest is computed. */
+    readonly operandIdentity?: CilOperandIdentity;
+  } = {},
 ): {
   readonly body: ManagedMethodBody;
   /**
@@ -159,6 +243,13 @@ export const methodBody = (
       decoded.truncated,
       exceptionRegions,
     );
+    const nominal = nominalOperands({
+      il,
+      instructions: decoded.parsed,
+      regions: exceptionRegions?.regions ?? [],
+      complete: status === "present",
+      identity: operandIdentity,
+    });
     const body: ManagedMethodBody = {
       status,
       header_format: header.format,
@@ -174,12 +265,13 @@ export const methodBody = (
       il_sha256: sha256Bytes(il),
       normalized_il_sha256:
         status === "present" ? sha256Bytes(normalized) : null,
+      nominal_il_sha256: nominal.ilSha256,
       instruction_count: decoded.count,
       decoded_instruction_count: decoded.parsed.length,
       truncated_instructions: decoded.truncated,
       opcode_counts: opcodeCounts,
       anchors,
-      exception_regions: exceptionRegions?.regions ?? [],
+      exception_regions: nominal.regions,
       issue:
         decoded.issue ??
         (exceptionRegions?.status === "malformed"
@@ -233,6 +325,7 @@ const emptyMethodBody = (
   il_size: 0,
   il_sha256: null,
   normalized_il_sha256: null,
+  nominal_il_sha256: null,
   instruction_count: 0,
   decoded_instruction_count: 0,
   truncated_instructions: 0,

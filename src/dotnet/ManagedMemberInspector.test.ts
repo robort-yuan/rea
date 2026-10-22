@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { inspectManagedMembersBytes } from "./ManagedMemberInspector.js";
 import {
@@ -415,6 +415,186 @@ describe("managed edge target declaring types", () => {
   });
 });
 
+describe("managed nominal CIL operands", () => {
+  const castclass = 0x74;
+  const list = { namespace: "System.Collections.Generic", name: "List`1" };
+  const uri = { namespace: "System", name: "Uri" };
+  // List`1 is TypeRef row 2, or row 3 once Uri precedes it.
+  const listRow = (shifted: boolean) => (shifted ? 3 : 2);
+  const build = (
+    shifted: boolean,
+    options: Parameters<typeof buildManagedPeFixture>[0],
+  ) => inspect({ typeReferences: shifted ? [uri, list] : [list], ...options });
+
+  it("names type, field, method, and member reference operands independently of their rows", () => {
+    const observe = (shifted: boolean) =>
+      build(shifted, {
+        ilBody: tokenBody([
+          [castclass, 0x0100_0000 + listRow(shifted)],
+          [ldsfld, 0x0400_0001],
+          [call, 0x0600_0001],
+          [call, 0x0a00_0001],
+        ]),
+      });
+    const before = observe(false);
+    const after = observe(true);
+
+    expect(before.cil_operand_resolution).toBe("nominal-v1");
+    expect(after.methods[0]?.body.il_sha256).not.toBe(
+      before.methods[0]?.body.il_sha256,
+    );
+    expect(before.methods[0]?.body.nominal_il_sha256).toMatch(
+      /^[0-9a-f]{64}$/u,
+    );
+    expect(after.methods[0]?.body.nominal_il_sha256).toBe(
+      before.methods[0]?.body.nominal_il_sha256,
+    );
+  });
+
+  it("names TypeSpec and MethodSpec operands by their resolved blobs", () => {
+    // List`1<argument> as a TypeSpec, and a MethodSpec instantiating the
+    // generic MemberRef with argument; TypeRef row 1 is the same type in both.
+    const observe = (shifted: boolean, argumentRow: number) =>
+      build(shifted, {
+        typeSpecSignatures: [
+          Buffer.from([
+            0x15,
+            0x12,
+            (listRow(shifted) << 2) | 1,
+            0x01,
+            0x12,
+            (argumentRow << 2) | 1,
+          ]),
+        ],
+        memberRefSignature: genericRef,
+        methodSpecMethods: [(1 << 1) | 1],
+        methodSpecInstantiation: Buffer.from([
+          0x0a,
+          0x01,
+          0x12,
+          (argumentRow << 2) | 1,
+        ]),
+        ilBody: tokenBody([
+          [castclass, 0x1b00_0001],
+          [call, 0x2b00_0001],
+        ]),
+      });
+    const body = (result: ReturnType<typeof observe>) =>
+      result.methods[0]?.body;
+    const original = observe(false, 1);
+
+    expect(original.coverage).toEqual({ state: "complete", issues: [] });
+    expect(body(original)?.nominal_il_sha256).toMatch(/^[0-9a-f]{64}$/u);
+    // Moved rows inside the blobs leave the identities unchanged.
+    expect(body(observe(true, 1))?.nominal_il_sha256).toBe(
+      body(original)?.nominal_il_sha256,
+    );
+    // The same tokens naming another type argument are another body.
+    const retyped = observe(false, listRow(false));
+    expect(body(retyped)?.il_sha256).toBe(body(original)?.il_sha256);
+    expect(body(retyped)?.nominal_il_sha256).not.toBe(
+      body(original)?.nominal_il_sha256,
+    );
+  });
+
+  it("decodes a signature blob that several rows share once", () => {
+    // Both MethodDef rows share one signature blob, which names a TypeRef.
+    const decodes = vi.spyOn(
+      ManagedDecodeBudget.prototype,
+      "admitNestedTransient",
+    );
+    try {
+      const result = inspect({
+        methodRowCount: 2,
+        methodSignature: Buffer.from([0x00, 0x00, 0x12, (1 << 2) | 1]),
+        ilBody: tokenBody([
+          [call, 0x0600_0001],
+          [call, 0x0600_0002],
+        ]),
+      });
+
+      expect(result.methods[0]?.body.nominal_il_sha256).toMatch(
+        /^[0-9a-f]{64}$/u,
+      );
+      expect(decodes).toHaveBeenCalledOnce();
+    } finally {
+      decodes.mockRestore();
+    }
+  });
+
+  it("names a literal by its text rather than its #US offset", () => {
+    const observe = (values: readonly string[], index: number) => {
+      const { heap, tokens } = fixtureUserStringHeap(values);
+      return inspect({
+        userStringHeap: heap,
+        ilBody: ldstrBody([tokens[index] ?? ""]),
+      }).methods[0]?.body;
+    };
+    const original = observe(["quicksave"], 0);
+    const moved = observe(["autosave", "quicksave"], 1);
+    const retexted = observe(["quickload"], 0);
+
+    expect(moved?.il_sha256).not.toBe(original?.il_sha256);
+    expect(moved?.nominal_il_sha256).toBe(original?.nominal_il_sha256);
+    // The same token naming other text is another body.
+    expect(retexted?.il_sha256).toBe(original?.il_sha256);
+    expect(retexted?.nominal_il_sha256).toMatch(/^[0-9a-f]{64}$/u);
+    expect(retexted?.nominal_il_sha256).not.toBe(original?.nominal_il_sha256);
+  });
+
+  it.each([
+    ["a missing TypeRef row", [], 0x0100_0009],
+    // A generic instantiation cannot name a TypeSpec, so REA cannot name it.
+    [
+      "a TypeSpec naming a TypeSpec",
+      [Buffer.from([0x15, 0x12, (1 << 2) | 2, 0x01, 0x0e])],
+      0x1b00_0001,
+    ],
+  ])(
+    "has no nominal digest for an operand naming %s, without a coverage issue",
+    (_case, typeSpecSignatures, token) => {
+      const result = build(false, {
+        typeSpecSignatures,
+        ilBody: tokenBody([[castclass, token]]),
+      });
+
+      expect(result.methods[0]?.body).toMatchObject({
+        status: "present",
+        il_sha256: expect.stringMatching(/^[0-9a-f]{64}$/u),
+        nominal_il_sha256: null,
+      });
+      expect(result.coverage).toEqual({ state: "complete", issues: [] });
+    },
+  );
+});
+
+describe("managed operand identity budget", () => {
+  it("charges the bytes an operand identity hashes", () => {
+    // Literal reading is off, so only the operand identity reads #US text.
+    const reserved = (text: string): number => {
+      const { heap, tokens } = fixtureUserStringHeap([text]);
+      const bytes = buildManagedPeFixture({
+        userStringHeap: heap,
+        ilBody: ldstrBody([tokens[0] ?? ""]),
+      });
+      const reserve = vi.spyOn(ManagedDecodeBudget.prototype, "reserve");
+      try {
+        inspectManagedMembersBytes(bytes, managedPeFixtureTarget(bytes), {
+          userStrings: false,
+        });
+        return reserve.mock.calls.reduce((total, [bytes]) => total + bytes, 0);
+      } finally {
+        reserve.mockRestore();
+      }
+    };
+
+    // 4,096 more UTF-16 code units are 8,192 more hashed bytes.
+    expect(reserved("x".repeat(4_097)) - reserved("x")).toBeGreaterThanOrEqual(
+      8_192,
+    );
+  });
+});
+
 describe("managed TypeRef resolution scopes", () => {
   it.each([
     // AssemblyRef 9 does not exist.
@@ -748,6 +928,16 @@ describe("managed exported types", () => {
 
     expect(result.coverage.state).toBe("unavailable");
     expect(result.exported_types).toBeNull();
+    // Unexamined is not historical: the comparison names the side and why.
+    const limitations = comparisonLimitations(result, result);
+    expect(limitations).toContain(
+      "The left managed member observation is unavailable, so none of its members were compared: The PE has no admitted CLI metadata; managed member inspection is unavailable.",
+    );
+    expect(
+      limitations.some((limitation) =>
+        limitation.includes("predates ExportedType inspection"),
+      ),
+    ).toBe(false);
   });
 
   it("reads member Evidence recorded before exported types as unexamined", () => {
@@ -799,11 +989,6 @@ describe("managed exported types", () => {
 });
 
 describe("managed user strings", () => {
-  const inspect = (options: Parameters<typeof buildManagedPeFixture>[0]) => {
-    const bytes = buildManagedPeFixture(options);
-    return inspectManagedMembersBytes(bytes, managedPeFixtureTarget(bytes));
-  };
-
   it("decodes each loaded literal once, in token order, without changing CIL tokens", () => {
     const { heap, tokens } = fixtureUserStringHeap([
       "quicksave.peak",
@@ -848,7 +1033,7 @@ describe("managed user strings", () => {
       inspect({ ilBody }).methods[0]?.body.normalized_il_sha256,
     );
     expect(comparisonLimitations(result, result)).toContain(
-      "ldstr literals are not compared; normalized CIL keeps #US tokens rather than decoded text, so an unchanged method does not establish unchanged string literals.",
+      "Where CIL bytes differ, token operands compare by nominal identity: types by namespace, name, and enclosing names, members by owner, name, and resolved signature, and ldstr literals by text; defining assemblies and CLR binding are not established by this comparison. Equal CIL bytes compare by build-local tokens, so an unchanged method establishes neither unchanged ldstr literals nor unchanged names of what its tokens reference.",
     );
   });
 
@@ -956,9 +1141,15 @@ describe("managed user strings", () => {
         .user_strings,
     ).toBeNull();
 
-    const { user_strings: _omitted, ...legacy } = inspect({});
+    // Evidence older than user strings also predates nominal CIL operands.
+    const {
+      user_strings: _omitted,
+      cil_operand_resolution: _unattested,
+      ...legacy
+    } = inspect({});
     const parsed = managedMemberInspectionSchema.parse(legacy);
     expect(parsed.user_strings).toBeNull();
+    expect(parsed.cil_operand_resolution).toBeNull();
     expect(comparisonLimitations(parsed, inspect({}))).toContain(
       "ldstr literals are not compared; normalized CIL keeps #US tokens rather than decoded text, so an unchanged method does not establish unchanged string literals.",
     );

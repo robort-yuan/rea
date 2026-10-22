@@ -28,6 +28,7 @@ import {
   typeRanges,
   type TypeRange,
 } from "./ManagedMemberInspectorCore.js";
+import { managedCilOperandIdentities } from "./ManagedCilOperandIdentity.js";
 import { edgeTargets } from "./ManagedMethodSpecs.js";
 import { managedTypeNameDigests } from "./ManagedTypeNameDigests.js";
 import { typeNameLookup } from "./ManagedTypeNames.js";
@@ -75,6 +76,7 @@ const unavailable = (
       },
       types: [],
       signature_resolution: "type-names-v1",
+      cil_operand_resolution: "nominal-v1",
       nesting_read: false,
       exported_types: null,
       user_strings: null,
@@ -233,6 +235,13 @@ export const inspectManagedMembersBytes = (
       ranges,
       signatureTypeName,
       memberLists,
+      operandIdentity: managedCilOperandIdentities({
+        bytes,
+        layout,
+        memberLists,
+        memberRefs: new Map(memberRefs.refs.map((ref) => [ref.token, ref])),
+        signatureTypeName,
+      }),
       selected,
       methodOffset,
       methodLimit,
@@ -295,6 +304,7 @@ export const inspectManagedMembersBytes = (
           ),
           types,
           signature_resolution: "type-names-v1",
+          cil_operand_resolution: "nominal-v1",
           nesting_read: parsedTypes.nesting.complete,
           exported_types: exportedTypes.exportedTypes,
           fields: fields.fields,

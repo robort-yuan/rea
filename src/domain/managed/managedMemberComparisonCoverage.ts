@@ -3,7 +3,10 @@ import type {
   ManagedMemberComparisonSide,
 } from "./managedMemberComparison.js";
 import type { ManagedMemberInspection } from "./managedArtifact.js";
-import { hasSignatureResolution } from "./managedMemberSignatureIdentity.js";
+import {
+  cilOperandsComparable,
+  hasSignatureResolution,
+} from "./managedMemberSignatureIdentity.js";
 
 interface ComparisonCoverageInput {
   readonly left: ManagedMemberInspection;
@@ -102,6 +105,87 @@ export const buildComparisonMatching = (
   ).length,
 });
 
+/**
+ * A current inspection examines ExportedType rows whenever its metadata is
+ * admitted. An unavailable one examined nothing, which its own limitation
+ * states with the reason, so only Evidence older than the field predates it.
+ */
+const predatesExportedTypes = (result: ManagedMemberInspection): boolean =>
+  result.exported_types === null && result.coverage.state !== "unavailable";
+
+/**
+ * Name a side that contributed no members and why, from its own coverage
+ * issues or, when it admitted no metadata at all, its own limitations, so the
+ * comparison never reads as an empty difference.
+ */
+const unavailableLimitation = (
+  side: "left" | "right",
+  result: ManagedMemberInspection,
+): string => {
+  const reasons =
+    result.coverage.issues.length > 0
+      ? result.coverage.issues.map(
+          ({ code, scope, detail }) => `${code} at ${scope}: ${detail}`,
+        )
+      : result.limitations;
+  return reasons.length === 0
+    ? `The ${side} managed member observation is unavailable; none of its members were compared.`
+    : `The ${side} managed member observation is unavailable, so none of its members were compared: ${reasons.join("; ")}`;
+};
+
+/** Sides that contributed no members, with their reasons, or only some. */
+const availabilityLimitations = (
+  left: ManagedMemberInspection,
+  right: ManagedMemberInspection,
+): string[] => [
+  ...(left.coverage.state === "unavailable"
+    ? [unavailableLimitation("left", left)]
+    : []),
+  ...(right.coverage.state === "unavailable"
+    ? [unavailableLimitation("right", right)]
+    : []),
+  ...(left.coverage.state === "partial" || right.coverage.state === "partial"
+    ? ["At least one managed member observation is partial."]
+    : []),
+];
+
+/**
+ * How CIL operands compared: the scope of nominal identity when both sides
+ * attest it, the token fallback when one predates it, and what either leaves
+ * of literal comparison. The nominal scope already bounds literals.
+ */
+const cilOperandLimitations = (
+  left: ManagedMemberInspection,
+  right: ManagedMemberInspection,
+): {
+  readonly scope: string[];
+  readonly historical: string[];
+  readonly literals: string[];
+} => {
+  const operandsNamed = cilOperandsComparable(left, right);
+  const namesOperands = (result: ManagedMemberInspection) =>
+    result.methods.some(({ body }) => body.nominal_il_sha256 !== null);
+  const nominal =
+    operandsNamed && (namesOperands(left) || namesOperands(right));
+  return {
+    scope: nominal
+      ? [
+          "Where CIL bytes differ, token operands compare by nominal identity: types by namespace, name, and enclosing names, members by owner, name, and resolved signature, and ldstr literals by text; defining assemblies and CLR binding are not established by this comparison. Equal CIL bytes compare by build-local tokens, so an unchanged method establishes neither unchanged ldstr literals nor unchanged names of what its tokens reference.",
+        ]
+      : [],
+    historical: operandsNamed
+      ? []
+      : [
+          "At least one managed member observation predates CIL operand resolution, so CIL bodies and exception classes compare only by build-local metadata tokens; a token renumbered between builds reads as a cil or exception-shape change.",
+        ],
+    literals: nominal
+      ? []
+      : [
+          "ldstr literals are not compared; normalized CIL keeps #US tokens rather than decoded text, so an unchanged method does not establish unchanged string literals.",
+        ],
+  };
+};
+
 export const comparisonLimitations = (
   left: ManagedMemberInspection,
   right: ManagedMemberInspection,
@@ -130,8 +214,8 @@ export const comparisonLimitations = (
     limitations.push(
       "Signature type operands compare by namespace, name, and enclosing names only; defining assemblies and CLR type identity are not established by this comparison.",
     );
-  if (left.coverage.state !== "complete" || right.coverage.state !== "complete")
-    limitations.push("At least one managed member observation is partial.");
+  const operands = cilOperandLimitations(left, right);
+  limitations.push(...operands.scope, ...availabilityLimitations(left, right));
   if (!sameSelection(left, right))
     limitations.push(
       "The observations select different declaring types; a member outside the other side's selection is unknown, not added or removed.",
@@ -144,11 +228,12 @@ export const comparisonLimitations = (
     limitations.push(
       "At least one managed member observation does not attest signature type-name resolution, so signatures compare by raw bytes, which name types by build-local metadata row.",
     );
+  limitations.push(...operands.historical);
   if (left.nesting_read === null || right.nesting_read === null)
     limitations.push(
       "At least one managed member observation predates enclosing-name identity. The legacy bare-name comparison does not establish the enclosing owner of a nested type.",
     );
-  if (left.exported_types === null || right.exported_types === null)
+  if ([left, right].some(predatesExportedTypes))
     limitations.push(
       "At least one managed member observation predates ExportedType inspection; its exported and forwarded types are unknown.",
     );
@@ -159,8 +244,6 @@ export const comparisonLimitations = (
     limitations.push(
       "ExportedType rows, including type forwarders, are observed but not compared; an unchanged comparison does not establish an unchanged exported or forwarded type set.",
     );
-  limitations.push(
-    "ldstr literals are not compared; normalized CIL keeps #US tokens rather than decoded text, so an unchanged method does not establish unchanged string literals.",
-  );
+  limitations.push(...operands.literals);
   return limitations;
 };

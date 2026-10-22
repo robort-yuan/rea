@@ -20,7 +20,10 @@ import {
   buildMethodItems,
 } from "./managedMemberComparisonItems.js";
 import { keyMembers } from "./managedMemberComparisonMatch.js";
-import { hasSignatureResolution } from "./managedMemberSignatureIdentity.js";
+import {
+  cilOperandsComparable,
+  hasSignatureResolution,
+} from "./managedMemberSignatureIdentity.js";
 import { digestSchema } from "../digests.js";
 import { prefixedDigestSchema } from "../digests.js";
 
@@ -236,6 +239,7 @@ export const compareManagedMembers = (
     signatureResolutionExamined:
       hasSignatureResolution(left.result) &&
       hasSignatureResolution(right.result),
+    cilOperandsNamed: cilOperandsComparable(left.result, right.result),
   };
   const methodItems = buildMethodItems(methodMatches, itemContext);
   const fieldItems = buildFieldItems(fieldMatches, itemContext);

@@ -194,22 +194,25 @@ export const readMetadataBlob = (
   return bytes.subarray(content, content + decoded.length);
 };
 
+interface UserStringItem {
+  readonly start: number;
+  readonly scope: string;
+  readonly decoded: ReturnType<typeof compressedLength>;
+  /** The UTF-16LE code units, without the terminal flag byte. */
+  readonly units: Buffer;
+  /** File offset of the terminal flag byte; null for the reserved empty entry. */
+  readonly flagOffset: number | null;
+}
+
 /**
- * Read the #US literal named by a `0x70` user-string token: a compressed byte
- * length, UTF-16LE code units, then one ECMA-335 terminal flag byte. Code units
- * are kept as stored, including unpaired surrogates. `parseUserStrings` owns
- * which `ldstr` operands are user-string tokens.
+ * Locate one `0x70` user-string token's #US item and validate its extent and
+ * framing, without decoding or admitting its literal.
  */
-export const readMetadataUserString = (
+const userStringItem = (
   bytes: Buffer,
   layout: ManagedMetadataLayout,
   token: string,
-): {
-  readonly offset: number;
-  readonly value: string;
-  /** Conformance differences observed beside the readable literal. */
-  readonly issues: readonly ManagedParseIssue[];
-} => {
+): UserStringItem => {
   const heap = layout.userStrings;
   const scope = `metadata.#US:${token}`;
   if (heap === null)
@@ -236,6 +239,74 @@ export const readMetadataUserString = (
       "User string leaves #US",
       start,
     );
+  // ECMA-335 II.24.2.4: offset 0 is the heap's empty entry, a zero length
+  // with no terminal flag byte; every other item carries the flag.
+  if (index === 0) {
+    if (decoded.length === 0)
+      return {
+        start,
+        scope,
+        decoded,
+        units: bytes.subarray(content, content),
+        flagOffset: null,
+      };
+    throw managedFailure(
+      "invalid-string",
+      scope,
+      `#US offset 0 is the reserved empty entry, but it encodes ${String(decoded.length)} byte(s)`,
+      start,
+    );
+  }
+  if (decoded.length % 2 !== 1)
+    throw managedFailure(
+      "invalid-string",
+      scope,
+      "User string length is not UTF-16 code units plus one terminal flag byte",
+      start,
+    );
+  const flagOffset = content + decoded.length - 1;
+  return {
+    start,
+    scope,
+    decoded,
+    units: bytes.subarray(content, flagOffset),
+    flagOffset,
+  };
+};
+
+/**
+ * The UTF-16LE code units of a `0x70` user-string token's #US item, exactly
+ * as stored and without its terminal flag byte. Nothing is decoded or
+ * admitted here, so a caller that only needs the literal's identity charges
+ * only the bytes it hashes rather than the decoded text.
+ */
+export const metadataUserStringUnits = (
+  bytes: Buffer,
+  layout: ManagedMetadataLayout,
+  token: string,
+): Buffer => userStringItem(bytes, layout, token).units;
+
+/**
+ * Read the #US literal named by a `0x70` user-string token: a compressed byte
+ * length, UTF-16LE code units, then one ECMA-335 terminal flag byte. Code units
+ * are kept as stored, including unpaired surrogates. `parseUserStrings` owns
+ * which `ldstr` operands are user-string tokens.
+ */
+export const readMetadataUserString = (
+  bytes: Buffer,
+  layout: ManagedMetadataLayout,
+  token: string,
+): {
+  readonly offset: number;
+  readonly value: string;
+  /** Conformance differences observed beside the readable literal. */
+  readonly issues: readonly ManagedParseIssue[];
+} => {
+  const { start, scope, decoded, units, flagOffset } = userStringItem(
+    bytes,
+    layout,
+    token,
+  );
   const budget = managedDecodeBudget(layout);
   // A wider length prefix than the value needs still reads unambiguously, so
   // it is reported like the flag rather than discarding the literal. It is
@@ -253,34 +324,17 @@ export const readMetadataUserString = (
       },
     ];
   };
-  // ECMA-335 II.24.2.4: offset 0 is the heap's empty entry, a zero length
-  // with no terminal flag byte; every other item carries the flag.
-  if (index === 0) {
-    if (decoded.length === 0)
-      return { offset: start, value: "", issues: conformance() };
-    throw managedFailure(
-      "invalid-string",
-      scope,
-      `#US offset 0 is the reserved empty entry, but it encodes ${String(decoded.length)} byte(s)`,
-      start,
-    );
-  }
-  if (decoded.length % 2 !== 1)
-    throw managedFailure(
-      "invalid-string",
-      scope,
-      "User string length is not UTF-16 code units plus one terminal flag byte",
-      start,
-    );
-  const units = (decoded.length - 1) / 2;
+  if (flagOffset === null)
+    return { offset: start, value: "", issues: conformance() };
+  const unitCount = units.length / 2;
   // Admit the literal before scanning it: JSON spends at most six bytes per
   // UTF-16 code unit.
-  budget.reserveString(units, start);
+  budget.reserveString(unitCount, start);
   // Check the serialized flag independently of literal decoding. A difference
   // from ECMA-335 is observable metadata, not proof of runtime rejection.
   let expectedFlag = 0;
-  for (let unitIndex = 0; unitIndex < units; unitIndex++) {
-    const unit = bytes.readUInt16LE(content + unitIndex * 2);
+  for (let unitIndex = 0; unitIndex < unitCount; unitIndex++) {
+    const unit = units.readUInt16LE(unitIndex * 2);
     if (
       unit > 0xff ||
       (unit >= 0x01 && unit <= 0x08) ||
@@ -293,7 +347,6 @@ export const readMetadataUserString = (
       break;
     }
   }
-  const flagOffset = content + units * 2;
   const actualFlag = bytes[flagOffset];
   const issues = conformance();
   if (actualFlag !== expectedFlag) {
@@ -305,11 +358,7 @@ export const readMetadataUserString = (
       detail: `User string terminal flag ${String(actualFlag)} differs from ECMA-335 II.24.2.4 value ${String(expectedFlag)}; readable UTF-16 is preserved and runtime acceptance is not assessed`,
     });
   }
-  return {
-    offset: start,
-    value: bytes.subarray(content, flagOffset).toString("utf16le"),
-    issues,
-  };
+  return { offset: start, value: units.toString("utf16le"), issues };
 };
 
 /** Read one conventional GUID value from the one-based #GUID heap. */

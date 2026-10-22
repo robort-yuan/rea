@@ -676,6 +676,103 @@ const callingConvention = (value: number): string => {
 };
 
 /**
+ * Render the Types of a whole TypeSpec blob, or of a MethodSpec instantiation
+ * (GENERICINST, argument count, Types), validating each type operand against
+ * the metadata tables and collecting it in `operands` when given.
+ */
+const decodeSpecTypes = (
+  layout: ManagedMetadataLayout,
+  blob: Buffer,
+  form: "type" | "instantiation",
+  operands?: TypeOperand[],
+): string[] => {
+  let cursor = 0;
+  let count = 1;
+  if (form === "instantiation") {
+    if (blob[0] !== 0x0a)
+      malformedSignature("MethodSpec instantiation is not GENERICINST", 0);
+    const header = readCompressed(blob, 1);
+    if (header.value === 0)
+      malformedSignature("MethodSpec instantiation has no type arguments", 1);
+    count = header.value;
+    cursor = header.next;
+  }
+  const types: string[] = [];
+  // Each Type consumes at least one byte, so a false count fails on truncation.
+  for (let index = 0; index < count; index += 1) {
+    const type = readTypeSignature(blob, cursor, "type", {
+      layout,
+      ...(operands === undefined ? {} : { operands }),
+    });
+    types.push(type.value);
+    cursor = type.next;
+  }
+  if (cursor !== blob.length)
+    malformedSignature("Trailing signature data", cursor);
+  return types;
+};
+
+/** Blob decoding failures that leave a value unresolved rather than failing inspection. */
+const UNRESOLVED_BLOB_CODES: ReadonlySet<string> = new Set([
+  "invalid-blob",
+  "invalid-row",
+  "unsupported-signature",
+]);
+
+/**
+ * The resolved digest of a TypeSpec blob or a MethodSpec instantiation, as
+ * `resolved_sha256` is for a member signature: the blob with each type
+ * operand replaced by its type's name digest. Null when the blob does not
+ * decode or names a type REA could not name, such as a nested TypeSpec. The
+ * rendering is bounded inside the caller's live transient admission, which
+ * this never ends.
+ */
+export const resolvedSpecSha256 = (
+  layout: ManagedMetadataLayout,
+  blob: Buffer,
+  form: "type" | "instantiation",
+  typeName: SignatureTypeName,
+): string | null => {
+  const operands: TypeOperand[] = [];
+  try {
+    managedDecodeBudget(layout).admitNestedTransient(
+      blob.length * 256,
+      layout.blob.offset,
+      () => decodeSpecTypes(layout, blob, form, operands),
+    );
+  } catch (cause: unknown) {
+    if (
+      cause instanceof ManagedReaderFailure &&
+      UNRESOLVED_BLOB_CODES.has(cause.issue.code)
+    )
+      return null;
+    throw cause;
+  }
+  return resolvedSha256(blob, operands, typeName);
+};
+
+/**
+ * The resolved digest of a member, field, or stand-alone method signature,
+ * bounded like `resolvedSpecSha256`; null when it does not decode or names a
+ * type REA could not name.
+ */
+export const resolvedSignatureSha256 = (
+  layout: ManagedMetadataLayout,
+  blob: Buffer,
+  typeName: SignatureTypeName,
+): string | null =>
+  managedDecodeBudget(layout).admitNestedTransient(
+    blob.length * 256,
+    layout.blob.offset,
+    () => {
+      const operands: TypeOperand[] = [];
+      return decodeSignature(blob, operands).kind === "unknown"
+        ? null
+        : resolvedSha256(blob, operands, typeName);
+    },
+  );
+
+/**
  * Decode a whole TypeSpec blob, or a MethodSpec instantiation (GENERICINST,
  * argument count, Types), with the member-signature grammar and return the
  * rendered types. A malformed or unsupported blob throws invalid-blob or
@@ -694,27 +791,7 @@ export const specSignature = (
   // Rendering is transient, so charge it as member signatures are charged.
   budget.admitTransient(blob.length * 256, owner.offset);
   try {
-    let cursor = 0;
-    let count = 1;
-    if (owner.form === "instantiation") {
-      if (blob[0] !== 0x0a)
-        malformedSignature("MethodSpec instantiation is not GENERICINST", 0);
-      const header = readCompressed(blob, 1);
-      if (header.value === 0)
-        malformedSignature("MethodSpec instantiation has no type arguments", 1);
-      count = header.value;
-      cursor = header.next;
-    }
-    const types: string[] = [];
-    // Each Type consumes at least one byte, so a false count fails on truncation.
-    for (let index = 0; index < count; index += 1) {
-      const type = readTypeSignature(blob, cursor, "type", { layout });
-      types.push(type.value);
-      cursor = type.next;
-    }
-    if (cursor !== blob.length)
-      malformedSignature("Trailing signature data", cursor);
-    return types;
+    return decodeSpecTypes(layout, blob, owner.form);
   } catch (cause: unknown) {
     if (
       !(cause instanceof ManagedReaderFailure) ||

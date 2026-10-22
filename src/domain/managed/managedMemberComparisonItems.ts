@@ -1,5 +1,3 @@
-import canonicalize from "canonicalize";
-
 import { digestCanonicalValue } from "../canonicalDigest.js";
 import type { ManagedMemberInspection } from "./managedArtifact.js";
 import type { ManagedMemberComparisonResult } from "./managedMemberComparison.js";
@@ -7,6 +5,7 @@ import type {
   ManagedFieldMatches,
   ManagedMethodMatches,
 } from "./managedMemberComparisonMatch.js";
+import { methodDimensions } from "./managedMemberComparisonDimensions.js";
 import { signatureIdentity } from "./managedMemberSignatureIdentity.js";
 
 type Method = ManagedMemberInspection["methods"][number];
@@ -32,6 +31,8 @@ interface ComparisonItemContext {
   readonly rightSelection: ReadonlySet<string> | null;
   /** Whether matching keyed signatures by resolved digests, not raw bytes. */
   readonly signatureResolutionExamined: boolean;
+  /** Whether both sides named CIL operands, so bodies compare nominally. */
+  readonly cilOperandsNamed: boolean;
 }
 
 /** Whether an inventory observed every member of this member's declaring type. */
@@ -57,85 +58,6 @@ interface UndecodedOneSidedNames {
     Record<"left" | "right", ReadonlySet<string>>
   >;
 }
-
-const methodDimensions = (
-  left: Method,
-  right: Method,
-): {
-  readonly dimensions: MethodItem["dimensions"];
-  readonly bodyUnknown: boolean;
-} => {
-  const dimensions: MethodItem["dimensions"] = [];
-  const headerFields = ["max_stack", "init_locals"] as const;
-  const headerChanged = headerFields.some(
-    (field) =>
-      left.body[field] !== null &&
-      right.body[field] !== null &&
-      left.body[field] !== right.body[field],
-  );
-  if (
-    left.flags !== right.flags ||
-    left.impl_flags !== right.impl_flags ||
-    headerChanged
-  )
-    dimensions.push("metadata");
-  if (signatureIdentity(left.signature) !== signatureIdentity(right.signature))
-    dimensions.push("signature");
-  const leftBodyComplete =
-    left.body.status === "present" && left.body.truncated_instructions === 0;
-  const rightBodyComplete =
-    right.body.status === "present" && right.body.truncated_instructions === 0;
-  const bothAbsent =
-    left.body.status === "absent" && right.body.status === "absent";
-  if (
-    (left.body.status === "absent" && rightBodyComplete) ||
-    (right.body.status === "absent" && leftBodyComplete)
-  )
-    dimensions.push("availability");
-  if (bothAbsent) return { dimensions, bodyUnknown: false };
-  if (!leftBodyComplete || !rightBodyComplete)
-    return { dimensions, bodyUnknown: true };
-  // The decoded fingerprint omits switch targets and is not exact CIL identity.
-  if (
-    left.body.il_sha256 !== right.body.il_sha256 ||
-    left.body.normalized_il_sha256 !== right.body.normalized_il_sha256
-  )
-    dimensions.push("cil");
-  if (
-    canonicalize(left.body.opcode_counts) !==
-    canonicalize(right.body.opcode_counts)
-  )
-    dimensions.push("opcode-shape");
-  if (callShape(left.body.anchors) !== callShape(right.body.anchors))
-    dimensions.push("call-shape");
-  if (fieldShape(left.body.anchors) !== fieldShape(right.body.anchors))
-    dimensions.push("field-shape");
-  if (
-    canonicalize(left.body.exception_regions) !==
-    canonicalize(right.body.exception_regions)
-  )
-    dimensions.push("exception-shape");
-  return {
-    dimensions,
-    bodyUnknown: headerFields.some(
-      (field) => left.body[field] === null || right.body[field] === null,
-    ),
-  };
-};
-
-const callShape = (anchors: Method["body"]["anchors"]): string =>
-  JSON.stringify(
-    anchors
-      .filter(({ operand_kind }) => operand_kind === "method")
-      .map(({ opcode, operand_kind }) => [opcode, operand_kind]),
-  );
-
-const fieldShape = (anchors: Method["body"]["anchors"]): string =>
-  JSON.stringify(
-    anchors
-      .filter(({ operand_kind }) => operand_kind === "field")
-      .map(({ opcode, operand_kind }) => [opcode, operand_kind]),
-  );
 
 const methodIdentity = (item: Method): NonNullable<MethodItem["left"]> => ({
   token: item.token,
@@ -428,6 +350,22 @@ const ambiguityLimitation = (
           ? "Multiple managed methods share the same structural shape; REA did not guess a token remap."
           : "Multiple managed fields share the same signature; REA did not guess a token remap.";
 
+const unknownBodyLimitations = ({
+  operandsUnknown,
+  bodyUnknown,
+}: ReturnType<typeof methodDimensions>): string[] => [
+  ...(operandsUnknown
+    ? [
+        "cil-operand-not-resolved: At least one CIL or exception-clause token operand names metadata REA could not resolve, so build-local token bytes neither establish nor rule out a CIL change.",
+      ]
+    : []),
+  ...(bodyUnknown
+    ? [
+        "Method body facets are unknown because at least one side has unavailable or partial body data.",
+      ]
+    : []),
+];
+
 export const buildMethodItems = (
   matches: ManagedMethodMatches,
   context: ComparisonItemContext,
@@ -439,14 +377,16 @@ export const buildMethodItems = (
       pair.right.item,
       context.signatureResolutionExamined,
     );
-    const { dimensions: observedDimensions, bodyUnknown } = methodDimensions(
+    const facets = methodDimensions(
       pair.left.item,
       pair.right.item,
+      context.cilOperandsNamed,
     );
-    const dimensions = bodyUnknown
-      ? [...observedDimensions, "body-coverage" as const]
-      : observedDimensions;
-    const observedChange = observedDimensions.length > 0;
+    // Each limitation names a facet REA could not decide.
+    const limitations = [
+      ...signatureLimitations,
+      ...unknownBodyLimitations(facets),
+    ];
     items.push({
       item_id: `mmc_method_${digestCanonicalValue(
         {
@@ -456,11 +396,12 @@ export const buildMethodItems = (
         },
         "Managed comparison",
       )}`,
-      status: observedChange
-        ? "changed"
-        : bodyUnknown || signatureLimitations.length > 0
-          ? "unknown"
-          : "unchanged",
+      status:
+        facets.dimensions.length > 0
+          ? "changed"
+          : limitations.length > 0
+            ? "unknown"
+            : "unchanged",
       left: methodIdentity(pair.left.item),
       right: methodIdentity(pair.right.item),
       match: {
@@ -470,16 +411,11 @@ export const buildMethodItems = (
         candidate_left_tokens: [],
         candidate_right_tokens: [],
       },
-      dimensions,
+      dimensions: facets.bodyUnknown
+        ? [...facets.dimensions, "body-coverage"]
+        : facets.dimensions,
       evidence_links: [context.leftEvidenceId, context.rightEvidenceId],
-      limitations: [
-        ...signatureLimitations,
-        ...(bodyUnknown
-          ? [
-              "Method body facets are unknown because at least one side has unavailable or partial body data.",
-            ]
-          : []),
-      ],
+      limitations,
     });
   }
   for (const ambiguous of matches.ambiguous) {

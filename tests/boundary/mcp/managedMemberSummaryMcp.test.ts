@@ -6,7 +6,10 @@ import { composeBinarySession } from "../../../src/application/binary/BinarySess
 import { AnalysisProviderRegistry } from "../../../src/application/binary/AnalysisProviderRegistry.js";
 import { inspectAnalysisView } from "../../../src/application/analysisView/AnalysisViewService.js";
 import { ManagedStaticProvider } from "../../../src/dotnet/ManagedStaticProvider.js";
-import { buildManagedPeFixture } from "../../../src/dotnet/ManagedPe.fixture.js";
+import {
+  buildManagedPeFixture,
+  buildNativePeFixture,
+} from "../../../src/dotnet/ManagedPe.fixture.js";
 import { createEvidence, parseEvidence } from "../../../src/domain/evidence.js";
 import {
   analysisViewResultSchema,
@@ -202,6 +205,7 @@ it("keeps collections that historical member Evidence never examined unknown", a
     user_strings: _strings,
     selection: _selection,
     signature_resolution: _resolution,
+    cil_operand_resolution: _operands,
     ...recorded
   } = managedMemberInspectionSchema.parse(parent.normalized_result);
   const historical = createEvidence(undefined, parent.provider, {
@@ -221,6 +225,7 @@ it("keeps collections that historical member Evidence never examined unknown", a
   );
   expect(view.summary.reported_counts.exported_types).toBeNull();
   expect(view.summary.signature_resolution).toBeNull();
+  expect(view.summary.cil_operand_resolution).toBeNull();
   expect(view.summary.reported_counts.user_strings).toBeNull();
   expect(view.summary.user_strings).toBeNull();
   expect(view.summary.selection).toBeNull();
@@ -238,4 +243,41 @@ it("keeps collections that historical member Evidence never examined unknown", a
       view: { kind: "managed", collection: "attributes", offset: 0, limit: 1 },
     }),
   ).toMatchObject({ ok: false, error: { _tag: "AnalysisInputError" } });
+}, 30000);
+
+it("names an unavailable parent rather than asking for a newer runtime", async () => {
+  const directory = await createTestTempDirectory("rea-member-unavailable-");
+  const path = join(directory, "native.dll");
+  await writeFile(path, buildNativePeFixture());
+  const { client } = await createHarness();
+  const parent = parseEvidence(
+    (
+      await client.callTool({
+        name: "inspect_managed_members",
+        arguments: { path },
+      })
+    ).structuredContent,
+  );
+  expect(
+    managedMemberInspectionSchema.parse(parent.normalized_result).coverage
+      .state,
+  ).toBe("unavailable");
+
+  for (const collection of ["exported_types", "user_strings"] as const)
+    expect(
+      inspectAnalysisView({
+        source: { kind: "inline", evidence: parent },
+        view: { kind: "managed-members", collection, offset: 0, limit: 1 },
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: {
+        _tag: "AnalysisInputError",
+        issues: [
+          {
+            message: `The parent member inspection is unavailable, so it did not examine ${collection}; its coverage issues and limitations give the reason.`,
+          },
+        ],
+      },
+    });
 }, 30000);

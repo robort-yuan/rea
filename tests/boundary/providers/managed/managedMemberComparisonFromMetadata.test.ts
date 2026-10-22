@@ -10,8 +10,16 @@ import { managedMemberInspectionSchema } from "../../../../src/domain/managed/ma
 import { inspectManagedMembersBytes } from "../../../../src/dotnet/ManagedMemberInspector.js";
 import {
   buildManagedPeFixture,
+  fixtureUserStringHeap,
   managedPeFixtureTarget,
 } from "../../../../src/dotnet/ManagedPe.fixture.js";
+
+// The default body calls MemberRef row 1; this one calls MethodDef row 1
+// instead, a different member that exists in every build, so its CIL names
+// another target with the same opcodes and operand kinds.
+const changedIl = Buffer.from([
+  0x32, 0x02, 0x7b, 0x01, 0x00, 0x00, 0x04, 0x28, 0x01, 0x00, 0x00, 0x06, 0x2a,
+]);
 
 describe("managed operand-free instruction structural matching", () => {
   it("preserves operand-free opcode order when remapping renamed methods", () => {
@@ -49,15 +57,18 @@ describe("managed operand-free instruction structural matching", () => {
       false,
       "/tmp/implicit-order-left.dll",
     );
+    // The renamed method loads MemberRef row 1, another member that exists in
+    // every build; a missing row would leave its operand unresolved and the
+    // comparison unknown.
     const sameOrder = observe(
       "NewMethod",
-      0x04000002,
+      0x0a000001,
       false,
       "/tmp/implicit-order-same.dll",
     );
     const swapped = observe(
       "NewMethod",
-      0x04000002,
+      0x0a000001,
       true,
       "/tmp/implicit-order-swapped.dll",
     );
@@ -258,12 +269,7 @@ describe("managed member comparison", () => {
 
   it("compares changed CIL after pairing by exact signature", () => {
     const leftBytes = buildManagedPeFixture();
-    const rightBytes = buildManagedPeFixture({
-      ilBody: Buffer.from([
-        0x32, 0x02, 0x7b, 0x02, 0x00, 0x00, 0x04, 0x28, 0x02, 0x00, 0x00, 0x0a,
-        0x2a,
-      ]),
-    });
+    const rightBytes = buildManagedPeFixture({ ilBody: changedIl });
     const left = inspect(leftBytes, "/tmp/left.dll");
     const right = inspect(rightBytes, "/tmp/right.dll");
     const result = compareManagedMembers(
@@ -906,12 +912,7 @@ describe("managed member comparison of one signature in several types", () => {
       const left = inspect(buildManagedPeFixture(), "/tmp/own-before.dll");
       const changed = withTwin(
         inspect(
-          buildManagedPeFixture({
-            ilBody: Buffer.from([
-              0x32, 0x02, 0x7b, 0x02, 0x00, 0x00, 0x04, 0x28, 0x02, 0x00, 0x00,
-              0x0a, 0x2a,
-            ]),
-          }),
+          buildManagedPeFixture({ ilBody: changedIl }),
           "/tmp/own-after.dll",
         ),
         left,
@@ -1811,9 +1812,6 @@ const methodSignature = (types: typeof leftTypes) =>
     0x12,
     types.program,
   ]);
-const changedIl = Buffer.from([
-  0x32, 0x02, 0x7b, 0x02, 0x00, 0x00, 0x04, 0x28, 0x02, 0x00, 0x00, 0x0a, 0x2a,
-]);
 
 const compareBuilds = (
   left: Parameters<typeof buildManagedPeFixture>[0],
@@ -1928,6 +1926,214 @@ describe("managed member comparison across builds", () => {
     expect(result.fields.map(({ status }) => status).sort()).toEqual([
       "added",
       "removed",
+    ]);
+  });
+});
+
+// List`1 is TypeRef row 2 on the left and row 3 on the right; TypeRef row 1
+// is another type in both builds.
+const leftList = 0x0100_0002;
+const rightList = 0x0100_0003;
+const otherType = 0x0100_0001;
+
+// try { nop } catch (<type>) { pop } with one handler per type, then ret
+const catching = (...types: readonly number[]): Buffer => {
+  const end = 3 * (types.length + 1);
+  const il = Buffer.from([
+    0x00,
+    0xde,
+    end - 3,
+    ...types.flatMap((_type, index) => [0x26, 0xde, end - 6 - 3 * index]),
+    0x2a,
+  ]);
+  const header = Buffer.alloc(12);
+  header.writeUInt16LE(0x300b, 0);
+  header.writeUInt16LE(8, 2);
+  header.writeUInt32LE(il.length, 4);
+  // A small EH section: a 4-byte header, then 12 bytes per clause.
+  const section = Buffer.alloc(4 + 12 * types.length);
+  section[0] = 0x01;
+  section[1] = section.length;
+  types.forEach((type, index) => {
+    const clause = 4 + 12 * index;
+    section[clause + 4] = 3;
+    section.writeUInt16LE(3 * (index + 1), clause + 5);
+    section[clause + 7] = 3;
+    section.writeUInt32LE(type, clause + 8);
+  });
+  const padding = Buffer.alloc((4 - ((header.length + il.length) % 4)) % 4);
+  return Buffer.concat([header, il, padding, section]);
+};
+
+describe("managed member comparison of CIL operands across builds", () => {
+  // List`1 is TypeRef row 2 on the left and row 3 on the right. TypeRef row 1
+  // names another type in both builds.
+  // The right build's earlier literal moves the same text to a later offset.
+  const leftStrings = fixtureUserStringHeap(["quicksave"]);
+  const rightStrings = fixtureUserStringHeap(["autosave", "quicksave"]);
+  const [leftLiteral] = leftStrings.tokens as [string];
+  const [rightOther, rightLiteral] = rightStrings.tokens as [string, string];
+
+  const tokenBytes = (token: number): number[] => {
+    const bytes = Buffer.alloc(4);
+    bytes.writeUInt32LE(token);
+    return [...bytes];
+  };
+  // ldnull; castclass <type>; pop; ldstr <literal>; pop; ret
+  const castAndLoad = (type: number, literal: string): Buffer => {
+    const il = [
+      0x14,
+      0x74,
+      ...tokenBytes(type),
+      0x26,
+      0x72,
+      ...tokenBytes(Number.parseInt(literal, 16)),
+      0x26,
+      0x2a,
+    ];
+    return Buffer.from([(il.length << 2) | 2, ...il]);
+  };
+  const left = {
+    ...leftBuild,
+    userStringHeap: leftStrings.heap,
+    ilBody: castAndLoad(leftList, leftLiteral),
+  };
+  const right = (ilBody: Buffer) => ({
+    ...rightBuild,
+    userStringHeap: rightStrings.heap,
+    ilBody,
+  });
+
+  it("keeps a body unchanged when only its operands' metadata rows moved", () => {
+    const result = compareBuilds(
+      left,
+      right(castAndLoad(rightList, rightLiteral)),
+    );
+
+    expect(result.methods).toEqual([
+      expect.objectContaining({
+        status: "unchanged",
+        dimensions: [],
+        limitations: [],
+        match: expect.objectContaining({ basis: "exact-signature" }),
+      }),
+    ]);
+    expect(result.limitations).toContainEqual(
+      expect.stringMatching(
+        /^Where CIL bytes differ, token operands compare by nominal identity/u,
+      ),
+    );
+  });
+
+  it.each([
+    ["another type", castAndLoad(otherType, rightLiteral)],
+    ["another literal", castAndLoad(rightList, rightOther)],
+  ])("reports a body that names %s as changed CIL", (_case, ilBody) => {
+    expect(compareBuilds(left, right(ilBody)).methods).toEqual([
+      expect.objectContaining({ status: "changed", dimensions: ["cil"] }),
+    ]);
+  });
+
+  it("leaves a body unknown when an operand names no metadata row", () => {
+    // The right build has no TypeRef row 9.
+    const result = compareBuilds(
+      left,
+      right(castAndLoad(0x0100_0009, rightLiteral)),
+    );
+
+    expect(result.methods).toEqual([
+      expect.objectContaining({
+        status: "unknown",
+        dimensions: [],
+        limitations: [expect.stringMatching(/^cil-operand-not-resolved: /u)],
+      }),
+    ]);
+  });
+
+  it("compares build-local tokens when an observation predates operand resolution", () => {
+    const leftObserved = inspect(
+      buildManagedPeFixture(left),
+      "/tmp/left-historical.dll",
+    );
+    const rightObserved = inspect(
+      buildManagedPeFixture(right(castAndLoad(rightList, rightLiteral))),
+      "/tmp/right-current.dll",
+    );
+    const { cil_operand_resolution: _unattested, ...historical } =
+      leftObserved.result;
+    const result = compareManagedMembers(
+      {
+        evidenceId: leftObserved.evidenceId,
+        result: managedMemberInspectionSchema.parse(historical),
+      },
+      rightObserved,
+    );
+
+    // Without the attestation the nominal digests are not used.
+    expect(result.methods).toEqual([
+      expect.objectContaining({ status: "changed", dimensions: ["cil"] }),
+    ]);
+    expect(result.limitations).toContain(
+      "At least one managed member observation predates CIL operand resolution, so CIL bodies and exception classes compare only by build-local metadata tokens; a token renumbered between builds reads as a cil or exception-shape change.",
+    );
+    expect(result.limitations).toContain(
+      "ldstr literals are not compared; normalized CIL keeps #US tokens rather than decoded text, so an unchanged method does not establish unchanged string literals.",
+    );
+  });
+});
+
+describe("managed member comparison of catch classes across builds", () => {
+  it("keeps a renumbered catch class unchanged and reports another class", () => {
+    const leftCatch = { ...leftBuild, ilBody: catching(leftList) };
+
+    expect(
+      compareBuilds(leftCatch, { ...rightBuild, ilBody: catching(rightList) })
+        .methods,
+    ).toEqual([
+      expect.objectContaining({ status: "unchanged", dimensions: [] }),
+    ]);
+    expect(
+      compareBuilds(leftCatch, { ...rightBuild, ilBody: catching(otherType) })
+        .methods,
+    ).toEqual([
+      expect.objectContaining({
+        status: "changed",
+        dimensions: ["exception-shape"],
+      }),
+    ]);
+  });
+
+  it("keeps a known catch class change beside a class REA could not name", () => {
+    // Neither build has TypeRef row 9, so the first clause's class has no
+    // identity, and the second clause's class decides.
+    const leftCatch = {
+      ...leftBuild,
+      ilBody: catching(0x0100_0009, leftList),
+    };
+
+    expect(
+      compareBuilds(leftCatch, {
+        ...rightBuild,
+        ilBody: catching(0x0100_0009, otherType),
+      }).methods,
+    ).toEqual([
+      expect.objectContaining({
+        status: "changed",
+        dimensions: ["exception-shape"],
+        limitations: [],
+      }),
+    ]);
+    expect(
+      compareBuilds(leftCatch, {
+        ...rightBuild,
+        ilBody: catching(0x0100_0009, rightList),
+      }).methods,
+    ).toEqual([
+      expect.objectContaining({
+        status: "unknown",
+        dimensions: [],
+        limitations: [expect.stringMatching(/^cil-operand-not-resolved: /u)],
+      }),
     ]);
   });
 });

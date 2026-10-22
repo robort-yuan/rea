@@ -50,6 +50,26 @@ export class ManagedDecodeBudget {
     this.#transient = 0;
   }
 
+  /**
+   * Bound a decoding allocation for the duration of `decode` while an
+   * enclosing item's transient admission stays live, so a lookup made in the
+   * middle of decoding that item does not end it. `decode` must not call
+   * `releaseTransient`.
+   */
+  admitNestedTransient<Value>(
+    bytes: number,
+    offset: number | null,
+    decode: () => Value,
+  ): Value {
+    this.#admit(bytes, offset);
+    this.#transient += bytes;
+    try {
+      return decode();
+    } finally {
+      this.#transient = Math.max(0, this.#transient - bytes);
+    }
+  }
+
   #admit(bytes: number, offset: number | null): void {
     if (
       !Number.isSafeInteger(bytes) ||

@@ -65,6 +65,7 @@ const nullableCount = z.int().nonnegative().nullable();
 /** Keep identity, selection and coverage; member collections remain retained. */
 export const managedMemberSummarySchema = z.strictObject({
   signature_resolution: member.signature_resolution,
+  cil_operand_resolution: member.cil_operand_resolution,
   nesting_read: member.nesting_read,
   artifact: member.artifact,
   module: member.module,
@@ -93,6 +94,7 @@ export const managedMemberSummarySchema = z.strictObject({
 
 export const managedMembersViewContextSchema = z.strictObject({
   signature_resolution: member.signature_resolution,
+  cil_operand_resolution: member.cil_operand_resolution,
   nesting_read: member.nesting_read,
   identity_scope: member.identity_scope,
   selection: member.selection.unwrap(),
@@ -263,7 +265,12 @@ export const projectManagedMemberView = (
         {
           path: ["view", "collection"],
           reason: "invalid_value",
-          message: `The parent Evidence did not examine ${view.collection}; repeat inspect_managed_members with the current runtime to record it.`,
+          // An unavailable inspection examined nothing; a newer runtime would
+          // not record the collection, so name the cause it does record.
+          message:
+            report.coverage.state === "unavailable"
+              ? `The parent member inspection is unavailable, so it did not examine ${view.collection}; its coverage issues and limitations give the reason.`
+              : `The parent Evidence did not examine ${view.collection}; repeat inspect_managed_members with the current runtime to record it.`,
         },
       ]),
     );
@@ -274,6 +281,7 @@ export const projectManagedMemberView = (
     page,
     ...shared,
     signature_resolution: report.signature_resolution,
+    cil_operand_resolution: report.cil_operand_resolution,
     nesting_read: report.nesting_read,
     identity_scope: report.identity_scope,
     selection: report.selection,

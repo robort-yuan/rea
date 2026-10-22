@@ -132,10 +132,12 @@ const withCilDigests =
         ? method
         : {
             ...method,
+            // Distinct bodies differ in their bytes and in what they name.
             body: {
               ...method.body,
               il_sha256: digest,
               normalized_il_sha256: digest,
+              nominal_il_sha256: digest,
             },
           };
     }),
@@ -556,6 +558,52 @@ describe("managed member comparison path workflow", () => {
       managedMemberComparisonResultSchema.parse(result.value.normalized_result)
         .matching.exact_il_signature,
     ).toBe(1);
+  });
+
+  it("names an unavailable side's reason rather than an empty difference", async () => {
+    const directory = await createTestTempDirectory("rea-managed-unavailable-");
+    const leftPath = join(directory, "oversized.dll");
+    const rightPath = join(directory, "right.dll");
+    // Dense one-byte CIL exceeds the representation budget, so this side's
+    // member inspection is unavailable rather than partial.
+    const il = Buffer.alloc(270_001);
+    il[il.length - 1] = 0x2a;
+    const header = Buffer.alloc(12);
+    header.writeUInt16LE(0x3003, 0);
+    header.writeUInt16LE(8, 2);
+    header.writeUInt32LE(il.length, 4);
+    await writeFile(
+      leftPath,
+      buildManagedPeFixture({ ilBody: Buffer.concat([header, il]) }),
+    );
+    await writeFile(rightPath, buildManagedPeFixture());
+
+    const result = await compareManagedMemberPaths({ leftPath, rightPath });
+
+    if (!result.ok) throw result.error;
+    const comparison = managedMemberComparisonResultSchema.parse(
+      result.value.normalized_result,
+    );
+    expect(comparison.coverage).toEqual({
+      status: "partial",
+      left_status: "unavailable",
+      right_status: "complete",
+    });
+    expect(comparison.methods.map(({ status }) => status)).toEqual(["unknown"]);
+    expect(comparison.limitations).toContainEqual(
+      expect.stringMatching(
+        /^The left managed member observation is unavailable, so none of its members were compared: resource-limit at metadata\.representation: .*representation budget/u,
+      ),
+    );
+    // Neither a partial inventory nor historical Evidence was compared.
+    expect(comparison.limitations).not.toContain(
+      "At least one managed member observation is partial.",
+    );
+    expect(
+      comparison.limitations.some((limitation) =>
+        limitation.includes("predates ExportedType inspection"),
+      ),
+    ).toBe(false);
   });
 
   it("reports an unopenable path with the path that failed", async () => {

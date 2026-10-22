@@ -178,6 +178,13 @@ const managedExceptionRegionSchema = z.object({
   handler_offset: z.int().min(0),
   handler_length: z.int().min(0),
   class_token: managedMetadataTokenSchema.nullable(),
+  // Evidence recorded before this field existed reads back as null.
+  class_identity_sha256: digestSchema
+    .nullable()
+    .default(null)
+    .describe(
+      "Nominal identity of class_token, independent of build-local rows: the same framed identity nominal_il_sha256 substitutes for a type operand. Null for an untyped clause, when REA could not resolve the class, or for historical Evidence.",
+    ),
   filter_offset: z.int().min(0).nullable(),
 });
 
@@ -219,6 +226,13 @@ const managedMethodBodySchema = z.object({
     .nullable()
     .describe(
       "Member-result-v1 SHA-256 of UTF-8 JSON [opcode, operand_kind, operand] tuples for a complete decode; retains build-local tokens, omits switch targets, and excludes headers, locals, and exception regions",
+    ),
+  // Evidence recorded before this field existed reads back as null.
+  nominal_il_sha256: digestSchema
+    .nullable()
+    .default(null)
+    .describe(
+      "SHA-256 of the raw il_size CIL bytes with each 4-byte metadata token operand replaced by its framed nominal identity, so it does not depend on build-local rows: types by namespace, name and enclosing names (not defining assembly), members by owner, name and resolved signature, literals by text. Branch and switch targets, constants, and variable indexes stay exact. Null unless every instruction decoded and every token operand resolved, or for historical Evidence.",
     ),
   instruction_count: z.int().min(0),
   decoded_instruction_count: z.int().min(0),
@@ -475,6 +489,13 @@ export const managedMemberInspectionSchema = z.object({
     .default(null)
     .describe(
       "Signature type-name resolution was examined, including unresolved operands; null means historical Evidence without this attestation.",
+    ),
+  cil_operand_resolution: z
+    .literal("nominal-v1")
+    .nullable()
+    .default(null)
+    .describe(
+      "CIL and exception-clause token operands were resolved to nominal identities, including bodies whose operands could not all be resolved; null means historical Evidence without nominal_il_sha256 or class_identity_sha256.",
     ),
   artifact: managedArtifactReferenceSchema,
   module: moduleIdentitySchema.nullable(),

@@ -184,7 +184,10 @@ The static provider admits regular input files up to 128 MiB before retaining
 their bytes. Reads remain bounded if a file grows after admission. Metadata,
 CIL decoding, and projected inspection records have a separate conservative
 64 MiB representation budget; shared heap strings are cached, but repeated
-output occurrences still consume that budget. These are inspection resource
+output occurrences still consume that budget. Nominal CIL operand identities
+charge every byte they hash, including each distinct token's literal, member
+name, and blob, so overlapping heap items and shared long names stay within
+that budget. These are inspection resource
 policies, not PE format limits or a hard bound on total V8 heap use.
 
 Path-based member comparison uses the same per-input snapshot policy and
@@ -358,14 +361,39 @@ can reference different TypeSpec contents. Its resolution limitation is retained
 even when another dimension changes.
 
 For a matched method, an unavailable or partial body makes body-shape facets
-unknown while preserving observed signature differences. For complete bodies,
-a difference in either the raw CIL digest or the decoded fingerprint is reported
-in the `cil` dimension, including reordered switch targets with equal decoded
-fingerprints. Structural identity compares resolved signatures, the limited
-decoded-CIL tuple fingerprint,
+unknown while preserving observed signature differences. Complete bodies with
+equal raw CIL digests and decoded fingerprints report no `cil` change, as an
+exact CIL/signature match does, even when the members their tokens name were
+renamed. Where the bytes differ and both observations attest
+`cil_operand_resolution: "nominal-v1"`, the
+[nominal CIL digest](#decoded-cil-fingerprint) decides: bytes that differ only
+in renumbered metadata rows are not a change, and any other difference,
+including reordered switch targets or a token that now names another type,
+member, or literal, is reported in the `cil` dimension. A body with an operand
+REA could not name has no nominal digest, so its CIL facet is `unknown`, with a
+`cil-operand-not-resolved` limitation, unless another dimension establishes a
+change. Typed exception clauses compare their classes the same way through
+`class_identity_sha256` in the `exception-shape` dimension, clause by clause:
+a class difference REA can name is reported even when another clause's class
+could not be named. Nominal identity
+follows the signature rule: a type is its namespace, name, and enclosing names,
+not its defining assembly, so a TypeDef and a TypeRef with the same name are one
+type, and a member is its owner, name, and resolved signature, so a method
+definition and a member reference to the same member are one operand. When
+either observation predates the attestation, both sides compare raw digests and
+class tokens, so a token renumbered between builds reads as a change, and the
+comparison reports that limitation. Structural identity compares resolved
+signatures, the limited decoded-CIL tuple fingerprint,
 constants, and bounded shape context. It reports all candidates at the winning
 score and remains ambiguous when the evidence does not distinguish them. The
 digest does not itself remap metadata tokens.
+
+A side whose member inspection is unavailable, for example because it reached
+the representation budget, contributes no members. The comparison names that
+side and its coverage issues in its limitations rather than reporting an empty
+difference. To compare such assemblies, inspect the same declaring types on both
+sides with `inspect_managed_members` `type_names` and compare those Evidence
+records; the path-based CLI command inspects whole assemblies.
 
 Tokens are always remapped through observed structure. A caller cannot carry
 `0x06001234` into a new MVID and assume it names the same method.
@@ -503,13 +531,14 @@ build-local coordinates, not durable cross-build identities or native addresses.
 
 ## Decoded-CIL fingerprint
 
-`inspect_managed_members` exposes two method CIL hashes with different byte
+`inspect_managed_members` exposes three method CIL hashes with different byte
 boundaries:
 
-| Field                  | Input                                                                                                     | Excluded from the digest                                                                                                                                      |
-| ---------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `il_sha256`            | The exact `il_size` raw CIL bytes after the tiny or fat method header                                     | Method header, locals signature blob, alignment, and extra sections including exception clauses                                                               |
-| `normalized_il_sha256` | UTF-8 `JSON.stringify` output for the instruction-order array of `[opcode, operand_kind, operand]` tuples | Instruction offsets except projected scalar branch targets, switch targets, resolved metadata/string identities, method header, locals, and exception regions |
+| Field                  | Input                                                                                                              | Excluded from the digest                                                                                                                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `il_sha256`            | The exact `il_size` raw CIL bytes after the tiny or fat method header                                              | Method header, locals signature blob, alignment, and extra sections including exception clauses                                                               |
+| `normalized_il_sha256` | UTF-8 `JSON.stringify` output for the instruction-order array of `[opcode, operand_kind, operand]` tuples          | Instruction offsets except projected scalar branch targets, switch targets, resolved metadata/string identities, method header, locals, and exception regions |
+| `nominal_il_sha256`    | The exact `il_size` raw CIL bytes with each 4-byte metadata token operand replaced by its 32-byte nominal identity | Build-local token values, method header, locals signature blob, alignment, and extra sections including exception clauses                                     |
 
 The normalized field is available only when the entire CIL stream decodes with
 status `present`. A malformed or absent body reports `null`. The tuple format
@@ -537,6 +566,43 @@ For example, a decoded `nop; ret` body serializes exactly as
 `5e5fad7741cb44bca3a4f045546b7449990da343f612f5f34c0ca30e9eee0636`.
 This vector specifies the tuple order, `null` handling, absence of whitespace,
 UTF-8 encoding, and lowercase hexadecimal output.
+
+### Nominal CIL operands
+
+Current inspections record `cil_operand_resolution: "nominal-v1"`, including
+unavailable ones; historical Evidence reads back with `null` and with `null`
+nominal digests. `nominal_il_sha256` keeps every raw byte except token values,
+so branch and switch targets, prefixes, and exact constant bits stay as stored.
+An opcode fixes its operand's form, so the substituted stream parses into
+exactly one instruction sequence, and raw bytes cannot stand in for an
+identity. The digest is `null` unless the body decodes with status `present`
+and every token operand has an identity.
+
+Each identity is the SHA-256 of a kind tag, a NUL byte, and parts that each
+follow their 32-bit little-endian byte length:
+
+- TypeDef and TypeRef: `type` with the
+  [nominal type-name digest](#selected-member-inspection) signatures use, so
+  the defining assembly is not part of it;
+- TypeSpec: `typespec` with its blob's resolved digest; a TypeSpec that names
+  another TypeSpec has none;
+- field, method definition, and member reference: `member` with the owner's
+  identity (the declaring TypeDef, or the MemberRef parent: a type, TypeSpec,
+  `moduleref` name, or vararg method), the name, and the resolved signature
+  digest;
+- MethodSpec: `methodspec` with its method's identity and the resolved
+  instantiation digest;
+- StandAloneSig: `standalonesig` with its resolved signature digest;
+- user string: `string` with the item's UTF-16LE code units, without the
+  terminal flag.
+
+A row outside its table, an unreadable row, or a value the existing owners
+cannot name, such as an unsupported signature, has no identity, so the digest
+is `null`. Resolution adds no coverage issue of its own; a malformed TypeDef,
+TypeRef, or nesting row that the shared type-name owner reads while naming an
+operand is reported as it is for signatures. `class_identity_sha256` is the
+same identity for a typed exception clause's `class_token`. Neither field
+establishes CLR binding or runtime equivalence.
 
 ## Tool and packaging boundary
 

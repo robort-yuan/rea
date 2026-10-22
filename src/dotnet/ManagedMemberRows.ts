@@ -29,6 +29,7 @@ import {
   readMetadataString,
 } from "./ManagedMetadataHeaps.js";
 import { readManagedValue } from "./ManagedReaderFailure.js";
+import type { CilOperandIdentity } from "./ManagedCilOperandIdentity.js";
 import { methodBody } from "./ManagedMethodBodyReader.js";
 import { memberDeclaringTypeRowLookup } from "./ManagedMemberOwnership.js";
 import type { TypeMemberListFacts } from "./ManagedTypeMemberLists.js";
@@ -268,6 +269,7 @@ interface ParseMethodsInput {
   readonly ranges: readonly TypeRange[];
   readonly signatureTypeName: SignatureTypeName;
   readonly memberLists: TypeMemberListFacts;
+  readonly operandIdentity: CilOperandIdentity;
   readonly selected?: SelectedTypeTokens;
   readonly methodOffset?: number;
   readonly methodLimit?: number;
@@ -280,6 +282,7 @@ export const parseMethods = ({
   ranges,
   signatureTypeName,
   memberLists,
+  operandIdentity,
   selected = null,
   methodOffset = 0,
   methodLimit = Number.MAX_SAFE_INTEGER,
@@ -357,7 +360,7 @@ export const parseMethods = ({
         pe,
         rva,
         { implFlags, flags },
-        managedDecodeBudget(layout),
+        { budget: managedDecodeBudget(layout), operandIdentity },
       );
       if (!read.scanned) unscannedMethods += 1;
       methods.push({

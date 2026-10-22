@@ -22,6 +22,7 @@ const emptyManagedMembers = (
   mvid: string,
 ): ManagedMemberInspection => ({
   signature_resolution: null,
+  cil_operand_resolution: null,
   artifact: {
     path: `/examples/${sha256.slice(0, 8)}.dll`,
     sha256,
@@ -112,6 +113,7 @@ const runtimeMembers = (): ManagedMemberInspection => {
           il_size: 1,
           il_sha256: "4".repeat(64),
           normalized_il_sha256: "5".repeat(64),
+          nominal_il_sha256: null,
           instruction_count: 1,
           decoded_instruction_count: 1,
           truncated_instructions: 0,

@@ -30,6 +30,25 @@ export const hasSignatureResolution = (
   result.signature_resolution !== null ||
   (result.methods.length === 0 && result.fields.length === 0);
 
+/**
+ * The producer attests CIL operand resolution independently of whether any
+ * operand resolved; an inventory without methods has no CIL to compare.
+ */
+export const hasCilOperandResolution = (
+  result: ManagedMemberInspection,
+): boolean =>
+  result.cil_operand_resolution !== null || result.methods.length === 0;
+
+/**
+ * Compare CIL bodies and exception classes by nominal operand identity only
+ * when both observations attest it; otherwise both keep build-local tokens,
+ * since a nominal digest never equals a raw one.
+ */
+export const cilOperandsComparable = (
+  left: ManagedMemberInspection,
+  right: ManagedMemberInspection,
+): boolean => hasCilOperandResolution(left) && hasCilOperandResolution(right);
+
 const withoutResolution = <Member extends Method | Field>(
   members: readonly Member[],
 ): Member[] =>
