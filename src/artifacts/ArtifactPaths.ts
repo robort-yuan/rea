@@ -68,6 +68,25 @@ export const normalizeArtifactPath = (input: string): string => {
   return normalized;
 };
 
+/**
+ * Name the original decoded spelling when Unicode NFC normalization changed a
+ * logical path. Inventory identity keeps the NFC form; the limitation preserves
+ * the source spelling that normalization replaced. Returns undefined when the
+ * spelling is already NFC (a trailing-slash trim is structural, not a spelling
+ * change, and is not reported here).
+ */
+export const unicodeNormalizationLimitation = (
+  original: string,
+  normalized: string,
+): string | undefined => {
+  if (original.normalize("NFC") === original) return undefined;
+  return (
+    `Archive member name ${JSON.stringify(original)} was Unicode-normalized ` +
+    `to NFC ${JSON.stringify(normalized)} for its logical path; the original ` +
+    `decoded spelling is preserved in this limitation.`
+  );
+};
+
 /** Reject exact and same-spelling prefix collisions. Case-distinct names stay distinct. */
 export class ArtifactPathRegistry {
   readonly #root: PathTrieNode = { kind: undefined, children: new Map() };

@@ -7,6 +7,7 @@ import {
   annotateEnglishUnicodeCaseCollisions,
   ENGLISH_UNICODE_CASE_INVENTORY_LIMITATION,
   normalizeArtifactPath,
+  unicodeNormalizationLimitation,
 } from "./ArtifactPaths.js";
 
 const NOTE =
@@ -180,3 +181,31 @@ it.each([["app.js"], ["app.js", "App.js"], ["other.js"]])(
     expect(destinationCaseCollision("res/app.js", names)).toBeUndefined();
   },
 );
+describe("Unicode NFC normalization", () => {
+  // "cafe" + combining acute U+0301 (NFD) versus precomposed U+00E9 (NFC),
+  // written as escapes so the source spelling cannot be silently normalized.
+  const NFD = "caf\u0065\u0301.txt"; // e + U+0301 (decomposed)
+  const NFC = "caf\u00e9.txt"; // U+00E9 (precomposed)
+
+  it("preserves the original decoded spelling when NFC changes it", () => {
+    expect(NFD).not.toBe(NFC);
+    expect(NFD.normalize("NFC")).toBe(NFC);
+    const limitation = unicodeNormalizationLimitation(NFD, NFC);
+    expect(limitation).toBeDefined();
+    expect(limitation).toContain(JSON.stringify(NFD));
+    expect(limitation).toContain(JSON.stringify(NFC));
+    // The raw NFD spelling is preserved verbatim, not re-normalized.
+    expect(limitation?.includes(NFD)).toBe(true);
+  });
+
+  it("reports nothing when the spelling is already NFC", () => {
+    expect(unicodeNormalizationLimitation(NFC, NFC)).toBeUndefined();
+    expect(
+      unicodeNormalizationLimitation("plain.txt", "plain.txt"),
+    ).toBeUndefined();
+  });
+
+  it("ignores a structural trailing-slash trim without a spelling change", () => {
+    expect(unicodeNormalizationLimitation("dir/", "dir")).toBeUndefined();
+  });
+});
