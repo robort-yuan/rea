@@ -1,5 +1,6 @@
 import { boundedViewMessages } from "./analysisViewCoverage.js";
 import { expect, it } from "vitest";
+import { ZodError } from "zod";
 
 import { functionDossierSchema } from "../hopperValues.js";
 import { ghidraFunctionDossier } from "../ghidraValues.fixture.js";
@@ -11,6 +12,8 @@ import {
   analysisViewJavaScriptAnalysisWithSource,
   analysisViewLayoutEvidence,
   analysisViewLayoutFixture,
+  analysisViewCaptureFixture,
+  analysisViewCaptureEvidence,
 } from "../../../tests/fixtures/analysisView.js";
 import {
   createJavaScriptApplicationGraph,
@@ -30,6 +33,7 @@ import { createArtifactInspection } from "../artifactInspection.js";
 import { javascriptModulePath } from "./javascriptApplicationView.js";
 import {
   inspectAnalysisViewInputSchema,
+  analysisViewRequestSchema,
   projectAnalysisView,
   type AnalysisViewParent,
 } from "./analysisView.js";
@@ -286,6 +290,56 @@ it("reports the malformed native dossier field", () => {
     },
   });
 });
+
+it.each([
+  { kind: "summary" },
+  { kind: "api-surface", offset: 0, limit: 64 },
+  { kind: "environment-manifest" },
+  { kind: "environment-state" },
+] as const)(
+  "preserves HAR parent field diagnostics and cause for $kind",
+  (request) => {
+    const view = analysisViewRequestSchema.parse(request);
+    const capture = analysisViewCaptureFixture();
+    const evidence = analysisViewCaptureEvidence(capture);
+    const parent: AnalysisViewParent = {
+      evidenceId: evidence.evidence_id,
+      operation: evidence.operation,
+      normalizedResult: evidence.normalized_result,
+      parameters: evidence.parameters,
+      subject: evidence.subject,
+      limitations: [],
+    };
+    const { bytes: _bytes, ...withoutBytes } = capture.artifact;
+    for (const [artifact, reason] of [
+      [{ ...capture.artifact, bytes: "not-a-byte-count" }, "invalid_type"],
+      [withoutBytes, "missing_argument"],
+    ] as const) {
+      expect(
+        projectAnalysisView(
+          { ...parent, normalizedResult: { ...capture, artifact } },
+          view,
+        ),
+      ).toMatchObject({
+        ok: false,
+        error: {
+          _tag: "AnalysisInputError",
+          issues: [
+            {
+              path: ["source", "normalized_result", "artifact", "bytes"],
+              reason,
+              expected: "number",
+            },
+          ],
+          cause: expect.any(ZodError),
+        },
+      });
+    }
+    const corrected = projectAnalysisView(parent, view);
+    if (!corrected.ok) throw corrected.error;
+    expect(corrected.value.kind).toBe(view.kind);
+  },
+);
 
 it("native pseudocode pages do not split surrogate pairs", () => {
   const original = functionDossierSchema.parse(ghidraFunctionDossier());

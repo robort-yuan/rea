@@ -15,7 +15,7 @@ import { parseMcpToolError } from "../../fixtures/mcpToolError.js";
 import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import { STDIO_DEFAULT_MAX_BUFFER_SIZE } from "@modelcontextprotocol/server";
 import { Ajv2020 } from "ajv/dist/2020.js";
-import { expect, it, onTestFinished } from "vitest";
+import { expect, it, onTestFinished, vi } from "vitest";
 import { z } from "zod";
 
 import { BinaryLayoutService } from "../../../src/application/binaryDiagnostics/BinaryLayoutService.js";
@@ -55,9 +55,10 @@ const connect = async (
   binaryLayout?: BinaryLayoutService,
   webNetworkCapture?: WebNetworkCaptureService,
 ) => {
-  const session = createTestBinarySession(() => {
+  const launchProvider = vi.fn(() => {
     throw new Error("selected views must not start a deep provider");
   });
+  const session = createTestBinarySession(launchProvider);
   const server = createServer(
     { kind: "session", session },
     {
@@ -77,7 +78,7 @@ const connect = async (
     InMemoryTransport.createLinkedPair();
   await server.connect(serverTransport);
   await client.connect(clientTransport);
-  return { client, session };
+  return { client, session, launchProvider };
 };
 
 it("preserves native relationship coverage through inline and retained MCP views", async () => {
@@ -640,6 +641,81 @@ it("rejects self-contained WASM and EVM Evidence views when the subject format d
     });
   }
 });
+
+it.each([
+  { kind: "api-surface", offset: 0, limit: 64 },
+  { kind: "environment-manifest" },
+  { kind: "environment-state" },
+] as const)(
+  "preserves malformed HAR parent diagnostics through MCP $kind",
+  async (view) => {
+    const { client, session, launchProvider } = await connect();
+    const capture = analysisViewCaptureFixture();
+    if (capture.artifact.sha256 === null)
+      throw new Error("Expected capture fixture digest");
+    const valid = analysisViewCaptureEvidence(capture);
+    const malformed = createEvidence(
+      {
+        path: capture.artifact.path,
+        sha256: capture.artifact.sha256,
+        format: "file",
+      },
+      valid.provider,
+      {
+        operation: valid.operation,
+        parameters: valid.parameters,
+        result: {
+          ...capture,
+          artifact: { ...capture.artifact, bytes: "not-a-byte-count" },
+        },
+      },
+    );
+    for (const parent of [malformed, valid]) {
+      const recorded = session.recordEvidence(parent);
+      if (!recorded.ok) throw recorded.error;
+      for (const source of [
+        { kind: "inline", evidence: parent },
+        { kind: "retained-evidence", evidence_id: parent.evidence_id },
+      ]) {
+        const response = await client.callTool({
+          name: "inspect_analysis_view",
+          arguments: { source, view },
+        });
+        if (parent === malformed) {
+          const diagnostic = parseMcpToolError(response).error;
+          expect(diagnostic).toMatchObject({
+            code: "invalid_request",
+            category: "invalid_input",
+            retryable: false,
+            details: {
+              operation: "inspect_analysis_view",
+              issues: [
+                {
+                  path: ["source", "normalized_result", "artifact", "bytes"],
+                  reason: "invalid_type",
+                  expected: "number",
+                },
+              ],
+            },
+            recovery: {
+              kind: "inspect_input_contract",
+              operation: "inspect_analysis_view",
+            },
+          });
+          expect(JSON.stringify(diagnostic)).not.toContain("not-a-byte-count");
+        } else {
+          expect(response.isError).not.toBe(true);
+          expect(parseEvidence(response.structuredContent)).toMatchObject({
+            evidence_links: [valid.evidence_id],
+            normalized_result: { kind: view.kind },
+          });
+        }
+      }
+    }
+    await client.ping();
+    expect(launchProvider).not.toHaveBeenCalled();
+  },
+);
 
 it("admits portable captures before SDK Evidence parsing and preserves capture caveats", async () => {
   const { client } = await connect();

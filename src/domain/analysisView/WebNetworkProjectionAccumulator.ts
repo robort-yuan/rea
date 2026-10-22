@@ -5,6 +5,7 @@ import {
   AnalysisUnsupportedTargetError,
 } from "../analysisErrorCore.js";
 import type { AnalysisError } from "../analysisErrorBase.js";
+import { analysisInputErrorFromIssues } from "../inputIssueProjection.js";
 import { compareUnicodeCodePoints as compare } from "../unicodeCodePointOrder.js";
 import { err, ok, type Result } from "../result.js";
 import {
@@ -124,14 +125,15 @@ export const admitHarCaptureParent = (
   const parsed = safeParseOwnedWebNetworkCapture(parent.normalizedResult);
   if (!parsed.success)
     return err(
-      analysisViewInputError([
-        {
-          path: ["source"],
-          reason: "invalid_value",
-          message:
-            "Parent Evidence result does not match inspect_web_network_capture.",
-        },
-      ]),
+      analysisInputErrorFromIssues(
+        "inspect_analysis_view",
+        parsed.error.issues.map((issue) => ({
+          ...issue,
+          path: ["source", "normalized_result", ...issue.path],
+        })),
+        { source: { normalized_result: parent.normalizedResult } },
+        { cause: parsed.error },
+      ),
     );
   if (parsed.data.format !== "har")
     return unsupported(
