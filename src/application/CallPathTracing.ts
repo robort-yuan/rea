@@ -38,7 +38,7 @@ export interface CallPathTraceInput {
 interface TraceState {
   readonly visited: Map<
     string,
-    { readonly depth: number; readonly path: string[] }
+    { readonly depth: number; readonly parent: string | undefined }
   >;
   readonly queue: string[];
   readonly edges: Map<
@@ -64,7 +64,7 @@ interface AddressExpansion {
   readonly input: CallPathTraceInput;
   readonly state: TraceState;
   readonly address: string;
-  readonly current: { readonly depth: number; readonly path: string[] };
+  readonly current: { readonly depth: number };
   readonly signal?: AbortSignal;
 }
 
@@ -123,7 +123,7 @@ export const traceCallPath = async (
 };
 
 const createTraceState = (input: CallPathTraceInput): TraceState => ({
-  visited: new Map([[input.start, { depth: 0, path: [input.start] }]]),
+  visited: new Map([[input.start, { depth: 0, parent: undefined }]]),
   queue: [input.start],
   edges: new Map(),
   failures: [],
@@ -195,28 +195,39 @@ const expandAddress = async (
       relatedAddress,
       discoveryDepth: current.depth + 1,
     });
-    const path = state.visited.get(relatedAddress)?.path ?? [
-      ...current.path,
-      relatedAddress,
-    ];
     if (state.visited.has(relatedAddress)) {
       if (relatedAddress === input.goal) {
-        state.traversalPath = path;
+        state.traversalPath = reconstructTraversalPath(state, relatedAddress);
         return ok(true);
       }
       continue;
     }
     state.visited.set(relatedAddress, {
       depth: current.depth + 1,
-      path,
+      parent: address,
     });
     if (relatedAddress === input.goal) {
-      state.traversalPath = path;
+      state.traversalPath = reconstructTraversalPath(state, relatedAddress);
       return ok(true);
     }
     state.queue.push(relatedAddress);
   }
   return ok(false);
+};
+
+/** Reconstruct the selected BFS path only when a requested goal is reached. */
+const reconstructTraversalPath = (
+  state: TraceState,
+  goal: string,
+): string[] => {
+  const path: string[] = [];
+  let address: string | undefined = goal;
+  while (address !== undefined) {
+    path.push(address);
+    address = state.visited.get(address)?.parent;
+  }
+  path.reverse();
+  return path;
 };
 
 const recordEdge = (
