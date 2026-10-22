@@ -14,21 +14,16 @@ recorded, so its influence may remain unknown.
 
 ## Host support
 
-Capturing a new scenario currently requires Linux or macOS and a working
-native PTY backend. Native Windows capture is unavailable because the PTY
-adapter does not yet verify descendant cleanup. The native Job Object controls
-used by other REA providers do not establish PTY capture support. Reinstalling
-the Windows PTY binary does not enable this workflow.
-
-For Linux commands, use Linux REA inside WSL. Adapt the scenario to that host;
-this does not establish capture of a native Windows process tree. Comparing
-existing capture Evidence through the CLI or MCP remains available on Windows
-and does not launch a PTY or the captured target.
+Capturing a new scenario requires a working native PTY backend. On Windows the
+PTY root is placed in a Job Object compiled with `csc.exe`. Descendants created
+after that membership die with the job, and capture stays unavailable until
+that cleanup has been verified. Reinstalling the PTY backend does not replace
+the job helper.
 
 On supported capture hosts, a missing or incompatible native PTY binary has a
 different recovery: reinstall REA for the active platform, architecture, and
 Node.js version with optional dependencies enabled. Capability diagnostics
-distinguish this from the Windows capture-adapter limitation.
+distinguish a missing PTY binary from a failed Windows job probe.
 
 macOS also requires Apple's Swift compiler through `xcrun` for process
 ownership inspection. REA compiles its packaged, narrow process-inspection

@@ -1,5 +1,6 @@
 import { tmpdir } from "node:os";
 import { prepareProcessOwnershipInspection } from "../ProcessOwnershipObservation.js";
+import { verifyWindowsDescendantCleanup } from "./WindowsPtyJob.js";
 
 export type ProcessCaptureCapability =
   | { readonly available: true; readonly backend: "node-pty" }
@@ -11,17 +12,15 @@ export type ProcessCaptureCapability =
 
 /** Explain why process capture cannot claim owned-process cleanup on a host. */
 export const processCaptureOwnershipUnavailableReason = (
-  platform: NodeJS.Platform,
-): string | undefined =>
-  platform === "win32"
-    ? "Windows PTY process capture is unavailable because this adapter does not yet verify descendant cleanup. Use Linux (including WSL for Linux commands) or macOS. Reinstalling the PTY backend does not enable native Windows capture."
-    : undefined;
+  _platform: NodeJS.Platform,
+): string | undefined => undefined;
 
 /** Dependencies that make the native PTY probe's host boundary testable. */
 export interface ProcessCaptureProbeOptions {
   readonly platform?: NodeJS.Platform;
   readonly loadPty?: () => Promise<typeof import("@lydell/node-pty")>;
   readonly prepareOwnershipInspector?: () => Promise<void>;
+  readonly verifyDescendantCleanup?: () => Promise<void>;
 }
 
 /** Probe the native PTY seam and explain loader failures at their source. */
@@ -58,6 +57,26 @@ export const probeProcessCaptureCapability = async (
       backend: "node-pty",
       reason: ownershipReason,
     };
+  if (platform === "win32") {
+    try {
+      await (
+        options.verifyDescendantCleanup ??
+        (() =>
+          verifyWindowsDescendantCleanup(
+            options.loadPty ?? (() => import("@lydell/node-pty")),
+          ))
+      )();
+    } catch (cause: unknown) {
+      return {
+        available: false,
+        backend: "node-pty",
+        reason:
+          cause instanceof Error
+            ? cause.message
+            : "Windows descendant cleanup could not be verified",
+      };
+    }
+  }
   if (platform === "darwin") {
     try {
       await (

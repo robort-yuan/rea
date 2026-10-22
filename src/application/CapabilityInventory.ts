@@ -208,6 +208,8 @@ const MACHO_TARGET_OPERATIONS: ReadonlySet<string> = new Set([
   "inspect_macho",
   "list_architectures",
   "observe_native_calls",
+]);
+const NATIVE_UI_OPERATIONS: ReadonlySet<string> = new Set([
   "observe_native_ui",
   "capture_native_ui_scenario",
 ]);
@@ -730,6 +732,19 @@ const targetAvailability = ({
       remediation:
         "Call open_binary with a Mach-O executable or an app bundle whose main executable is Mach-O.",
     };
+  if (targetOpen && NATIVE_UI_OPERATIONS.has(name)) {
+    const windows = process.platform === "win32";
+    const admitted = windows
+      ? targetKind === "executable" && targetFormat === "pe"
+      : targetKind === "executable" && isMachOFormat(targetFormat);
+    if (!admitted)
+      return {
+        reason: "target_unsupported",
+        remediation: windows
+          ? "Call open_binary with a PE executable."
+          : "Call open_binary with a Mach-O executable or an app bundle whose main executable is Mach-O.",
+      };
+  }
   return null;
 };
 

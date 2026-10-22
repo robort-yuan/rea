@@ -64,6 +64,7 @@ import {
 } from "../../domain/process/processCaptureCoverage.js";
 import { scheduleProcessInterval, type ProcessTimer } from "./ProcessTimer.js";
 import { monotonicProcessCaptureClock } from "./ProcessCaptureClock.js";
+import { lookupWindowsJob, type WindowsPtyJob } from "./WindowsPtyJob.js";
 
 import type {
   FilesystemCheckpoint,
@@ -721,8 +722,39 @@ export const observeSettlement = async ({
   assertNotCancelled(signal);
   onLiveProgress?.();
   if (platform === "win32") {
+    const job = windowsJobFor(processGroupIds);
+    if (job === undefined) {
+      recordEvent("lifecycle", 1);
+      return { state: "unverifiable", elapsed_ms: 0 };
+    }
+    const started = monotonicProcessCaptureClock();
+    let consecutiveEmpty = 0;
+    while (monotonicProcessCaptureClock() - started < settleMs) {
+      assertNotCancelled(signal);
+      const active = await job.active();
+      if (active === 0) {
+        consecutiveEmpty += 1;
+        if (consecutiveEmpty >= 2) {
+          recordEvent("lifecycle", 1);
+          return {
+            state: "quiesced",
+            elapsed_ms: monotonicProcessCaptureClock() - started,
+          };
+        }
+      } else consecutiveEmpty = 0;
+      await delay(50, undefined, signal === undefined ? {} : { signal });
+    }
     recordEvent("lifecycle", 1);
-    return { state: "unverifiable", elapsed_ms: 0 };
+    const active = await job.active();
+    return active === 0
+      ? {
+          state: "quiesced",
+          elapsed_ms: monotonicProcessCaptureClock() - started,
+        }
+      : {
+          state: "alive_at_deadline",
+          elapsed_ms: monotonicProcessCaptureClock() - started,
+        };
   }
   const started = monotonicProcessCaptureClock();
   let consecutiveEmpty = 0;
@@ -1053,6 +1085,50 @@ const processCaptureCleanupHost: ProcessCaptureCleanupHost = {
 };
 
 const PROCESS_FINALIZATION_DELIVERY_GRACE_MS = 1_000;
+const PROCESS_CLEANUP_VERIFICATION_INTERVAL_MS = 25;
+
+const windowsJobFor = (
+  processGroupIds: readonly number[],
+): WindowsPtyJob | undefined => {
+  for (const pid of processGroupIds) {
+    const job = lookupWindowsJob(pid);
+    if (job !== undefined) return job;
+  }
+  return undefined;
+};
+
+const releaseWindowsJob = async (
+  pid: number,
+): Promise<ProcessCaptureCleanupReport["owned_process_group"]> => {
+  const job = lookupWindowsJob(pid);
+  if (job === undefined)
+    return {
+      state: "unverified",
+      reason:
+        "owned process cleanup is unverifiable on Windows without process-job authority",
+    };
+  try {
+    await job.terminate();
+    const deadline = Date.now() + PROCESS_FINALIZATION_DELIVERY_GRACE_MS;
+    let active = await job.active();
+    while (active > 0 && Date.now() < deadline) {
+      await delay(PROCESS_CLEANUP_VERIFICATION_INTERVAL_MS);
+      active = await job.active();
+    }
+    await job.close();
+    if (active !== 0)
+      return {
+        state: "unverified",
+        reason: `Windows job still reported ${String(active)} active process(es)`,
+      };
+    return { state: "cleaned", reason: null };
+  } catch (cause: unknown) {
+    return {
+      state: "failed",
+      reason: cause instanceof Error ? cause.message : String(cause),
+    };
+  }
+};
 
 const releaseCapturedProcessGroup = async (
   ownership: Extract<
@@ -1061,12 +1137,7 @@ const releaseCapturedProcessGroup = async (
   >,
   host: ProcessCaptureCleanupHost,
 ): Promise<ProcessCaptureCleanupReport["owned_process_group"]> => {
-  if (host.platform === "win32")
-    return {
-      state: "unverified",
-      reason:
-        "owned process cleanup is unverifiable on Windows without process-job authority",
-    };
+  if (host.platform === "win32") return releaseWindowsJob(ownership.leaderPid);
   let outcome: ProcessCaptureCleanupReport["owned_process_group"] = {
     state: "cleaned",
     reason: null,

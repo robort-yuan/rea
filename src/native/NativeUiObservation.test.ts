@@ -11,14 +11,17 @@ import { ExecFileOutputCancelledError } from "../process/ExecFileOutput.js";
 import { AnalysisCleanupLease } from "../artifacts/AnalysisCleanupLease.js";
 import type { BinaryTarget } from "../domain/binaryTargetTypes.js";
 
-const target: BinaryTarget = {
+const target = {
   path: "/fixture/App",
   sha256: "a".repeat(64),
-  kind: "executable",
-  format: "mach-o",
-  architecture: "arm64",
-  availableArchitectures: ["arm64"],
-};
+  kind: "executable" as const,
+  format: process.platform === "win32" ? ("pe" as const) : ("mach-o" as const),
+  architecture: "arm64" as const,
+  availableArchitectures: ["arm64"] as const,
+  ...(process.platform === "win32"
+    ? { executableRole: "application" as const, managed: false }
+    : {}),
+} as BinaryTarget;
 const scope = {
   pid: 123,
   window_id: 456,
@@ -564,7 +567,9 @@ describe("native UI target and cancellation failures", () => {
       diagnostics: {
         reason: "Native helper returned invalid JSON: Unexpected token",
         remediation:
-          "Native helper failed, timed out, or returned malformed capture data; install compatible Xcode command-line tools and inspect local OS permissions",
+          process.platform === "win32"
+            ? "Windows UI helper failed, timed out, or returned malformed capture data; confirm csc.exe and UI Automation are available"
+            : "Native helper failed, timed out, or returned malformed capture data; install compatible Xcode command-line tools and inspect local OS permissions",
       },
     });
   });

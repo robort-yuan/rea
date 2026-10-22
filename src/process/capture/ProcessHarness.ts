@@ -65,6 +65,7 @@ import {
 import { makeProcessCaptureEnvironment } from "./ProcessCaptureEnvironment.js";
 import { classifyFilesystemEffects } from "./ProcessFilesystemEffects.js";
 import { processCaptureOwnershipUnavailableReason } from "./ProcessCaptureCapability.js";
+import { adoptPtyRoot } from "./WindowsPtyJob.js";
 import {
   createProcessCaptureProgressTracker,
   type ProcessCaptureProgress,
@@ -309,14 +310,6 @@ const startCaptureRuntime = async (
       name: "xterm-256color",
     });
     options.onSpawn(terminal.pid);
-    options.observationBuffer.target_pid = {
-      state: "available",
-      value: scenario.normalization.pids ? 1 : terminal.pid,
-    };
-    const executableIdentity = observeLaunchedExecutable(
-      scenario.executable,
-      selectedExecutable,
-    );
     const terminalRetention = captureTerminalFrames({
       ...options,
       terminal,
@@ -331,6 +324,18 @@ const startCaptureRuntime = async (
       renderer,
       started,
     });
+    const windowsJob =
+      process.platform === "win32"
+        ? await adoptPtyRoot(terminal.pid)
+        : undefined;
+    options.observationBuffer.target_pid = {
+      state: "available",
+      value: scenario.normalization.pids ? 1 : terminal.pid,
+    };
+    const executableIdentity = observeLaunchedExecutable(
+      scenario.executable,
+      selectedExecutable,
+    );
     const stopSampler = startProcessSampler({
       rootPid: terminal.pid,
       runId: options.runId,
@@ -339,6 +344,12 @@ const startCaptureRuntime = async (
       samples: options.samples,
       recordEvent: options.recordEvent,
     });
+    const signalOwnedRoot = retainRootSignaller(
+      terminal.pid,
+      scenario.finalization_ms,
+      options.runId,
+      options.finalizationHost,
+    );
     return {
       renderer,
       terminal,
@@ -349,12 +360,11 @@ const startCaptureRuntime = async (
       lastOutput: () => lastOutput,
       terminalRetention,
       stopSampler,
-      signalRoot: retainRootSignaller(
-        terminal.pid,
-        scenario.finalization_ms,
-        options.runId,
-        options.finalizationHost,
-      ),
+      signalRoot: async (signal) => {
+        if (windowsJob !== undefined)
+          await windowsJob.terminate().catch(() => undefined);
+        return signalOwnedRoot(signal);
+      },
     };
   } catch (cause: unknown) {
     return cleanupFailedStartup({

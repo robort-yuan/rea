@@ -29,17 +29,23 @@ const OWNED_PROCESS_OPERATIONS: ReadonlySet<string> = new Set([
   "capture_native_ui_scenario",
   "observe_native_calls",
 ]);
+const WINDOWS_UI_OPERATIONS: ReadonlySet<string> = new Set([
+  "capture_native_ui_scenario",
+  "observe_native_ui",
+]);
 
 /** Declare native host coverage without creating a command runner. */
 export const nativeMacOSCapabilities = (
   platform: NodeJS.Platform = process.platform,
 ): readonly CapabilityDescriptor[] => {
-  const available = platform === "darwin";
   return Object.freeze(
     [
       ...NATIVE_TOOL_CONTRACTS,
       { name: "inspect_native_dispatch_metadata" as const },
     ].map((contract): CapabilityDescriptor => {
+      const windowsUi =
+        platform === "win32" && WINDOWS_UI_OPERATIONS.has(contract.name);
+      const available = platform === "darwin" || windowsUi;
       const availability = available
         ? ({ available: true, reason: null } as const)
         : ({
@@ -66,7 +72,9 @@ export const nativeMacOSCapabilities = (
           requiresRoot: false,
         }),
         limitations: Object.freeze([
-          "Availability and textual formats depend on the installed macOS/Xcode toolchain.",
+          windowsUi
+            ? "Windows UI observation uses UI Automation for the tree and PrintWindow for the HWND image. The helper is compiled with csc.exe."
+            : "Availability and textual formats depend on the installed macOS/Xcode toolchain.",
         ]),
       });
     }),

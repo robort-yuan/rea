@@ -594,9 +594,8 @@ const assertSessionIdentity = async (client: Client): Promise<void> => {
         }),
         expect.objectContaining({
           name: "capture_process_scenario",
-          available: process.platform !== "win32",
-          reason:
-            process.platform === "win32" ? "unsupported_host" : "available",
+          available: true,
+          reason: "available",
           client_requirements: {
             required: [],
             optional: [],

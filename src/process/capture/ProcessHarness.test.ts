@@ -1,6 +1,5 @@
 import { expect, it, vi } from "vitest";
 import { processScenarioSchema } from "../../domain/process/processScenario.js";
-import { AnalysisCapabilityUnavailableError } from "../../domain/analysisErrorCore.js";
 import {
   captureProcessScenario,
   retainRootSignaller,
@@ -731,29 +730,62 @@ it("preserves cancellation while projecting observations and successful cleanup"
   });
 });
 
-it("fails closed on Windows before resolving or launching scenario paths", async () => {
-  const scenario = processScenarioSchema.parse({
-    executable: "Z:/missing/should-never-be-resolved.exe",
-    working_directory: "Z:/missing/working-directory",
-  });
-  const result = await captureProcessScenario(scenario, undefined, "win32");
-  if (result.ok) throw new Error("expected Windows ownership refusal");
-  if (!(result.error instanceof AnalysisCapabilityUnavailableError))
-    throw new Error("expected a capability-unavailable outcome");
-  expect(result.error).toMatchObject({
-    operation: "capture_process_scenario",
-    reason: expect.stringContaining("Windows PTY process capture"),
-  });
-  expect(projectAnalysisError(result.error)).toMatchObject({
-    code: "capability_unavailable",
-    category: "unsupported_provider",
-    message: expect.stringContaining("does not yet verify descendant cleanup"),
-    details: {
-      operation: "capture_process_scenario",
-      reason: result.error.reason,
-    },
-  });
-});
+it.runIf(process.platform === "win32")(
+  "kills a Windows descendant through the job and keeps the terminal text",
+  async () => {
+    const { spawn } = await import("@lydell/node-pty");
+    const { tmpdir } = await import("node:os");
+    const { setTimeout: delay } = await import("node:timers/promises");
+    const { adoptPtyRoot } = await import("./WindowsPtyJob.js");
+    const terminal = spawn("cmd.exe", ["/k"], {
+      cwd: tmpdir(),
+      cols: 80,
+      rows: 24,
+      name: "xterm-256color",
+    });
+    const job = await adoptPtyRoot(terminal.pid);
+    try {
+      terminal.write("ping -n 30 127.0.0.1 >nul\r\n");
+      let active = 0;
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        active = await job.active();
+        if (active >= 2) break;
+        await delay(100);
+      }
+      expect(active).toBeGreaterThanOrEqual(2);
+      await job.terminate();
+      const deadline = Date.now() + 2_000;
+      while (active > 0 && Date.now() < deadline) {
+        await delay(50);
+        active = await job.active();
+      }
+      expect(active).toBe(0);
+    } finally {
+      await job.close();
+      try {
+        terminal.kill();
+      } catch {
+        // The job already ended the PTY root.
+      }
+    }
+
+    const scenario = processScenarioSchema.parse({
+      executable: "cmd.exe",
+      arguments: ["/k"],
+      working_directory: tmpdir(),
+      timeout_ms: 1_500,
+      idle_timeout_ms: 10_000,
+      settle_ms: 200,
+      finalization_ms: 500,
+      events: [{ at_ms: 200, type: "input", data: "echo rea-ok\r\n" }],
+    });
+    const result = await captureProcessScenario(scenario);
+    if (!result.ok) throw result.error;
+    expect(JSON.stringify(result.value)).toContain("rea-ok");
+    expect(result.value.cleanup.owned_process_group).toBe("verified");
+  },
+  20_000,
+);
 
 it("retains the root start identity once at launch and signals only with it", async () => {
   const observe = vi.fn(async () => ({

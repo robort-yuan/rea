@@ -37,7 +37,12 @@ import {
 import { NativeUiInterruptionControl } from "./NativeUiInterruptionControl.js";
 
 const helper = fileURLToPath(
-  new URL("../../bridge/native/ReaNativeUI.swift", import.meta.url),
+  new URL(
+    process.platform === "win32"
+      ? "../../bridge/windows/ReaWindowsUi.cs"
+      : "../../bridge/native/ReaNativeUI.swift",
+    import.meta.url,
+  ),
 );
 const passiveInputSchema = nativeUiObservationInputSchema.transform(
   (input) => ({ ...input, steps: [] }),
@@ -136,12 +141,18 @@ const observeWithHelper = async (
   ).safeParse(parameters);
   if (!parsed.success)
     return err(new AnalysisInputError(operation, { cause: parsed.error }));
-  if (target.kind !== "executable" || !isMachOFormat(target.format))
+  const windows = process.platform === "win32";
+  const admitted =
+    target.kind === "executable" &&
+    (windows ? target.format === "pe" : isMachOFormat(target.format));
+  if (!admitted)
     return err(
       new AnalysisCapabilityUnavailableError(
         "native-macos",
         operation,
-        "Native UI observation requires an active Mach-O executable or app target",
+        windows
+          ? "Native UI observation on Windows requires an active PE executable target"
+          : "Native UI observation requires an active Mach-O executable or app target",
       ),
     );
   const input = parsed.data;
@@ -238,7 +249,9 @@ const observeWithHelper = async (
                 helper_path: helper,
                 reason: cause instanceof Error ? cause.message : String(cause),
                 remediation:
-                  "Native helper failed, timed out, or returned malformed capture data; install compatible Xcode command-line tools and inspect local OS permissions",
+                  process.platform === "win32"
+                    ? "Windows UI helper failed, timed out, or returned malformed capture data; confirm csc.exe and UI Automation are available"
+                    : "Native helper failed, timed out, or returned malformed capture data; install compatible Xcode command-line tools and inspect local OS permissions",
               },
             }),
       );
@@ -285,7 +298,9 @@ const observeWithHelper = async (
     restore: "leave-as-is",
     limitations: [
       "Only the explicitly selected already-running process/window is admitted. REA starts no target process and does not change permissions, foreground applications, or restore application data.",
-      "Click uses AXPress; scroll uses AXIncrement/AXDecrement; key-entry sets the selected element's AXValue. Unsupported elements fail without global event fallback.",
+      process.platform === "win32"
+        ? "Click uses Invoke, Toggle, or SelectionItem; scroll uses Scroll or RangeValue; key-entry sets Value. Unsupported elements fail without a global input fallback."
+        : "Click uses AXPress; scroll uses AXIncrement/AXDecrement; key-entry sets the selected element's AXValue. Unsupported elements fail without global event fallback.",
       "Each completed action is followed immediately by capture; delayed UI changes require explicit wait steps. A failed after-capture can follow a completed action, so failure does not prove absence of application effects.",
       "Scenarios can change app data, cause app network activity and persist changes. The caller explicitly chooses leave-as-is; automatic restoration is unsupported.",
       `Window matching uses exact PID and window ID for screenshots and unique accessibility geometry. Accessibility paths can change as the UI changes; stale or ambiguous paths fail. Screenshots are scaled to at most 2048 pixels; scenario output is budgeted at 64 MiB. Execution uses the selected native_ui_deadline_ms of ${String(interruption.deadlineMs)} ms (omitted means ${String(DEFAULT_NATIVE_UI_DEADLINE_MS)}). One wait step stays capped at ${String(NATIVE_UI_WAIT_STEP_MAX_MS)} ms and that cap has no runtime override.`,

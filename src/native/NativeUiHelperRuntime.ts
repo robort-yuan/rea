@@ -11,6 +11,7 @@ import { safeParseJson } from "../domain/safeJson.js";
 import { DEFAULT_NATIVE_UI_DEADLINE_MS } from "../domain/native/nativeDeadlines.js";
 import type { NativeUiHelper } from "./NativeUiObservation.js";
 import { NATIVE_UI_HELPER_MAX_BUFFER } from "./NativeUiOutputBudget.js";
+import { createWindowsNativeUiHelperRuntime } from "./WindowsNativeUi.js";
 
 export interface NativeUiHelperRuntime {
   readonly invoke: NativeUiHelper;
@@ -27,6 +28,8 @@ export const createNativeUiHelperRuntime = (
   environment: Readonly<NodeJS.ProcessEnv>,
   deadlineMs = DEFAULT_NATIVE_UI_DEADLINE_MS,
 ): NativeUiHelperRuntime => {
+  if (process.platform === "win32")
+    return createWindowsNativeUiHelperRuntime(environment, deadlineMs);
   const selectedEnvironment = snapshotEnvironment(environment);
   const deadlineSignal = AbortSignal.timeout(deadlineMs);
   const operations = new ArtifactResourceScope();
