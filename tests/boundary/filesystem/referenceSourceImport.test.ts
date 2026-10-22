@@ -1,5 +1,14 @@
 import fs from "node:fs";
-import { chmod, mkdir, open, rm, symlink, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  open,
+  realpath,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, join } from "node:path";
 
 import { add, commit, init } from "isomorphic-git";
@@ -94,6 +103,105 @@ describe("reference source import projections", () => {
       expect(message).toMatch(/Check|try again|when ready|Exclude/u);
     }
   });
+});
+
+describe("reference source selected symlink paths", () => {
+  it.skipIf(process.platform === "win32")(
+    "records physical link targets and retains unresolved path intent",
+    async () => {
+      const workspace = await createTestTempDirectory(
+        "rea-reference-link-targets-",
+      );
+      const root = join(workspace, "source");
+      const outside = join(workspace, "outside");
+      await mkdir(join(root, "actual", "nested"), { recursive: true });
+      await mkdir(join(outside, "nested"), { recursive: true });
+      await writeFile(join(root, "target.js"), "export const decoy = 1;\n");
+      await writeFile(join(root, "actual", "target.js"), "export {};\n");
+      await writeFile(join(outside, "private.js"), "OUTSIDE_NOT_READ");
+      await symlink("actual/nested", join(root, "current"));
+      await symlink("../outside/nested", join(root, "outward"));
+      await symlink(root, join(outside, "back"));
+      const targets = new Map([
+        ["relative.js", "current/../target.js"],
+        ["absolute.js", `${root}/current/../target.js`],
+        ["return.js", "../outside/back/actual/target.js"],
+        ["external.js", "../outside/private.js"],
+        ["escape.js", "outward/../private.js"],
+        ["missing.js", "absent.js"],
+        ["literal-backslash.js", "literal\\absent.js"],
+        ["actual/missing.js", "../absent.js"],
+        ["broken.js", "absent/../target.js"],
+        ["absolute-broken.js", `${root}/absent/../target.js`],
+        ["not-directory.js", "target.js/../target.js"],
+        ["directory-intent.js", "target.js/"],
+      ]);
+      for (const [name, target] of targets)
+        await symlink(target, join(root, name));
+      const expectedTarget = join(root, "actual", "target.js");
+      for (const name of ["relative.js", "absolute.js", "return.js"])
+        expect(await realpath(join(root, name))).toBe(expectedTarget);
+      const ambiguous = [
+        "broken.js",
+        "absolute-broken.js",
+        "not-directory.js",
+        "directory-intent.js",
+      ];
+      // Native lookup rejects these targets even when macOS realpath drops
+      // a non-directory parent step or trailing separator.
+      for (const name of ambiguous)
+        await expect(stat(join(root, name))).rejects.toMatchObject({
+          code: expect.stringMatching(/^(?:ENOENT|ENOTDIR)$/u),
+        });
+
+      const imported = await importTree(root);
+      if (!imported.ok) throw imported.error;
+      const entries = new Map(
+        imported.value.entries.map((entry) => [entry.path, entry]),
+      );
+      for (const name of ["relative.js", "absolute.js", "return.js"])
+        expect(entries.get(name)).toMatchObject({
+          kind: "symlink",
+          target: "actual/target.js",
+          target_state: "internal",
+          limitations: [],
+        });
+      for (const name of ["external.js", "escape.js"])
+        expect(entries.get(name)).toMatchObject({
+          kind: "symlink",
+          target: join(outside, "private.js"),
+          target_state: "external",
+        });
+      expect(entries.get("missing.js")).toMatchObject({
+        kind: "symlink",
+        target: "absent.js",
+        target_state: "missing",
+      });
+      expect(entries.get("actual/missing.js")).toMatchObject({
+        kind: "symlink",
+        target: "../absent.js",
+        target_state: "missing",
+      });
+      expect(entries.get("literal-backslash.js")).toMatchObject({
+        kind: "symlink",
+        target: "literal\\absent.js",
+        target_state: "missing",
+      });
+      for (const name of ambiguous)
+        expect(entries.get(name)).toMatchObject({
+          kind: "symlink",
+          target: null,
+          target_state: "unknown",
+          limitations: [expect.stringContaining(targets.get(name) ?? "")],
+        });
+      expect(
+        imported.value.entries
+          .filter(({ kind }) => kind === "file")
+          .map(({ path }) => path),
+      ).toEqual(["actual/target.js", "target.js"]);
+      expect(JSON.stringify(imported.value)).not.toContain("OUTSIDE_NOT_READ");
+    },
+  );
 });
 
 describe("reference source ignore policy read failures", () => {

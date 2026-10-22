@@ -48,9 +48,17 @@ export type ReferenceSourceEntry =
       readonly status: "read";
       readonly kind: "symlink";
       readonly path: string;
-      /** Internal and relative missing targets are resolved from the inventory root. */
+      /** Internal targets are root-relative; missing targets are link-relative, with native separators converted to '/'. */
       readonly target: string;
       readonly targetState: "internal" | "external" | "missing";
+    }
+  | {
+      readonly status: "read";
+      readonly kind: "symlink";
+      readonly path: string;
+      readonly target: null;
+      readonly targetState: "unknown";
+      readonly limitation: string;
     }
   | {
       readonly status: "failed";

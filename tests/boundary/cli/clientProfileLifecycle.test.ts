@@ -350,6 +350,10 @@ for (const group of groups) {
           access(join(skillDirectory, "SKILL.md")),
         ).rejects.toMatchObject({ code: "ENOENT" });
     },
+    // The shared-root case runs 16 CLI commands sequentially and has taken
+    // 28 seconds in CI. Give the aggregate workflow headroom while retaining
+    // the 20-second limit on each command and the default for single profiles.
+    group.cases.length > 1 ? 60_000 : undefined,
   );
 }
 

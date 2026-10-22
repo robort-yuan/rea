@@ -4,7 +4,6 @@ import { posix } from "node:path";
 import { logicalPathEscapesRoot } from "../domain/artifactIdentity.js";
 import {
   createReferenceSourcePathLookup,
-  isPortableAbsoluteReferenceTarget,
   type ReferenceSourcePathLookup,
 } from "../domain/referenceSourcePathIdentity.js";
 import {
@@ -391,15 +390,24 @@ const appendReadEntry = (
     });
     return;
   }
+  if (entry.targetState === "unknown") {
+    output.entries.push({
+      path: entry.path,
+      kind: "symlink",
+      target: null,
+      target_state: "unknown",
+      classifications,
+      limitations: [entry.limitation],
+    });
+    return;
+  }
   output.entries.push({
     path: entry.path,
     kind: "symlink",
-    // The reader resolves inventory identities from its root; the persisted
-    // graph represents relative symlink targets from the link's directory.
+    // Only canonical internal identities are root-relative. Missing targets
+    // retain their path components, relative to the link's directory when local.
     target:
-      entry.targetState === "internal" ||
-      (entry.targetState === "missing" &&
-        !isPortableAbsoluteReferenceTarget(entry.target))
+      entry.targetState === "internal"
         ? posix.relative(posix.dirname(entry.path), entry.target) || "."
         : entry.target,
     target_state: entry.targetState,

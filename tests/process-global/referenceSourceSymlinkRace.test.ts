@@ -56,6 +56,7 @@ import {
   readFile,
   rename,
   unlink,
+  utimes,
   writeFile,
   symlink,
 } from "node:fs/promises";
@@ -163,6 +164,8 @@ it.skipIf(process.platform === "win32").each(["contents", "root"] as const)(
     await mkdir(root);
     const source = join(root, "source.txt");
     await writeFile(source, "already observed source");
+    // Make the rename observable even with coarse filesystem timestamps.
+    await utimes(root, 0, 0);
     race.directory = root;
     race.afterDirectoryClose = () =>
       changed === "contents"

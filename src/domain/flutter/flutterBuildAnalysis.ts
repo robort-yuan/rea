@@ -32,7 +32,8 @@ const abiSelectorSchema = z
     },
     { message: ABI_SELECTOR_MESSAGE, abort: true },
   )
-  .regex(/^[^\/]*$/u, ABI_SELECTOR_MESSAGE)
+  // Hex keeps the advertised pattern valid in v mode and survives lint --fix.
+  .regex(/^[^\x2f]*$/u, ABI_SELECTOR_MESSAGE)
   .meta({ maxLength: ABI_SELECTOR_MAX_CHARACTERS });
 
 /**

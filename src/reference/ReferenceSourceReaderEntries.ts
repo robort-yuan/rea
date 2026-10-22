@@ -1,6 +1,6 @@
 import type { BigIntStats, Dir, Dirent } from "node:fs";
-import { opendir, readlink, realpath } from "node:fs/promises";
-import { dirname, join, resolve } from "node:path";
+import { opendir, readlink, realpath, stat } from "node:fs/promises";
+import { join, normalize, sep } from "node:path";
 import { ArtifactReaderFailure } from "../artifacts/ArtifactReader.js";
 import type { ArtifactCleanupAttempt } from "../artifacts/ArtifactResourceScope.js";
 import { OwnedDirectoryHandle } from "../filesystem/OwnedDirectoryHandle.js";
@@ -363,27 +363,37 @@ const readSymlinkTarget = async (
       return changedSymlink(path);
     throw cause;
   }
-  const lexicalTarget = resolve(dirname(absolute), rawTarget);
-  if (!isPathWithinRoot(root, lexicalTarget))
-    return {
-      status: "read",
-      kind: "symlink",
-      path,
-      target: lexicalTarget,
-      targetState: "external",
-    };
   let canonicalTarget: string;
   try {
-    canonicalTarget = await realpath(lexicalTarget);
+    // macOS realpath can discard a non-directory parent step or trailing
+    // separator. Validate native target lookup before canonicalizing it.
+    await stat(absolute);
+    // Resolve the observed link itself: normalizing its target first can change
+    // both the selected file and whether it lies inside the reference root.
+    // This observes metadata only; traversal never reads a symlink's contents.
+    canonicalTarget = await realpath(absolute);
   } catch (cause: unknown) {
     const code =
       cause instanceof Error ? Reflect.get(cause, "code") : undefined;
     if (code !== "ENOENT" && code !== "ENOTDIR") throw cause;
+    // The graph accepts normalized relative identities. A failed resolution
+    // cannot justify collapsing parent steps or directory intent into one;
+    // retain the observation as a limitation instead of naming another file.
+    const nativeTarget = rawTarget.replaceAll("/", sep);
+    if (normalize(nativeTarget) !== nativeTarget || nativeTarget.endsWith(sep))
+      return {
+        status: "read",
+        kind: "symlink",
+        path,
+        target: null,
+        targetState: "unknown",
+        limitation: `Symbolic link target ${JSON.stringify(rawTarget)} could not be resolved (${code}); its path intent cannot be normalized without changing the observation.`,
+      };
     return {
       status: "read",
       kind: "symlink",
       path,
-      target: pathFromRoot(root, lexicalTarget),
+      target: nativeTarget.split(sep).join("/"),
       targetState: "missing",
     };
   }
