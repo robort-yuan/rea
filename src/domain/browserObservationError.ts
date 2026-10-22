@@ -85,6 +85,8 @@ const observationFailureMessage = (
     return `${operation} lost its debugging session while the target may still exist. Refresh target discovery and attach to the selected target again.`;
   if (reason === "service_worker_blocked")
     return `${operation} refused the selected page because it is controlled by or has a registered service worker while the service-worker policy is block. Set environment.service_workers to allow to permit observation, or remove the service worker registration through the browser.`;
+  if (reason === "service_worker_state_unknown")
+    return `${operation} refused the selected page because it could not determine whether one of its frames is controlled by or has a registered service worker while the service-worker policy is block. Set environment.service_workers to allow to permit observation.`;
   if (reason === "disconnected")
     return `${operation} lost its debugging connection. Verify that the target process is still running, refresh target discovery, and retry the observation.`;
   return undefined;

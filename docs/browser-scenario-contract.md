@@ -17,7 +17,14 @@ final sanitized URL capture are supplied by default. Set
 `environment.service_workers` to `allow` when the application requires them.
 For attached browsers, `block` rejects captures when the selected page or its
 frames are controlled by a service worker or already have a registration,
-including after navigation. Existing caller registrations are never removed.
+including after navigation. Frames with an opaque origin, such as sandboxed
+frames without `allow-same-origin`, can neither be controlled nor hold a
+registration. Chromium gives `about:blank` and `blob:` documents no
+service-worker container, so their registrations are read from the nearest
+same-origin parent frame. When no such parent answers, or a live frame cannot
+be checked, the capture fails with reason `service_worker_state_unknown`
+rather than treating the frame as unregistered; `details.diagnostics.frame_state`
+names which case applied. Existing caller registrations are never removed.
 Navigation can run destination code before a newly discovered worker is rejected;
 that rejection does not roll back browser effects. REA removes its owned
 future-document scripts, restores live frame methods, then disconnects.

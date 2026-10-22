@@ -8,6 +8,7 @@ import {
   CDP_DISCOVERY_RESPONSE_TIMEOUT_MS,
   selectedCdpCommandTimeoutMs,
 } from "../domain/browserDeadline.js";
+import type { AnalysisErrorOptions } from "../domain/analysisErrorBase.js";
 import { AnalysisTimeoutError } from "../domain/analysisErrorCore.js";
 import { browserObservationEndpointSchema } from "../domain/browserObservation.js";
 import { BrowserObservationError } from "../domain/browserObservationError.js";
@@ -321,31 +322,63 @@ export class PlaywrightScenarioServiceWorkers {
 
   async assertBlocked(): Promise<void> {
     if (this.#session !== undefined) await this.settle();
+    // A definite refusal in any frame outranks a frame whose state is unknown.
+    let unresolved: AnalysisErrorOptions | undefined;
     for (const frame of this.page.frames()) {
       let failure: unknown;
       try {
+        // Opaque origins can neither hold nor match a registration, and
+        // Chromium throws when a sandboxed document reads its container.
+        // Chromium gives about:blank and blob: documents no container, so they
+        // cannot be controlled; a same-origin parent shares their storage key.
         failure = await frame.evaluate(`(async () => {
           if (!("serviceWorker" in navigator)) return null;
+          if (globalThis.origin === "null") return null;
           const serviceWorker = navigator.serviceWorker;
           if (${this.#session !== undefined} &&
               (!Object.hasOwn(serviceWorker.register, Symbol.for(${this.marker})) ||
                typeof globalThis[${this.restoreKey}] !== "function")) return "policy_unprotected";
           if (serviceWorker.controller !== null) return "service_worker_blocked";
-          return (await serviceWorker.getRegistrations()).length > 0
-            ? "service_worker_blocked"
-            : null;
+          for (let owner = globalThis; ; owner = owner.parent) {
+            try {
+              return (await owner.navigator.serviceWorker.getRegistrations()).length > 0
+                ? "service_worker_blocked"
+                : null;
+            } catch (error) {
+              if (!(error instanceof owner.DOMException) || error.name !== "InvalidStateError")
+                throw error;
+            }
+            try {
+              if (owner.parent === owner || owner.parent.origin !== globalThis.origin)
+                return "service_worker_state_unknown";
+            } catch {
+              return "service_worker_state_unknown";
+            }
+          }
         })()`);
       } catch (cause: unknown) {
         if (frame.isDetached()) continue;
-        throw cause;
+        if (this.page.isClosed()) throw cause;
+        unresolved ??= { diagnostics: { frame_state: "check_failed" }, cause };
+        continue;
       }
       if (failure === "policy_unprotected")
         throw new BrowserObservationError(OPERATION, "target_not_allowed");
       if (failure === "service_worker_blocked")
         throw new BrowserObservationError(OPERATION, "service_worker_blocked");
-      if (failure !== null)
+      if (failure === "service_worker_state_unknown")
+        unresolved ??= {
+          diagnostics: { frame_state: "no_same_origin_container" },
+        };
+      else if (failure !== null)
         throw new BrowserObservationError(OPERATION, "protocol_error");
     }
+    if (unresolved !== undefined)
+      throw new BrowserObservationError(
+        OPERATION,
+        "service_worker_state_unknown",
+        unresolved,
+      );
   }
 
   close(stopLoading = false): Promise<void> {
