@@ -23,7 +23,10 @@ it.each([12, 13, 14, 15])("rejects ASCII-folded IHDR byte at %s", (offset) => {
 });
 
 it("rejects incomplete headers, invalid signatures and zero dimensions", () => {
-  expect(readPngHeaderDimensions(png.subarray(0, 23))).toBeUndefined();
+  for (let length = 0; length < 33; length += 1) {
+    expect(readPngHeaderDimensions(png.subarray(0, length))).toBeUndefined();
+  }
+  expect(readPngHeaderDimensions(png.subarray(0, 33))).toEqual({ width: 1, height: 1 });
   const badSignature = Buffer.from(png);
   badSignature[0] = 0;
   expect(readPngHeaderDimensions(badSignature)).toBeUndefined();

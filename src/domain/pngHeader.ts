@@ -6,7 +6,7 @@ export const readPngHeaderDimensions = (
   bytes: Buffer,
 ): { readonly width: number; readonly height: number } | undefined => {
   if (
-    bytes.byteLength < 24 ||
+    bytes.byteLength < 33 ||
     !bytes.subarray(0, 8).equals(PNG_SIGNATURE) ||
     bytes.readUInt32BE(8) !== 13 ||
     !bytes.subarray(12, 16).equals(IHDR_TYPE)

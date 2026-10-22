@@ -40,17 +40,18 @@ export const captureCdpScreenshot = async (
     total: 2,
     message: "Authorizing current screenshot frame",
   });
+  const signal = context.signal ?? AbortSignal.timeout(5_000);
   await context.connection.send(
     "Page.enable",
     {},
     context.sessionId,
-    context.signal,
+    signal,
   );
   const before = await context.connection.send(
     "Page.getFrameTree",
     {},
     context.sessionId,
-    context.signal,
+    signal,
   );
   const beforeUrl = mainFrameUrl(before);
   const authorized = allowedSanitizedUrl(beforeUrl, origins);
@@ -81,14 +82,14 @@ export const captureCdpScreenshot = async (
         "Page.captureScreenshot",
         { format: "png", fromSurface: true, captureBeyondViewport: false },
         context.sessionId,
-        context.signal,
+        signal,
       ),
     );
     after = await context.connection.send(
       "Page.getFrameTree",
       {},
       context.sessionId,
-      context.signal,
+      signal,
     );
   } finally {
     removeListener();
