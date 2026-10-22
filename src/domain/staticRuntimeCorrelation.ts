@@ -222,7 +222,7 @@ const correlate = (
     runtimeEvidence.normalized_result,
   );
   const runtimeStatus = process[mapping.runtime.dimension];
-  const pattern = observedPattern(selectedStatic.status, runtimeStatus);
+  const pattern = observedPattern(selectedStatic, runtimeStatus);
   const classification =
     pattern === "unknown" || pattern === "truncated"
       ? "unresolved_branch"
@@ -372,12 +372,19 @@ const assertComparisonIdentity = (evidence: Evidence): void => {
 };
 
 const observedPattern = (
-  staticStatus: ComparisonStatus,
+  staticFinding: Pick<CorrelationItem["static"], "status" | "conclusion_kind">,
   runtimeStatus: ComparisonStatus,
 ): z.infer<typeof observedPatternSchema> => {
+  const staticStatus = staticFinding.status;
   if (staticStatus === "truncated" || runtimeStatus === "truncated")
     return "truncated";
   if (staticStatus === "unknown" || runtimeStatus === "unknown")
+    return "unknown";
+  if (
+    staticStatus === "contradiction" ||
+    runtimeStatus === "contradiction" ||
+    staticFinding.conclusion_kind === "contradiction"
+  )
     return "unknown";
   const staticChanged = staticStatus !== "unchanged";
   const runtimeChanged = runtimeStatus !== "unchanged";
