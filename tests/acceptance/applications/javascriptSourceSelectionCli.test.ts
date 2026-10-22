@@ -13,6 +13,7 @@ import {
 } from "../../fixtures/asarHeader.js";
 import { createTestTempDirectory } from "../../fixtures/temporaryDirectory.js";
 import { cliTest } from "../../support/cli/cliFixture.js";
+import { writeFixtureFiles } from "../../support/javascriptApplicationFixture.js";
 
 cliTest.for([
   { format: "directory", command: "analyze" },
@@ -60,6 +61,9 @@ cliTest.for([
         files.get("main.mjs")!.length + files.get("package.json")!.length,
     });
     expect(result.graph.coverage.status).toBe("partial");
+    expect(result.graph.limitations).toContain(
+      "Caller-selected source analysis leaves 4 inventoried files outside analysis scope. Inventory identity covers the complete artifact; relationships through unselected sources remain unknown.",
+    );
     expect(result.semantic_graph.coverage).toMatchObject({
       status: "partial",
       truncated: false,
@@ -118,6 +122,58 @@ cliTest.for([
           .update(await readFile(input))
           .digest("hex"),
       );
+  },
+);
+
+cliTest.for(["analyze", "analyze-javascript-application"])(
+  "omits the unselected-source limitation when $0 selects every source",
+  { timeout: 60_000 },
+  async (command, { cli }) => {
+    const directory = await createTestTempDirectory(
+      "rea-js-complete-source-selection-",
+    );
+    await writeFixtureFiles(directory, {
+      "main.mjs":
+        'import { value } from "./util.mjs"; export const answer = value + 1;\n',
+      "util.mjs": "export const value = 41;\n",
+    });
+    const response = await cli.run({
+      arguments: [
+        command,
+        directory,
+        "--source-path",
+        "main.mjs",
+        "--source-path",
+        "util.mjs",
+        "--format",
+        "json",
+      ],
+    });
+    expect(response.exitCode).toBe(0);
+    const result = javascriptApplicationAnalysisResultSchema.parse(
+      parseEvidence(response.json).normalized_result,
+    );
+    expect(result.source_selection).toEqual({
+      requested_paths: ["main.mjs", "util.mjs"],
+      unselected_files: 0,
+    });
+    expect(result.graph.coverage).toMatchObject({
+      status: "complete",
+      truncated: false,
+      omitted_count: 0,
+      limits: [],
+    });
+    expect(result.graph.limitations).not.toContainEqual(
+      expect.stringContaining("relationships through unselected sources"),
+    );
+    expect(
+      result.graph.nodes.some(({ observations }) =>
+        observations.some(
+          ({ properties }) =>
+            properties.text_status === "outside-analysis-scope",
+        ),
+      ),
+    ).toBe(false);
   },
 );
 

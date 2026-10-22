@@ -7,6 +7,7 @@ import {
 } from "../../domain/javascript/javascriptApplicationGraph.js";
 import type { JavaScriptModuleArtifactAnalysis } from "./JavaScriptArtifactAnalysisTypes.js";
 import type { JavaScriptArtifactFileSet } from "../../domain/javascript/javascriptArtifactFiles.js";
+import type { JavaScriptSourceSelection } from "../../domain/javascript/javascriptSourceSelection.js";
 import { JavaScriptArtifactGraphAccumulator } from "./JavaScriptArtifactGraphAccumulator.js";
 import {
   HTML_INLINE_SCRIPT_LOCATION_COVERAGE_LIMIT,
@@ -240,7 +241,7 @@ const graphCoverage = (context: JavaScriptArtifactGraphContext) => {
       javascript !== null && javascript.parse_status === "partial",
   );
   const unknownGap =
-    (context.fileSet.source_selection?.unselected_files ?? 0) > 0 ||
+    sourceSelectionGap(context.fileSet) !== undefined ||
     context.fileSet.unavailable_relevant_files.length > 0 ||
     context.analysis.files.some(
       ({ analysis_failure, application_projection_failure }) =>
@@ -314,6 +315,7 @@ const graphLimitations = (
   coverage: "complete" | "partial" | "unknown" | "unavailable",
   relationshipOmissions: JavaScriptModuleRelationshipOmissions,
 ): string[] => {
+  const selectedSourceGap = sourceSelectionGap(context.fileSet);
   const ipc = collectElectronIpcRecords(context.analysis);
   const pairings = classifyElectronIpcPairings(ipc);
   const electronFindings = context.analysis.files.reduce(
@@ -331,10 +333,10 @@ const graphLimitations = (
   );
   return [
     ...context.analysis.limitations,
-    ...(context.fileSet.source_selection === undefined
+    ...(selectedSourceGap === undefined
       ? []
       : [
-          `Caller-selected source analysis leaves ${String(context.fileSet.source_selection.unselected_files)} inventoried files outside analysis scope. Inventory identity covers the complete artifact; relationships through unselected sources remain unknown.`,
+          `Caller-selected source analysis leaves ${String(selectedSourceGap.unselected_files)} inventoried files outside analysis scope. Inventory identity covers the complete artifact; relationships through unselected sources remain unknown.`,
         ]),
     ...context.snapshot.integrity_contradictions.map(
       ({ logical_path: path }) =>
@@ -391,5 +393,14 @@ const graphLimitations = (
           "Graph coverage is incomplete; unavailable facts remain explicit and must not be read as absence.",
         ]),
   ];
+};
+
+const sourceSelectionGap = (
+  fileSet: JavaScriptArtifactFileSet,
+): JavaScriptSourceSelection | undefined => {
+  const selection = fileSet.source_selection;
+  return selection !== undefined && selection.unselected_files > 0
+    ? selection
+    : undefined;
 };
 import { javaScriptAnalysisCoverageLimits } from "../../domain/javascript/javascriptAnalysisResourceControls.js";

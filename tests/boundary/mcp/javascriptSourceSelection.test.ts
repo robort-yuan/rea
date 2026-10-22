@@ -81,6 +81,48 @@ it("resolves ESM whitespace specifiers through the public application tool", asy
   }
 }, 60_000);
 
+it("omits the unselected-source limitation when every source is selected", async () => {
+  const root = await createTestTempDirectory(
+    "rea-js-complete-source-selection-mcp-",
+  );
+  await writeFixtureFiles(root, {
+    "main.mjs":
+      'import { value } from "./util.mjs"; export const answer = value + 1;\n',
+    "util.mjs": "export const value = 41;\n",
+  });
+  const { client, transport } = createSelectionClient();
+  try {
+    await client.connect(transport);
+    const output = await client.callTool({
+      name: "analyze_javascript_application",
+      arguments: {
+        input_path: root,
+        source_paths: ["main.mjs", "util.mjs"],
+      },
+    });
+    expect(output.isError, JSON.stringify(output.content)).not.toBe(true);
+    const result = javascriptApplicationAnalysisResultSchema.parse(
+      parseEvidence(output.structuredContent).normalized_result,
+    );
+    expect(result.source_selection).toEqual({
+      requested_paths: ["main.mjs", "util.mjs"],
+      unselected_files: 0,
+    });
+    expect(result.graph.coverage).toMatchObject({
+      status: "complete",
+      truncated: false,
+      omitted_count: 0,
+      limits: [],
+    });
+    expect(result.graph.limitations).not.toContainEqual(
+      expect.stringContaining("relationships through unselected sources"),
+    );
+  } finally {
+    await client.close();
+    await transport.close();
+  }
+}, 60_000);
+
 it("retains missing ASAR native-addon inventory through the public application tool", async () => {
   const { archive, addon } = await createStrippedAsarAddon();
   await rm(join(`${archive}.unpacked`, addon));
