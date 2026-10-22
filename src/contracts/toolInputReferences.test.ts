@@ -3,6 +3,7 @@ import { Ajv2020 } from "ajv/dist/2020.js";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { applicationFeatureSeedSchema } from "../domain/javascript/javascriptFeatureTraceSchemas.js";
 import { presentInputJsonSchema } from "./inputSchemaPresentation.js";
 import { toolContract } from "./toolContracts.js";
 import {
@@ -271,6 +272,71 @@ describe("advertised schema metadata and validation", () => {
         expect(validate(sample)).toBe(canonical.safeParse(sample).success);
     },
   );
+});
+
+describe("empty-string literal presentation", () => {
+  it("widens empty-string literals while preserving guidance", () => {
+    const emptyRouteSeed = {
+      kind: "route",
+      value: "",
+      match: "exact",
+      case_sensitive: false,
+    } as const;
+    expect(applicationFeatureSeedSchema.safeParse(emptyRouteSeed).success).toBe(
+      true,
+    );
+    expect(
+      applicationFeatureSeedSchema.safeParse({
+        ...emptyRouteSeed,
+        match: "contains",
+      }).success,
+    ).toBe(false);
+
+    const presented = presentInputJsonSchema(
+      {
+        type: "object",
+        properties: {
+          literal: {
+            type: "string",
+            const: "",
+            description: "An exact empty string.",
+            default: "",
+          },
+          choices: {
+            type: "string",
+            enum: ["", "ready"],
+            description: "A selected status.",
+            default: "ready",
+          },
+          mixed: { enum: ["", 5] },
+          selector: {
+            oneOf: [
+              { type: "string", const: "" },
+              { type: "string", minLength: 1 },
+            ],
+          },
+        },
+        required: ["literal", "choices", "mixed", "selector"],
+        additionalProperties: false,
+      },
+      () => undefined,
+    );
+    const properties = presented.properties as Record<string, unknown>;
+    expect(properties.literal).toEqual({
+      type: "string",
+      description: "An exact empty string.",
+      default: "",
+    });
+    expect(properties.choices).toEqual({
+      type: "string",
+      description: "A selected status.",
+      default: "ready",
+    });
+    expect(properties.mixed).toEqual({});
+    expect(properties.selector).toEqual({
+      anyOf: [{ type: "string" }, { type: "string", minLength: 1 }],
+    });
+  });
 });
 
 describe("root input presentation", () => {

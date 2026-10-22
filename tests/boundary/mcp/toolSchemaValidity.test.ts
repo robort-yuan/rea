@@ -11,7 +11,7 @@ import { processScenarioSchema } from "../../../src/domain/process/processScenar
 import { GENERATED_MCP_TOOL_CATALOG } from "../../fixtures/mcpToolCatalog.js";
 import {
   arrayItemSchemaError,
-  booleanLiteralSchemaError,
+  geminiLiteralSchemaError,
 } from "../../fixtures/mcpClientSchemaConstraints.js";
 import { toolRegistrationOptions } from "../../../src/server/toolRegistrationOptions.js";
 
@@ -45,7 +45,7 @@ function schemaErrors(tools: readonly ToolSchemas[]): string[] {
         );
         if (clientError !== undefined) return [clientError];
         if (kind === "inputSchema") {
-          const literalError = booleanLiteralSchemaError(
+          const literalError = geminiLiteralSchemaError(
             schema,
             `${tool.name}.${kind}`,
           );
@@ -882,14 +882,29 @@ it("checks client array constraints in schema positions while preserving literal
     examples: [{ enum: [false] }],
   };
   expect(
-    booleanLiteralSchemaError(
-      { ...booleanMetadata, properties: {} },
-      "literal",
-    ),
+    geminiLiteralSchemaError({ ...booleanMetadata, properties: {} }, "literal"),
   ).toBeUndefined();
-  expect(booleanLiteralSchemaError(booleanMetadata, "literal")).toBe(
+  expect(geminiLiteralSchemaError(booleanMetadata, "literal")).toBe(
     "literal.properties.default.const is boolean",
   );
+  expect(
+    geminiLiteralSchemaError(
+      {
+        type: "object",
+        properties: { value: { type: "string", const: "" } },
+      },
+      "literal",
+    ),
+  ).toBe("literal.properties.value.const is an empty string");
+  expect(
+    geminiLiteralSchemaError(
+      {
+        type: "object",
+        properties: { value: { type: "string", enum: ["", "ready"] } },
+      },
+      "literal",
+    ),
+  ).toBe("literal.properties.value.enum contains an empty string");
 });
 
 it.each([false, true])(
