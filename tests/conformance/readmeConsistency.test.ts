@@ -54,6 +54,8 @@ describe("onboarding documentation product facts", () => {
       .map((language) => language.readme);
     expect(translatedReadmes).toContain("docs/readme/README_it.md");
     expect(translatedReadmes).toContain("docs/readme/README_el.md");
+    expect(translatedReadmes).toContain("docs/readme/README_ml.md");
+    expect(translatedReadmes).toContain("docs/readme/README_sq.md");
     const editions = (await readdir(resolve("docs/readme")))
       .filter((name) => /^README_[A-Za-z0-9-]+\.md$/u.test(name))
       .map((name) => `docs/readme/${name}`);
@@ -81,6 +83,36 @@ describe("onboarding documentation product facts", () => {
         `](#${heading.toLowerCase().replaceAll(" ", "-")})`,
       );
     }
+  });
+
+  it("lists Albanian last after Malayalam in every README", async () => {
+    const inventory = JSON.parse(
+      await readFile(resolve("website/locales/languages.json"), "utf8"),
+    ) as { code: string; readme: string }[];
+    expect(inventory.slice(-2).map(({ code }) => code)).toEqual(["ml", "sq"]);
+    for (const { code, readme } of inventory) {
+      const content = await readFile(resolve(readme), "utf8");
+      const link =
+        code === "en"
+          ? "[Shqip](docs/readme/README_sq.md)"
+          : code === "sq"
+            ? "**Shqip**"
+            : "[Shqip](README_sq.md)";
+      expect(content, readme).toContain(link);
+      const navigation = content.split(/\r?\n\r?\n/u)[1];
+      expect(navigation, readme).toMatch(
+        /(?:\[മലയാളം\]\([^)]+\)|\*\*മലയാളം\*\*)\s*·\s*(?:\[Shqip\]\([^)]+\)|\*\*Shqip\*\*)$/u,
+      );
+    }
+  });
+
+  it("keeps Albanian case-study links in the Albanian edition", async () => {
+    const content = await readFile(resolve("docs/readme/README_sq.md"), "utf8");
+    for (const showcase of ["dx-ball", "notion", "th04"])
+      expect(content).toContain(
+        `](https://rea.tools/sq/showcase/${showcase}/)`,
+      );
+    expect(content).not.toContain("](https://rea.tools/showcase/");
   });
 });
 
