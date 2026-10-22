@@ -483,6 +483,7 @@ const evidenceFileMessage = ({
   operation,
   reason,
   published,
+  overwrite,
 }: EvidenceFileError): string => {
   if (published !== undefined)
     return "The output file was published, but staging cleanup remains incomplete.";
@@ -493,7 +494,9 @@ const evidenceFileMessage = ({
   if (reason === "not-file")
     return "Evidence path does not point to a regular file. Choose a file and try again.";
   if (reason === "exists")
-    return "Evidence file already exists. Choose another path or allow overwrite.";
+    return overwrite === "never"
+      ? "Evidence file already exists, and this operation never overwrites it. Choose another path and try again."
+      : "Evidence file already exists. Choose another path or allow overwrite.";
   if (reason === "invalid-json")
     return "Evidence file is not valid JSON. Repair or recreate the file and try again.";
   return "Evidence file could not be accessed. Check file permissions and try again.";

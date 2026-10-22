@@ -10,6 +10,12 @@ export interface PublishedEvidenceFile {
   readonly bytes: number;
 }
 
+/**
+ * How a write treats an existing destination: replace it, refuse it while the
+ * caller may still request replacement, or never replace it for this operation.
+ */
+export type OverwritePolicy = "replace" | "refuse" | "never";
+
 /** Evidence identity, schema, or bundle manifests failed integrity checks. */
 export class EvidenceIntegrityError extends AnalysisError {
   readonly _tag = "EvidenceIntegrityError";
@@ -54,6 +60,8 @@ export class EvidenceFileError extends AnalysisError {
   readonly published: PublishedEvidenceFile | undefined;
   /** Schema issues relative to the selected file's JSON root, never the request envelope. */
   readonly contentIssues: readonly AnalysisInputIssue[] | undefined;
+  /** Policy that refused an existing destination; `never` offers no replacement. */
+  readonly overwrite: Exclude<OverwritePolicy, "replace"> | undefined;
 
   constructor(
     readonly operation: "read" | "write",
@@ -69,6 +77,7 @@ export class EvidenceFileError extends AnalysisError {
       readonly published?: PublishedEvidenceFile;
       readonly userMessage?: string;
       readonly contentIssues?: readonly AnalysisInputIssue[];
+      readonly overwrite?: Exclude<OverwritePolicy, "replace">;
     },
   ) {
     super(`Evidence bundle ${operation} failed: ${reason}`, options);
@@ -76,5 +85,6 @@ export class EvidenceFileError extends AnalysisError {
     this.published = options?.published;
     this.userMessage = options?.userMessage;
     this.contentIssues = options?.contentIssues;
+    this.overwrite = options?.overwrite;
   }
 }

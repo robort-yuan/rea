@@ -128,7 +128,7 @@ export class Il2cppGhidraSeedWriter implements Il2cppSeedWriterPort {
     const written = await writeTextParts(
       [seeds.text],
       output.path,
-      false,
+      "never",
       this.#resources,
       options?.signal === undefined
         ? undefined

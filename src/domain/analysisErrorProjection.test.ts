@@ -994,6 +994,29 @@ describe("analysis error projection: evidence files", () => {
       expect(analysisErrorProjectionSchema.parse(projected)).toEqual(projected);
     },
   );
+
+  it.each([
+    [
+      "refuse",
+      "Evidence file already exists. Choose another path or allow overwrite.",
+    ],
+    [
+      "never",
+      "Evidence file already exists, and this operation never overwrites it. Choose another path and try again.",
+    ],
+  ] as const)(
+    "recovers an existing destination refused by the %s policy",
+    (overwrite, message) => {
+      expect(
+        projectAnalysisError(
+          new EvidenceFileError("write", "exists", {
+            path: "/selected.json",
+            overwrite,
+          }),
+        ),
+      ).toMatchObject({ message, remediation: { action: message } });
+    },
+  );
 });
 
 it("retains the primary failure and both cleanup reports after a secondary failure", () => {

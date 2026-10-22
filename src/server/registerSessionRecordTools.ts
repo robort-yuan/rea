@@ -53,7 +53,7 @@ const registerExportEvidenceTool = ({
       const written = await writeEvidenceBundle(
         bundle,
         input.path,
-        input.overwrite,
+        input.overwrite ? "replace" : "refuse",
         resources,
         context.mcpReq.signal,
       );

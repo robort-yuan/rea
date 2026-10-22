@@ -11,6 +11,7 @@ import { basename, dirname, resolve } from "node:path";
 
 import {
   EvidenceFileError,
+  type OverwritePolicy,
   type PublishedEvidenceFile,
 } from "../domain/evidenceErrors.js";
 import {
@@ -208,7 +209,7 @@ const isJsonReadCancellation = (
 export const writeTextFile = async (
   encoded: string,
   path: string,
-  overwrite: boolean,
+  overwrite: OverwritePolicy,
   resources: ArtifactResourceScope,
 ): Promise<TextWriteResult<EvidenceFileError>> =>
   writeTextParts([encoded], path, overwrite, resources);
@@ -217,20 +218,20 @@ export const writeTextFile = async (
 export function writeTextParts(
   parts: Iterable<string>,
   path: string,
-  overwrite: boolean,
+  overwrite: OverwritePolicy,
   resources: ArtifactResourceScope,
 ): Promise<TextWriteResult<EvidenceFileError>>;
 export function writeTextParts(
   parts: Iterable<string>,
   path: string,
-  overwrite: boolean,
+  overwrite: OverwritePolicy,
   resources: ArtifactResourceScope,
   cancellation: TextWriteCancellation | undefined,
 ): Promise<TextWriteResult>;
 export function writeTextParts(
   parts: Iterable<string>,
   path: string,
-  overwrite: boolean,
+  overwrite: OverwritePolicy,
   resources: ArtifactResourceScope,
   cancellation?: TextWriteCancellation,
 ): Promise<TextWriteResult> {
@@ -257,7 +258,7 @@ export function writeTextParts(
 const writeTextPartsOwned = async (
   parts: Iterable<string>,
   path: string,
-  overwrite: boolean,
+  overwrite: OverwritePolicy,
   resources: ArtifactResourceScope,
   cancellation?: TextWriteCancellation,
 ): Promise<TextWriteResult> => {
@@ -275,9 +276,12 @@ const writeTextPartsOwned = async (
       throw cause;
     });
     if (existing !== undefined) {
-      if (!overwrite)
+      if (overwrite !== "replace")
         return err(
-          new EvidenceFileError("write", "exists", { path: requestedPath }),
+          new EvidenceFileError("write", "exists", {
+            path: requestedPath,
+            overwrite,
+          }),
         );
       if (!existing.isFile() || existing.isSymbolicLink())
         return err(
@@ -288,7 +292,7 @@ const writeTextPartsOwned = async (
     const bytes = await publishFile(
       destination,
       parts,
-      overwrite,
+      overwrite === "replace",
       resources,
       cancellation,
     );
@@ -333,11 +337,12 @@ const writeTextPartsOwned = async (
       cause.operation === cancellation.operation
     )
       return err(cause);
-    if (!overwrite && fileErrorCode(cause) === "EEXIST")
+    if (overwrite !== "replace" && fileErrorCode(cause) === "EEXIST")
       return err(
         new EvidenceFileError("write", "exists", {
           cause,
           path: requestedPath,
+          overwrite,
         }),
       );
     return err(

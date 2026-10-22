@@ -1,5 +1,5 @@
 import { readEvidenceBundle } from "../../../src/application/EvidenceBundleFiles.js";
-import { chmod, mkdir, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect } from "vitest";
 import { cliTest } from "../../support/cli/cliFixture.js";
@@ -95,7 +95,8 @@ cliTest(
     const saved = await readEvidenceBundle(bundlePath);
     if (!saved.ok) throw saved.error;
     expect(saved.value.records).toEqual([evidence]);
-    const overwrite = await cli.run({
+    const published = await readFile(bundlePath);
+    const collision = await cli.run({
       arguments: [
         "inspect-desktop-application",
         installation,
@@ -106,7 +107,18 @@ cliTest(
         "--json",
       ],
     });
-    expect(overwrite.exitCode).not.toBe(0);
+    expect(collision.exitCode).not.toBe(0);
+    // --evidence_output has no overwrite flag, so recovery must not offer one.
+    const neverOverwrites =
+      "Evidence file already exists, and this operation never overwrites it. Choose another path and try again.";
+    expect(collision.json).toMatchObject({
+      code: "invalid_request",
+      category: "invalid_input",
+      message: neverOverwrites,
+      remediation: { action: neverOverwrites },
+      details: { operation: "write", reason: "exists", path: bundlePath },
+    });
+    expect(await readFile(bundlePath)).toEqual(published);
   },
 );
 

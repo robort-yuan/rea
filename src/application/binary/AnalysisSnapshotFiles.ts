@@ -135,7 +135,12 @@ export const writeAnalysisSnapshot = async (
       new EvidenceIntegrityError(snapshotValidationMessage(cause), { cause }),
     );
   }
-  return writeTextFile(encoded, path, overwrite, resources);
+  return writeTextFile(
+    encoded,
+    path,
+    overwrite ? "replace" : "refuse",
+    resources,
+  );
 };
 
 const snapshotValidationMessage = (cause: unknown): string =>

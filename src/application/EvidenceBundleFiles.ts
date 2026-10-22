@@ -11,6 +11,7 @@ import {
 import {
   EvidenceFileError,
   EvidenceIntegrityError,
+  type OverwritePolicy,
 } from "../domain/evidenceErrors.js";
 import { err, ok, type Result } from "../domain/result.js";
 import {
@@ -121,7 +122,7 @@ const readBundle = async (
 export const writeEvidenceBundle = async (
   bundle: EvidenceBundle,
   path: string,
-  overwrite: boolean,
+  overwrite: OverwritePolicy,
   resources: ArtifactResourceScope,
   signal?: AbortSignal,
   operation = "export_evidence_bundle",
