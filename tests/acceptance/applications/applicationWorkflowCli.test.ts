@@ -1004,6 +1004,117 @@ it("traces all endpoint carriers and their response consumers through CLI and MC
   expect(await readFile(sourcePath, "utf8")).toBe(source);
 }, 20_000);
 
+it("traces property seeds to slotless accesses and their unknowns through CLI and MCP", async () => {
+  const root = await createTestTempDirectory("rea-slotless-property-trace-");
+  const source = `const defaults = { ACCEL: 0.001 };
+function Game() {
+  this.config = defaults;
+  this.speed = 6;
+}
+Game.prototype.update = function () {
+  this.speed += this.config.ACCEL;
+  return defaults.ACCEL;
+};`;
+  const sourcePath = join(root, "app.js");
+  await writeFile(sourcePath, source);
+  const application = parseEvidence(
+    await runCli(["analyze-javascript-application", root, "--json"]),
+  );
+  const graph = javascriptApplicationAnalysisResultSchema.parse(
+    application.normalized_result,
+  ).semantic_graph;
+  const accesses = (name: string) =>
+    graph.nodes.filter(
+      ({ kind, properties }) =>
+        kind === "expression" &&
+        Array.isArray(properties.property_path) &&
+        properties.property_path.at(-1) === name,
+    );
+  const anchoredUnknowns = (nodeIds: readonly string[]) =>
+    graph.unknowns.filter(
+      ({ family, node_id }) =>
+        family === "object-flow" &&
+        node_id !== null &&
+        nodeIds.includes(node_id),
+    );
+  const accelSlot = graph.nodes.find(
+    ({ kind, properties }) =>
+      kind === "property-slot" && properties.name === "ACCEL",
+  );
+  if (accelSlot === undefined) throw new Error("Expected ACCEL slot");
+  const accelAccesses = accesses("ACCEL");
+  const slotted = accelAccesses.find(({ label }) => label === "read:/ACCEL");
+  const slotless = accelAccesses.find(
+    ({ label }) => label === "read:/config/ACCEL",
+  );
+  if (slotted === undefined || slotless === undefined)
+    throw new Error("Expected slotted and slotless ACCEL reads");
+  expect(anchoredUnknowns([slotted.node_id])).toEqual([]);
+  expect(anchoredUnknowns([slotless.node_id])).toHaveLength(1);
+  const client = await connectedMcpClient();
+  const trace = async (name: string) => {
+    const input = {
+      application,
+      query: {
+        seed: { kind: "property", name },
+        direction: "forward-influence",
+      },
+    };
+    const cliEvidence = parseEvidence(
+      await runCliWithRequestFile(root, "trace-javascript-semantics", input),
+    );
+    const mcpResponse = await client.callTool({
+      name: "trace_javascript_semantics",
+      arguments: input,
+    });
+    expect(mcpResponse.isError).not.toBe(true);
+    expect(parseEvidence(mcpResponse.structuredContent)).toEqual(cliEvidence);
+    const result = javaScriptSemanticTraceResultSchema.parse(
+      cliEvidence.normalized_result,
+    );
+    expect(result.source_graph_id).toBe(graph.graph_id);
+    return result;
+  };
+  const accel = await trace("ACCEL");
+  expect(accel.seed_node_ids).toEqual(
+    [accelSlot.node_id, slotless.node_id].toSorted(),
+  );
+  expect(accel.unknowns).toEqual(
+    expect.arrayContaining(anchoredUnknowns([slotless.node_id])),
+  );
+  const speedAccesses = accesses("speed");
+  expect(speedAccesses.map(({ label }) => label).toSorted()).toEqual([
+    "read:/speed",
+    "write:/speed",
+    "write:/speed",
+  ]);
+  const speed = await trace("speed");
+  expect(speed.seed_node_ids).toEqual(
+    speedAccesses.map(({ node_id }) => node_id).toSorted(),
+  );
+  expect(speed.unknowns.map(({ unknown_id }) => unknown_id).toSorted()).toEqual(
+    anchoredUnknowns(speed.seed_node_ids)
+      .map(({ unknown_id }) => unknown_id)
+      .toSorted(),
+  );
+  expect(speed).toMatchObject({
+    status: "ambiguous",
+    summary: { total_seed_matches: 3, relevant_unknowns: 3 },
+    coverage: { status: "partial" },
+  });
+  expect(speed.limitations).toContain(
+    "Relevant dynamic, unsupported, incomplete, or ambiguous semantics remain unknown.",
+  );
+  const absent = await trace("missing");
+  expect(absent).toMatchObject({
+    status: "partial",
+    seed_node_ids: [],
+    nodes: [],
+    unknowns: [],
+  });
+  expect(await readFile(sourcePath, "utf8")).toBe(source);
+}, 20_000);
+
 describe("rest parameter semantic trace CLI", () => {
   it("traces each ordinary rest argument to its parameter through public application Evidence", async () => {
     const root = await createTestTempDirectory("rea-rest-arguments-cli-");

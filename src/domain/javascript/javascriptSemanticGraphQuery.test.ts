@@ -282,6 +282,99 @@ it("matches exact endpoint properties on request and response carriers only", ()
   expect(query(`${endpoint}/missing`).seed_node_ids).toEqual([]);
 });
 
+it("matches property slots and slotless accesses that anchor object-flow unknowns", () => {
+  const contexts = new JavaScriptSemanticEvidenceContextRegistry();
+  const access = (role: string, property_path: JsonValue) =>
+    node(
+      "expression",
+      role,
+      { operation_kind: "read", property_path },
+      contexts,
+    );
+  const slot = node("property-slot", "slot", { name: "speed" }, contexts);
+  const slotless = access("slotless", ["config", "speed"]);
+  const slotted = access("slotted", ["speed"]);
+  const dataFlowOnly = access("data-flow-only", ["speed"]);
+  const prefix = access("prefix", ["speed", "other"]);
+  const nonExpression = node(
+    "binding",
+    "binding",
+    { property_path: ["speed"] },
+    contexts,
+  );
+  const unknown = (
+    anchor: JavaScriptSemanticGraphNode,
+    family: "object-flow" | "data-flow",
+  ) =>
+    createJavaScriptSemanticGraphUnknown(
+      {
+        node_id: anchor.node_id,
+        family,
+        relation_kinds: [family === "object-flow" ? "reads-property" : "reads"],
+        reason: "ambiguous-target",
+        detail: "Static read receiver is unresolved.",
+        candidate_node_ids: [],
+        evidence: unknownSemanticGraphTestEvidence(),
+      },
+      contexts,
+    );
+  const unknowns = [
+    unknown(slotless, "object-flow"),
+    unknown(dataFlowOnly, "data-flow"),
+    unknown(prefix, "object-flow"),
+    unknown(nonExpression, "object-flow"),
+  ];
+  const graph = createJavaScriptSemanticGraph({
+    schema: "JavaScriptSemanticRelationGraph",
+    root_artifact_sha256: SHA,
+    application_graph_id: `jag_${"b".repeat(64)}`,
+    root_node_ids: [slot.node_id],
+    evidence_contexts: contexts.contexts,
+    nodes: [slot, slotless, slotted, dataFlowOnly, prefix, nonExpression],
+    relations: [],
+    fingerprints: [],
+    unknowns,
+    coverage: {
+      status: "partial",
+      truncated: false,
+      omitted_nodes: null,
+      omitted_relations: null,
+      limits: [],
+      families: JAVASCRIPT_SEMANTIC_RELATION_FAMILIES.map((family) => {
+        const unknown_ids = unknowns
+          .filter((frontier) => frontier.family === family)
+          .map(({ unknown_id }) => unknown_id);
+        return {
+          family,
+          status:
+            unknown_ids.length > 0
+              ? ("unknown" as const)
+              : ("complete" as const),
+          retained_relations: 0,
+          omitted_relations: unknown_ids.length > 0 ? null : 0,
+          unknown_ids,
+        };
+      }),
+    },
+    limitations: ["Property receivers remain unresolved."],
+  });
+  const query = (name: string) =>
+    queryJavaScriptSemanticGraph(graph, {
+      seed: { kind: "property", name },
+      direction: "forward-influence",
+    });
+
+  const speed = query("speed");
+  expect(speed.seed_node_ids).toEqual(
+    [slot.node_id, slotless.node_id].toSorted(),
+  );
+  expect(speed.unknowns.map(({ node_id }) => node_id)).toEqual([
+    slotless.node_id,
+  ]);
+  expect(query("other").seed_node_ids).toEqual([prefix.node_id]);
+  expect(query("config").seed_node_ids).toEqual([]);
+});
+
 it("scopes callers unknowns to call relations while preserving graph uncertainty", () => {
   const contexts = new JavaScriptSemanticEvidenceContextRegistry();
   const caller = node("function", "caller", {}, contexts);

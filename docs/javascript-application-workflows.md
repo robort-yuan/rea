@@ -167,6 +167,9 @@ visible independently of handoff eligibility.
 `trace_javascript_semantics` queries the authenticated companion graph without
 rereading mutable files. A seed may identify a semantic or application node,
 literal, function fingerprint, property, endpoint, event, or boundary field.
+A property seed matches property slots with that name and accesses to that
+property that retained no slot, such as reads through an unresolved `this`;
+those accesses keep their object-flow unknowns in the result.
 For a recovered parse, coercion, or validation boundary, its field value is the
 static operation's method name (for example, `Number`).
 The query declares backward provenance, forward influence, callers, or
