@@ -15,6 +15,7 @@ import { valid } from "semver";
 
 import { RegularFileCleanupFailure } from "./RegularFileRead.js";
 import { PRODUCT_IDENTITY } from "../identity.js";
+import { ConfigurationError } from "../domain/configurationErrors.js";
 import { snapshotEnvironment } from "../process/snapshotEnvironment.js";
 import { CURRENT_ENTRYPOINT_PATH } from "../process/CurrentEntrypointPath.js";
 import {
@@ -259,7 +260,19 @@ export const readClientRegistrationInspections = async (
               format: "zcode_fallback",
             }
           : client;
-      const registration = parseRegistration(raw, effectiveClient);
+      const parsedRegistration = parseRegistration(raw, effectiveClient);
+      if (!parsedRegistration.ok) {
+        const error = parsedRegistration.error;
+        record({
+          client: client.name,
+          config_path: configPath,
+          command: [],
+          state: "invalid",
+          remediation: `${error.message}: ${error.settings.map(({ setting, constraint }) => `${setting}: ${constraint}`).join("; ")}. ${remediation(client)}`,
+        });
+        continue;
+      }
+      const registration = parsedRegistration.value;
       const registrationEnvironment =
         client.name === "kimi" || client.name === "codex"
           ? await clientRegistrationEnvironmentDetailsWithBudget(
@@ -454,12 +467,16 @@ const registrationAligned = ({
 const parseRegistration = (
   value: unknown,
   client: SetupClient,
-): z.output<typeof registrationSchema> => {
-  if (client.format === "dsh")
-    return registrationSchema
+): Result<z.output<typeof registrationSchema>, ConfigurationError> => {
+  if (client.format === "dsh") {
+    const parsed = registrationSchema
       .pick({ command: true, args: true, serverName: true, transport: true })
       .strip()
-      .parse(value);
+      .safeParse(value);
+    return parsed.success
+      ? ok(parsed.data)
+      : err(registrationValidationError(parsed.error));
+  }
   if (client.format === "opencode") {
     const entry = z
       .object({
@@ -468,28 +485,27 @@ const parseRegistration = (
         environment: z.record(z.string(), z.string()).optional(),
       })
       .passthrough()
-      .parse(value);
-    const [command = "", ...args] = entry.command;
-    return registrationSchema.parse({
-      ...entry,
-      command,
-      args,
-    });
+      .safeParse(value);
+    if (!entry.success) return err(registrationValidationError(entry.error));
+    const [command = "", ...args] = entry.data.command;
+    value = { ...entry.data, command, args };
   }
-  const registration = registrationSchema.parse(value);
+  const parsed = registrationSchema.safeParse(value);
+  if (!parsed.success) return err(registrationValidationError(parsed.error));
+  const registration = parsed.data;
   if (
     client.format === "kimi" &&
     registration.transport !== undefined &&
     registration.transport !== "stdio"
   )
-    throw new TypeError("Expected an stdio registration");
+    return err(stdioRegistrationError("transport"));
   if (
     (client.format === "vscode" || client.format === "copilot_cli") &&
     registration.type !== "stdio"
   )
-    throw new TypeError("Expected an stdio registration");
+    return err(stdioRegistrationError("type"));
   if (client.format === "commandcode" && registration.transport !== "stdio")
-    throw new TypeError("Expected an stdio registration");
+    return err(stdioRegistrationError("transport"));
   if (
     (client.format === "kimi" ||
       client.format === "omp" ||
@@ -497,9 +513,24 @@ const parseRegistration = (
     registration.type !== undefined &&
     registration.type !== "stdio"
   )
-    throw new TypeError("Expected an stdio registration");
-  return registration;
+    return err(stdioRegistrationError("type"));
+  return ok(registration);
 };
+
+const registrationValidationError = (error: z.ZodError): ConfigurationError =>
+  new ConfigurationError("Invalid REA server registration", {
+    settings: error.issues.map(({ path, message }) => ({
+      setting: path.length === 0 ? "rea" : path.map(String).join("."),
+      constraint: message,
+    })),
+  });
+
+const stdioRegistrationError = (
+  setting: "type" | "transport",
+): ConfigurationError =>
+  new ConfigurationError("Invalid REA server registration", {
+    settings: [{ setting, constraint: "Must be stdio" }],
+  });
 
 /** A client that rewrites its file from memory must be quit before setup. */
 const remediation = (client: SetupClient): string => {

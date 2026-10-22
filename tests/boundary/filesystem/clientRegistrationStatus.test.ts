@@ -9,6 +9,7 @@ import { clearClientLocationEnvironment } from "../../fixtures/clientEnvironment
 import { readClientRegistrationStatuses } from "../../../src/application/ClientRegistrationStatus.js";
 import { existingMaintenanceScope } from "../../../src/application/UpdateMaintenance.js";
 import { PRODUCT_IDENTITY } from "../../../src/identity.js";
+import { npxRegistrationCommand } from "../../../src/application/ClientRegistrationIdentity.js";
 
 beforeEach(clearClientLocationEnvironment);
 afterEach(() => {
@@ -18,13 +19,14 @@ afterEach(() => {
 describe("client registration status", () => {
   it("discovers Claude Code from its config file without a marker directory", async () => {
     const home = await createTestTempDirectory("rea-claude-config-only-");
+    const command = npxRegistrationCommand();
     await writeFile(
       join(home, ".claude.json"),
       JSON.stringify({
         mcpServers: {
           rea: {
-            command: "npx",
-            args: ["-y", PRODUCT_IDENTITY.registrationPackageSpecifier, "mcp"],
+            command: command[0],
+            args: command.slice(1),
           },
         },
       }),
@@ -44,6 +46,7 @@ describe("client registration status", () => {
 
   it("distinguishes aligned, stale, missing, and invalid registrations", async () => {
     const home = await createTestTempDirectory("rea-registrations-");
+    const command = npxRegistrationCommand();
     const currentEntry = join(home, "current-rea.mjs");
     const foreignEntry = join(home, "foreign-rea.mjs");
     await writeFile(currentEntry, "// current dispatcher\n");
@@ -56,7 +59,7 @@ describe("client registration status", () => {
     ]);
     await writeFile(
       join(home, ".codex/config.toml"),
-      `[mcp_servers.rea]\ncommand = "npx"\nargs = ["-y", "${PRODUCT_IDENTITY.registrationPackageSpecifier}", "mcp"]\nstartup_timeout_sec = 30\ntool_timeout_sec = 450\n`,
+      `[mcp_servers.rea]\ncommand = ${JSON.stringify(command[0])}\nargs = ${JSON.stringify(command.slice(1))}\nstartup_timeout_sec = 30\ntool_timeout_sec = 450\n`,
     );
     await writeFile(
       join(home, ".cursor/mcp.json"),
@@ -289,6 +292,7 @@ describe("commandcode registration status", () => {
           client: "commandcode",
           state: "invalid",
           command: [],
+          remediation: expect.stringContaining("transport: Must be stdio"),
         }),
       ]);
     },
@@ -390,24 +394,32 @@ describe("Node-wrapped registration policy", () => {
     ]);
   });
 
-  it("checks a direct-launcher Codex startup timeout without Node wrapping", async () => {
-    const home = await createTestTempDirectory("rea-direct-registration-");
-    await mkdir(join(home, ".codex"));
-    await writeFile(
-      join(home, ".codex/config.toml"),
-      '[mcp_servers.rea]\ncommand = "/current/rea"\nargs = ["mcp"]\nstartup_timeout_sec = 1\n',
-    );
-    const statuses = await readClientRegistrationStatuses(
-      home,
-      "/current/rea",
-      {
+  it.each([
+    [undefined, "stale"],
+    [450, "aligned"],
+  ] as const)(
+    "reports a direct Codex launcher with tool timeout %s as %s",
+    async (toolTimeout, state) => {
+      const home = await createTestTempDirectory("rea-direct-registration-");
+      const entry = join(home, "rea");
+      await writeFile(entry, "// direct launcher fixture\n");
+      await mkdir(join(home, ".codex"));
+      await writeFile(
+        join(home, ".codex/config.toml"),
+        `[mcp_servers.rea]\ncommand = ${JSON.stringify(entry)}\nargs = ["mcp"]\nstartup_timeout_sec = 1\n${toolTimeout === undefined ? "" : `tool_timeout_sec = ${toolTimeout}\n`}`,
+      );
+      const statuses = await readClientRegistrationStatuses(home, entry, {
         environment: {},
-      },
-    );
-    expect(statuses).toEqual([
-      expect.objectContaining({ client: "codex", state: "stale" }),
-    ]);
-  });
+      });
+      expect(statuses).toEqual([
+        expect.objectContaining({
+          client: "codex",
+          command: [entry, "mcp"],
+          state,
+        }),
+      ]);
+    },
+  );
 
   it.each([{ tools: ["binary_session"] }, { tools: ["*"] }])(
     "checks Copilot tool selection $tools independently of launcher",
@@ -516,7 +528,12 @@ it("reports a dangling configuration entry as missing without losing the detecte
     "rea-registration-dangling-config-",
   );
   const path = join(home, ".claude.json");
-  await symlink(join(home, "absent.json"), path);
+  // A junction preserves dangling-entry coverage without Windows file-symlink privileges.
+  await symlink(
+    join(home, "absent.json"),
+    path,
+    process.platform === "win32" ? "junction" : "file",
+  );
   expect(
     (await readClientRegistrationStatuses(home)).find(
       (status) => status.client === "claude_code",
