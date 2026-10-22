@@ -375,6 +375,7 @@
     "typed-rest-client": {
       "qs": "6.16.0"
     },
+    "vite": "8.3.5",
     "vitepress": {
       "vite": "6.4.4"
     }
