@@ -10,6 +10,7 @@ import type { ManagedMetadataLayout } from "./ManagedMetadataLayout.js";
 import {
   signature,
   signatureGenericArity,
+  fieldStorage,
   type ManagedCallEdge,
   type ManagedExportedType,
   type ManagedField,
@@ -19,6 +20,7 @@ import {
   type MemberCore,
   type SignatureTypeName,
   type TypeRange,
+  type ManagedType,
 } from "./ManagedMemberInspectorCore.js";
 import {
   metadataToken,
@@ -32,6 +34,8 @@ import { readManagedValue } from "./ManagedReaderFailure.js";
 import { methodBody } from "./ManagedMethodBodyReader.js";
 import { memberDeclaringTypeRowLookup } from "./ManagedMemberOwnership.js";
 import type { TypeMemberListFacts } from "./ManagedTypeMemberLists.js";
+import { createManagedFieldDataReader } from "./ManagedFieldInitialData.js";
+import type { ManagedTypeReferenceLookup } from "./ManagedTypeReferences.js";
 
 /**
  * Declaring-type tokens whose members are decoded in full; null selects every
@@ -51,9 +55,15 @@ export const parseFields = (
   ranges: readonly TypeRange[],
   memberLists: TypeMemberListFacts,
   {
+    pe,
+    types,
+    typeReferences,
     signatureTypeName,
     selected = null,
   }: {
+    readonly pe: ManagedPeLayout;
+    readonly types: readonly ManagedType[];
+    readonly typeReferences: ManagedTypeReferenceLookup;
     readonly signatureTypeName: SignatureTypeName;
     readonly selected?: SelectedTypeTokens;
   },
@@ -65,6 +75,15 @@ export const parseFields = (
   const fields: ManagedField[] = [];
   const core = new Map<string, MemberCore>();
   const issues: ManagedParseIssue[] = [];
+  const initialData = createManagedFieldDataReader(
+    bytes,
+    layout,
+    pe,
+    memberLists,
+    types,
+    typeReferences,
+    issues,
+  );
   const table = layout.table(4);
   const ownerRow = readManagedValue(
     () => memberDeclaringTypeRowLookup(bytes, layout, 4, memberLists),
@@ -99,6 +118,7 @@ export const parseFields = (
         cursor.readIndex(layout.blobIndexSize),
         layout.blob.size,
       );
+      const decoded = budgetedSignature(sig, layout, signatureTypeName);
       fields.push({
         token,
         row_offset: cursor.start,
@@ -106,7 +126,12 @@ export const parseFields = (
         declaring_type: declared?.fullName ?? null,
         name,
         flags,
-        signature: budgetedSignature(sig, layout, signatureTypeName),
+        signature: decoded,
+        initial_data: initialData(
+          row,
+          flags,
+          decoded.parse_status === "decoded" ? fieldStorage(sig) : null,
+        ),
       });
     }, issues);
   }

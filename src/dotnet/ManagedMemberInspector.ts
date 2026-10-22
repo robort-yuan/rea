@@ -216,6 +216,9 @@ export const inspectManagedMembersBytes = (
       typeReferences,
     );
     const fields = parseFields(bytes, layout, ranges, memberLists, {
+      pe,
+      types: parsedTypes.types,
+      typeReferences,
       signatureTypeName,
       selected,
     });
@@ -255,6 +258,9 @@ export const inspectManagedMembersBytes = (
     const incompleteMembers =
       [...fields.fields, ...memberRefs.refs, ...methods.methods].some(
         (member) => member.signature.parse_status !== "decoded",
+      ) ||
+      fields.fields.some(
+        (field) => field.initial_data?.state === "unavailable",
       ) ||
       methods.methods.some(
         (method) =>
@@ -319,6 +325,7 @@ export const inspectManagedMembersBytes = (
                 ]),
             "Metadata tokens are build-local coordinates and are only meaningful with the reported artifact SHA-256 and MVID.",
             "CIL instruction anchors are decoded from file-backed method bodies only; no target assembly is loaded or executed.",
+            "FieldRVA data contains file-backed initialization bytes only, not observed runtime field values; unsupported storage sizes remain unavailable.",
             "Exported types are reported from ExportedType rows as declared; forwarded types are not resolved in their implementing assemblies.",
             "User strings are the #US literals loaded by ldstr in the inspected method bodies, with their own coverage; instruction anchors and normalized CIL digests keep their build-local tokens.",
             "Member signatures decode ECMA-335 primitive, class, valuetype, generic instantiation, generic variable, pointer, byref, single-dimension and general array, function pointer, custom modifier, and typed reference forms; class and valuetype operands keep their encoded TypeDefOrRefOrSpec values, and unsupported forms such as vararg sentinels retain raw signature hashes.",

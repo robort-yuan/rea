@@ -169,6 +169,30 @@ const managedFieldSchema = z.object({
   name: z.string(),
   flags: z.int().min(0).max(0xffff),
   signature: managedSignatureSchema,
+  initial_data: z
+    .object({
+      state: z.enum(["present", "unavailable"]),
+      declarations: z.array(
+        z.object({
+          row_offset: offsetSchema,
+          rva: z.number().int().min(0).max(0xffff_ffff),
+        }),
+      ),
+      file_offset: offsetSchema.nullable(),
+      byte_length: z.number().int().positive().nullable(),
+      size_basis: z.enum(["primitive", "class-layout"]).nullable(),
+      class_layout_row_offset: offsetSchema.nullable(),
+      data_hex: z
+        .string()
+        .regex(/^[0-9a-f]*$/u)
+        .nullable(),
+      data_sha256: digestSchema.nullable(),
+      limitation: z.string().nullable(),
+    })
+    .nullable()
+    .describe(
+      "Declared FieldRVA mapping and file-backed initialization data. Null means no FieldRVA declaration or flag was observed. Bytes are read only for supported statically sized storage; runtime field values are not observed.",
+    ),
 });
 
 const managedExceptionRegionSchema = z.object({

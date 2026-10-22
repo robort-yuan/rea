@@ -36,6 +36,72 @@ const createHarness = async () => {
   return harness;
 };
 
+it("retains FieldRVA initialization bytes through selected summaries and field pages", async () => {
+  const directory = await createTestTempDirectory("rea-field-initial-data-");
+  const path = join(directory, "fixture.dll");
+  await writeFile(
+    path,
+    buildManagedPeFixture({ fieldRva: { data: Buffer.from([1, 2, 3, 4, 5]) } }),
+  );
+  const { client, session } = await createHarness();
+  const tools = (await client.listTools()).tools;
+  const tool = tools.find((tool) => tool.name === "inspect_managed_members");
+  const ajv = new Ajv2020({ strict: false, validateFormats: false });
+  if (tool?.outputSchema === undefined)
+    throw new Error("Member output schema is absent");
+  const outputSchema: Record<string, unknown> = tool.outputSchema;
+  expect(ajv.validateSchema(outputSchema)).toBe(true);
+  const response = await client.callTool({
+    name: "inspect_managed_members",
+    arguments: { path, type_names: ["Fixture.Program"], detail: "summary" },
+  });
+  expect(response.isError).not.toBe(true);
+  expect(
+    ajv.validate(outputSchema, response.structuredContent),
+    JSON.stringify(ajv.errors),
+  ).toBe(true);
+  const summary = managedMemberSummaryViewResultSchema.parse(
+    parseEvidence(response.structuredContent).normalized_result,
+  );
+  const parent = session.evidenceById(summary.parent_evidence_id);
+  if (parent === undefined) throw new Error("Member Evidence was not retained");
+  const report = managedMemberInspectionSchema.parse(parent.normalized_result);
+  expect(report.fields[0]?.initial_data).toMatchObject({
+    state: "present",
+    byte_length: 4,
+    data_hex: "01020304",
+  });
+  await unlink(path);
+  const pageResponse = await client.callTool({
+    name: "inspect_analysis_view",
+    arguments: {
+      source: { kind: "retained-evidence", evidence_id: parent.evidence_id },
+      view: {
+        kind: "managed-members",
+        collection: "fields",
+        offset: 0,
+        limit: 1,
+      },
+    },
+  });
+  expect(pageResponse.isError).not.toBe(true);
+  const pageTool = tools.find((tool) => tool.name === "inspect_analysis_view");
+  if (pageTool?.outputSchema === undefined)
+    throw new Error("View output schema is absent");
+  const pageSchema: Record<string, unknown> = pageTool.outputSchema;
+  expect(
+    ajv.validate(pageSchema, pageResponse.structuredContent),
+    JSON.stringify(ajv.errors),
+  ).toBe(true);
+  const page = analysisViewResultSchema.parse(
+    parseEvidence(pageResponse.structuredContent).normalized_result,
+  );
+  if (page.kind !== "managed-members" || page.page.collection !== "fields")
+    throw new Error("Wrong page collection");
+  expect(page.page.rows).toEqual(report.fields);
+  await client.ping();
+});
+
 it("summarizes selected members and pages every original collection after the file disappears", async () => {
   const directory = await createTestTempDirectory("rea-member-summary-");
   const path = join(directory, "fixture.dll");

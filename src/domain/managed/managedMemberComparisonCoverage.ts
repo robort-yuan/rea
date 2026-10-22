@@ -161,6 +161,7 @@ export const comparisonLimitations = (
     );
   limitations.push(
     "ldstr literals are not compared; normalized CIL keeps #US tokens rather than decoded text, so an unchanged method does not establish unchanged string literals.",
+    "FieldRVA initialization bytes are not compared; an unchanged member does not establish unchanged file-backed initial data.",
   );
   return limitations;
 };

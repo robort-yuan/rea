@@ -17,6 +17,19 @@ interface ManagedPeFixtureOptions {
   }[];
   readonly fieldName?: string;
   readonly fieldSignature?: Buffer;
+  readonly fieldFlags?: number;
+  readonly fieldRva?: {
+    readonly data: Buffer;
+    readonly declarations?: readonly {
+      readonly rva?: number;
+      readonly field?: number;
+    }[];
+  };
+  readonly classLayouts?: readonly {
+    readonly parent: number;
+    readonly size: number;
+    readonly packing?: number;
+  }[];
   readonly ilBody?: Buffer;
   readonly malformedAssemblyReferenceRows?: readonly number[];
   readonly malformedCustomAttributeRows?: readonly number[];
@@ -54,6 +67,7 @@ interface ManagedPeFixtureOptions {
   readonly targetFramework?: string | null;
   readonly typeName?: string;
   readonly typeNamespace?: string;
+  readonly typeFlags?: number;
   /** NestedClass rows as [nested, enclosing] TypeDef rows. */
   readonly nestedTypes?: readonly (readonly [number, number])[];
   /** TypeRef rows after the TargetFrameworkAttribute row, from row 2. */
@@ -71,6 +85,9 @@ interface ManagedPeFixtureOptions {
 const textEncoder = new TextEncoder();
 
 const align4 = (value: number): number => (value + 3) & ~3;
+const defaultMethodBody = Buffer.from([
+  0x32, 0x02, 0x7b, 0x01, 0x00, 0x00, 0x04, 0x28, 0x01, 0x00, 0x00, 0x0a, 0x2a,
+]);
 
 const cString = (value: string): Buffer => Buffer.from(`${value}\0`, "utf8");
 
@@ -241,9 +258,10 @@ const fieldRow = (
   signature: number,
   stringSize: MetadataIndexSize,
   blobSize: MetadataIndexSize,
+  flags = 0x0001,
 ): Buffer =>
   Buffer.concat([
-    u16(0x0001),
+    u16(flags),
     metadataIndex(name, stringSize),
     metadataIndex(signature, blobSize),
   ]);
@@ -813,6 +831,38 @@ const fixtureIndexWidths = ({
   };
 };
 
+const fieldInitializationTables = (
+  options: ManagedPeFixtureOptions,
+  methodRva: number,
+  widths: ReturnType<typeof fixtureIndexWidths>,
+): readonly (readonly [number, readonly Buffer[]])[] => [
+  [
+    15,
+    (options.classLayouts ?? []).map((item) =>
+      Buffer.concat([
+        u16(item.packing ?? 0),
+        u32(item.size),
+        metadataIndex(item.parent, widths.table(2)),
+      ]),
+    ),
+  ],
+  [
+    29,
+    options.fieldRva === undefined
+      ? []
+      : (options.fieldRva.declarations ?? [{}]).map((item) =>
+          Buffer.concat([
+            u32(
+              item.rva ??
+                methodRva +
+                  align4((options.ilBody ?? defaultMethodBody).length),
+            ),
+            metadataIndex(item.field ?? 1, widths.table(4)),
+          ]),
+        ),
+  ],
+];
+
 const fixtureMetadataRows = ({
   options,
   methodRva,
@@ -843,7 +893,9 @@ const fixtureMetadataRows = ({
       [...indexes.additionalTypeNames, indexes.typeName].map((name, index) =>
         typeDefRow({
           name,
-          flags: nestedRows.has(index + 1) ? 0x0010_0002 : 0x0010_0001,
+          flags:
+            options.typeFlags ??
+            (nestedRows.has(index + 1) ? 0x0010_0002 : 0x0010_0001),
           namespace: indexes.typeNamespace,
           fieldList: 1,
           methodList: 1,
@@ -865,6 +917,8 @@ const fixtureMetadataRows = ({
           indexes.fieldSignature,
           heapSizes.strings,
           heapSizes.blobs,
+          options.fieldFlags ??
+            (options.fieldRva === undefined ? 0x0001 : 0x0111),
         ),
       ],
     ],
@@ -900,6 +954,7 @@ const fixtureMetadataRows = ({
       ),
     ],
     [12, customAttributeRows({ options, indexes, heapSizes }, widths)],
+    ...fieldInitializationTables(options, methodRva, widths),
     ...(indexes.pinvokeModuleName === null
       ? []
       : ([
@@ -1114,24 +1169,21 @@ const buildManagedFixtureImage = (
   );
   const methodRva = 0x2000 + bodyOffset - 0x0200;
   const metadata = buildMetadata(methodRva);
-  const body =
-    options.ilBody ??
-    Buffer.from([
-      0x32, 0x02, 0x7b, 0x01, 0x00, 0x00, 0x04, 0x28, 0x01, 0x00, 0x00, 0x0a,
-      0x2a,
-    ]);
+  const body = options.ilBody ?? defaultMethodBody;
   const legacyReadyToRunOffset = 0x0900;
   const metadataEnd = 0x0300 + metadata.length;
   const resourceEnd = resourceOffset + resourceDirectory.length;
   const bodyEnd = bodyOffset + body.length;
+  const fieldDataOffset = align4(bodyEnd);
+  const fieldDataEnd = fieldDataOffset + (options.fieldRva?.data.length ?? 0);
   const overlapsReadyToRun = (start: number, end: number): boolean =>
     legacyReadyToRunOffset < end && legacyReadyToRunOffset + 4 > start;
   const readyToRunOffset =
     options.readyToRun === true
       ? overlapsReadyToRun(0x0300, metadataEnd) ||
         overlapsReadyToRun(resourceOffset, resourceEnd) ||
-        overlapsReadyToRun(bodyOffset, bodyEnd)
-        ? Math.ceil(Math.max(metadataEnd, resourceEnd, bodyEnd) / 4) * 4
+        overlapsReadyToRun(bodyOffset, fieldDataEnd)
+        ? Math.ceil(Math.max(metadataEnd, resourceEnd, fieldDataEnd) / 4) * 4
         : legacyReadyToRunOffset
       : null;
   const rawSectionSize =
@@ -1140,6 +1192,7 @@ const buildManagedFixtureImage = (
         0x0e00,
         0x0100 + metadata.length,
         bodyOffset - 0x0200 + body.length,
+        fieldDataEnd - 0x0200,
         readyToRunOffset === null ? 0 : readyToRunOffset - 0x0200 + 4,
       ) / 0x0200,
     ) * 0x0200;
@@ -1191,6 +1244,7 @@ const buildManagedFixtureImage = (
     image.write("RTR\0", readyToRunOffset, "ascii");
   }
   body.copy(image, bodyOffset);
+  options.fieldRva?.data.copy(image, fieldDataOffset);
   metadata.copy(image, 0x0300);
   resourceDirectory.copy(image, resourceOffset);
   return image;

@@ -233,6 +233,41 @@ opposite observation's selection unknown, and application graphs report their
 selected scope as partial. Neither makes an absence claim about the whole
 assembly. Older member Evidence without `selection` remains readable.
 
+### Field initialization data
+
+Each returned field requires `initial_data`. A null value means neither a
+FieldRVA row nor the field's HasFieldRVA flag was observed. Otherwise,
+`declarations` retains every declared RVA and its FieldRVA file-row offset.
+`file_offset` records a verified file-backed start; it does not establish a
+readable extent by itself.
+
+`state: "present"` includes the exact `byte_length`, `data_hex` and
+`data_sha256`. `size_basis` is `primitive` for unmodified fixed-width primitive
+signatures, or `class-layout` for nongeneric local, fieldless value types with
+one nonzero ClassLayout size. The latter also retains
+`class_layout_row_offset`. A ClassSize alone is a minimum when a type has
+fields, so that case, external types, native integers, references, modified
+signatures and generic layouts keep their size unknown. No length is inferred
+from the next RVA or a section's end.
+
+Unavailable data retains its declarations, any proven mapping/size and a
+`limitation`, with null bytes and digest. Contradictory flags, duplicate rows
+and invalid mappings retain parse issues. Incomplete initialization data makes
+member coverage partial; it does not erase the other decoded member facts.
+Representation admission accounts for hexadecimal expansion before allocation.
+
+The selected types determine which fields' data is read. Complete results and
+retained `fields` pages carry the same bytes and source offsets; summaries
+retain their coverage without repeating the bytes. The data belongs to the
+declared backing field and does not establish the runtime value of an array
+initialized from it. No constructor or target assembly is executed.
+
+`compare_managed_members` does not compare these initialization bytes. An
+unchanged member does not establish unchanged field initialization data.
+
+This field is required in member Evidence and its field pages. Observations
+without it are rejected rather than treating unexamined data as absent.
+
 ### User strings
 
 `ldstr` anchors keep their build-local `0x70` tokens. `user_strings.literals`

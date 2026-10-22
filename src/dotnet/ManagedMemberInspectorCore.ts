@@ -311,6 +311,35 @@ const ELEMENT_TYPES = new Map<number, string>([
   [0x1c, "object"],
 ]);
 
+export type ManagedFieldStorage =
+  | { readonly kind: "primitive"; readonly size: number }
+  | { readonly kind: "value-type"; readonly encodedType: number };
+
+/** Storage facts for the unmodified, fixed-storage subset of FieldSig. */
+export const fieldStorage = (blob: Buffer): ManagedFieldStorage | null => {
+  if (blob[0] !== 0x06) return null;
+  const element = blob[1] ?? 0;
+  if (blob.length === 2 && element >= 0x02 && element <= 0x0d) {
+    const size =
+      element <= 0x05
+        ? element === 0x03
+          ? 2
+          : 1
+        : element <= 0x07
+          ? 2
+          : element <= 0x09 || element === 0x0c
+            ? 4
+            : 8;
+    return { kind: "primitive", size };
+  }
+  if (element === 0x11) {
+    const encoded = readCompressed(blob, 2);
+    if (encoded.next === blob.length)
+      return { kind: "value-type", encodedType: encoded.value };
+  }
+  return null;
+};
+
 const readSignedCompressed = (
   bytes: Buffer,
   offset: number,
