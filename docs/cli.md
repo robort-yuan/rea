@@ -346,6 +346,7 @@ Import an older source tree to compare with the current artifact:
 ```bash
 rea import-reference-source /absolute/path/to/source
 rea import-reference-source /absolute/path/to/source --detail summary --outline-depth 2 --json
+rea import-reference-source /absolute/path/to/source --exclude-paths '["vendor","*.generated.ts"]'
 ```
 
 The default (`--detail full`) returns the complete `HistoricalSourceGraph`.
@@ -363,6 +364,24 @@ code-point order. `outline.omitted_entry_count` counts only inventoried entries
 hidden by the chosen depth; it does not count unexamined children of excluded or
 unreadable directories, or change `inventory_state`. Exclusions and source
 limitations remain separate from this presentation omission.
+
+`--exclude-paths` takes a JSON array of caller-selected path rules and omits the
+matching paths from the imported tree. Rules use the same Git-ignore-style
+grammar as the importer's other patterns, and they match paths relative to the
+imported root: a leading `/` anchors a rule to that root, a trailing `/` limits
+a rule to directories, and a rule without either matches a file or directory
+with that name at any depth. `*.generated.ts` is a valid wildcard rule.
+Malformed JSON, a value that is not an array, a rule that is not a nonempty
+string, and a rule that names an absolute host path are rejected before the
+import starts, so a rejected option never reads the source tree. An empty
+array is accepted and keeps the default import unchanged.
+
+Excluded paths are reported with the `caller-excluded` reason and the matched
+pattern, and excluded directories are not traversed. Project, default and
+configured-secret rules keep their own precedence: a rule that already matched
+the path keeps its reason, and a caller rule cannot turn a sensitive path into
+an ordinary exclusion. An explicit exclusion is a context choice, not a secrecy
+heuristic; use `REA_REFERENCE_SECRET_PATTERNS_JSON` for sensitive paths.
 
 `file_sizes.known_bytes` is the exact sum of known inventoried file sizes as
 decimal text, so large sums cannot lose integer precision. Unknown sizes count

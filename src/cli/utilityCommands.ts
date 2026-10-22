@@ -11,7 +11,9 @@ import type { AnalysisCleanupObservation } from "../domain/analysisErrorBase.js"
 import { parseConfig } from "../config/parseConfig.js";
 import { projectAnalysisError } from "../domain/analysisErrorProjection.js";
 import { AnalysisInputError } from "../domain/analysisErrorCore.js";
+import type { AnalysisInputIssue } from "../domain/analysisErrorCore.js";
 import { projectInputIssues } from "../domain/inputIssueProjection.js";
+import { parseReferenceSourceExclusionRules } from "../domain/referenceSourceExclusionRules.js";
 import { safeParseJson } from "../domain/safeJson.js";
 import { nativeUiScenarioInputSchema } from "../domain/native/nativeUiObservation.js";
 import {
@@ -271,6 +273,41 @@ const registerNativeCommands = (
   });
 };
 
+/**
+ * Decode and validate caller-selected exclusion rules before any import work.
+ *
+ * The JSON text is a caller-facing encoding choice, so malformed JSON and
+ * rejected rules are reported against the option that carries them.
+ */
+const parseReferenceSourceExclusions = (
+  raw: string | undefined,
+):
+  | { readonly ok: true; readonly rules: readonly string[] | undefined }
+  | { readonly ok: false; readonly issues: readonly AnalysisInputIssue[] } => {
+  if (raw === undefined) return { ok: true, rules: undefined };
+  const decoded = safeParseJson(raw);
+  if (!decoded.ok)
+    return {
+      ok: false,
+      issues: [
+        {
+          path: ["excludePaths"],
+          reason: "invalid_format",
+          expected: "JSON",
+        },
+      ],
+    };
+  const parsed = parseReferenceSourceExclusionRules(decoded.value);
+  if (parsed.ok) return { ok: true, rules: parsed.rules };
+  return {
+    ok: false,
+    issues: parsed.issues.map((issue) => ({
+      ...issue,
+      path: ["excludePaths", ...issue.path],
+    })),
+  };
+};
+
 const registerReferenceSourceCommand = (
   cli: CliInstance,
   logger: Logger,
@@ -301,6 +338,12 @@ const registerReferenceSourceCommand = (
         .describe(
           "Summary outline path depth (default: 2; 0 omits entries); requires --detail summary",
         ),
+      excludePaths: z
+        .string()
+        .optional()
+        .describe(
+          "JSON array of caller-selected Git-ignore-style path exclusion rules",
+        ),
     }),
     run: ({ args, options }) =>
       logCliCommand(
@@ -327,6 +370,23 @@ const registerReferenceSourceCommand = (
                 ),
               ),
             };
+          const exclusions = parseReferenceSourceExclusions(
+            options.excludePaths,
+          );
+          if (!exclusions.ok)
+            return {
+              error: "Import failed",
+              ...projectAnalysisError(
+                new AnalysisInputError(
+                  "import-reference-source",
+                  {
+                    userMessage:
+                      "--exclude-paths must be a JSON array of Git-ignore-style path rules.",
+                  },
+                  exclusions.issues,
+                ),
+              ),
+            };
           const config = parseConfig(environment);
           if (!config.ok)
             return {
@@ -339,6 +399,7 @@ const registerReferenceSourceCommand = (
             options.detail === "summary"
               ? (options.outlineDepth ?? 2)
               : undefined,
+            exclusions.rules,
           );
         },
         isReferenceSourceImportCliFailure,
@@ -350,6 +411,7 @@ const runReferenceSourceImport = async (
   root: string,
   policy: ReferenceSourcePolicy,
   outlineDepth: number | undefined,
+  excludePaths: readonly string[] | undefined,
 ): Promise<unknown> => {
   const resources = new ArtifactResourceScope();
   let outcome:
@@ -368,6 +430,7 @@ const runReferenceSourceImport = async (
           policy,
           importer: PRODUCT_IDENTITY.packageName,
           importerVersion: PRODUCT_IDENTITY.packageVersion,
+          ...(excludePaths === undefined ? {} : { excludePaths }),
         },
         resources,
       ),

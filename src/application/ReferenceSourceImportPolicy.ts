@@ -173,7 +173,13 @@ const buildIgnored = async (
     "default-ignored",
   );
   for (const path of excludePaths) {
-    addMarkedPatterns(ignored, [path, `${path}/`], "caller-excluded");
+    // A rule that already names a directory keeps its own grammar; deriving a
+    // second pattern would add "vendor//", which matches nothing.
+    addMarkedPatterns(
+      ignored,
+      path.endsWith("/") ? [path] : [path, `${path}/`],
+      "caller-excluded",
+    );
   }
   return ok(ignored);
 };
