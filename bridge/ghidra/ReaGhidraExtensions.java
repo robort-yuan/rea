@@ -17,6 +17,7 @@ import java.util.List;
 
 /** Session-owned extension loading; analyzer algorithms stay behind each adapter ABI. */
 final class ReaGhidraExtensions implements AutoCloseable {
+    private static final String NATIVE_AOT_ENTRY = "rea.extensions.nativeaot.NativeAotExtension";
     private record Loaded(URLClassLoader loader, Object instance, String sha256) {}
     private final List<Loaded> loaded = new ArrayList<>();
     private final JsonArray reports = new JsonArray();
@@ -33,7 +34,7 @@ final class ReaGhidraExtensions implements AutoCloseable {
             report.addProperty("sha256", digest);
             URLClassLoader loader = null;
             try {
-                if (!id.equals("nativeaot") || !entry.equals("rea.extensions.nativeaot.NativeAotExtension") ||
+                if (!id.equals("nativeaot") || !entry.equals(NATIVE_AOT_ENTRY) ||
                     descriptor.get("integration_api").getAsInt() != 1)
                     throw new IllegalArgumentException("Unregistered Ghidra extension ABI: " + id);
                 Path path = Path.of(descriptor.get("path").getAsString());
@@ -42,7 +43,10 @@ final class ReaGhidraExtensions implements AutoCloseable {
                 String measured = java.util.HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)));
                 if (!measured.equals(digest)) throw new IllegalArgumentException("Private extension digest mismatch: " + id);
                 loader = new URLClassLoader(new java.net.URL[] { path.toUri().toURL() }, getClass().getClassLoader());
-                Class<?> type = Class.forName(entry, true, loader);
+                // entry is already validated above to equal the single allowlisted class name,
+                // but load the literal name here so the reflective call is never driven by
+                // attacker-controlled input even if the allowlist above is loosened later.
+                Class<?> type = Class.forName(NATIVE_AOT_ENTRY, true, loader);
                 Object instance = type.getConstructor().newInstance();
                 Object response = type.getMethod("analyze", Program.class, TaskMonitor.class).invoke(instance, program, monitor);
                 if (!(response instanceof JsonObject result)) throw new IllegalArgumentException("Invalid Ghidra extension result: " + id);
