@@ -20,6 +20,7 @@ import {
   type StateView,
 } from "./environmentStateRules.js";
 import { pagesOnly } from "./environmentStatePaging.js";
+import { readClock, type ClockFormat } from "./environmentStateWriteValues.js";
 import { ENTRY_BYTES, textBytes } from "./webNetworkRouteTemplates.js";
 
 /** A read tool whose recordings locate entities of one type at one pointer. */
@@ -84,6 +85,52 @@ class FieldUnion {
   }
 }
 
+/** The spellings a view always gives clock fields where its recordings spell the stored instant otherwise. */
+class ClockSpellings {
+  /** Per field: the view's spelling, or null once the view also showed the stored spelling or another one. */
+  readonly #formats = new Map<string, ClockFormat | null>();
+  /** Per field, the spellings of shown clocks that name another instant than the stored value. */
+  readonly #others = new Map<string, ClockFormat[]>();
+
+  note(stored: JsonObject, shown: JsonObject): void {
+    for (const [field, value] of Object.entries(shown)) {
+      const now = readClock(value);
+      if (now === undefined) continue;
+      const was = Object.hasOwn(stored, field)
+        ? readClock(stored[field])
+        : undefined;
+      if (was === undefined || was.ms !== now.ms) {
+        const others = this.#others.get(field) ?? [];
+        if (!others.some((format) => same(format, now.format)))
+          this.#others.set(field, [...others, now.format]);
+        continue;
+      }
+      const spelled = same(stored[field], value) ? null : now.format;
+      const held = this.#formats.get(field);
+      this.#formats.set(
+        field,
+        held === undefined || (held !== null && same(held, spelled))
+          ? spelled
+          : null,
+      );
+    }
+  }
+
+  /** The view member, when the view spells any field otherwise, and in that spelling only. */
+  get view(): { readonly clock_formats?: Record<string, ClockFormat> } {
+    const formats = [...this.#formats].filter(
+      (entry): entry is [string, ClockFormat] =>
+        entry[1] !== null &&
+        (this.#others.get(entry[0]) ?? []).every((format) =>
+          same(format, entry[1]),
+        ),
+    );
+    return formats.length === 0
+      ? {}
+      : { clock_formats: Object.fromEntries(formats) };
+  }
+}
+
 const recorded = (plan: StatePlan, reason: RecordedViewReason): StateView => ({
   tool: plan.tool.name,
   shape: "recorded",
@@ -97,6 +144,7 @@ const itemMismatch = (
   check: {
     readonly view: { readonly tool: string; readonly fields: string[] };
     readonly envelope: { skeleton?: string };
+    readonly spellings: ClockSpellings;
   },
   record: StateRecordFacts,
 ): RecordedViewReason | undefined => {
@@ -119,6 +167,7 @@ const itemMismatch = (
       envelope.skeleton = skeleton;
     }
     if (skeleton !== envelope.skeleton) return "envelope-varies";
+    check.spellings.note(entity.fields, object);
     const shown = renderStateEntity(
       entity,
       view,
@@ -143,8 +192,14 @@ export const checkItemPlan = (
   context.retain(union.bytes);
   const view = { tool: plan.tool.name, fields: union.fields };
   const envelope: { skeleton?: string } = {};
+  const spellings = new ClockSpellings();
   for (const record of plan.latest) {
-    const reason = itemMismatch(context, plan, { view, envelope }, record);
+    const reason = itemMismatch(
+      context,
+      plan,
+      { view, envelope, spellings },
+      record,
+    );
     if (reason !== undefined) return recorded(plan, reason);
   }
   return {
@@ -156,6 +211,7 @@ export const checkItemPlan = (
     required_fields: union.required,
     envelope_ordinal: plan.latest[0]!.ordinal,
     checked_record_ordinals: plan.latest.map((record) => record.ordinal),
+    ...spellings.view,
   };
 };
 
@@ -250,15 +306,19 @@ const continues = (name: string, value: JsonValue | undefined): boolean =>
 const listReproduces = (
   context: StateGateContext,
   plan: StatePlan,
-  view: {
-    readonly tool: string;
-    readonly fields: string[];
-    readonly pointer: string;
-    readonly counters: string[];
-    readonly all: boolean;
+  check: {
+    readonly view: {
+      readonly tool: string;
+      readonly fields: string[];
+      readonly pointer: string;
+      readonly counters: string[];
+      readonly all: boolean;
+    };
+    readonly spellings: ClockSpellings;
   },
   record: StateRecordFacts,
 ): boolean => {
+  const { view, spellings } = check;
   const field = context.idField(plan.type);
   return context.withBody(record.ordinal, (body) => {
     const items =
@@ -277,14 +337,16 @@ const listReproduces = (
           );
           return entity === undefined ? [] : [entity];
         });
-    const rendered = members.map((entity) =>
-      renderStateEntity(
+    const rendered = members.map((entity) => {
+      const item = observed.get(entity.id);
+      if (item !== undefined) spellings.note(entity.fields, item);
+      return renderStateEntity(
         entity,
         view,
         context.volatileOf(plan.type),
-        observed.get(entity.id),
-      ),
-    );
+        item,
+      );
+    });
     return same(renderStateList(view, body, rendered), body);
   });
 };
@@ -304,8 +366,11 @@ export const checkListPlan = (
     counters,
     all,
   };
+  const spellings = new ClockSpellings();
   if (
-    !plan.latest.every((record) => listReproduces(context, plan, view, record))
+    !plan.latest.every((record) =>
+      listReproduces(context, plan, { view, spellings }, record),
+    )
   )
     return recorded(plan, "list-differs");
   return {
@@ -318,5 +383,6 @@ export const checkListPlan = (
     membership: all ? "all" : "recorded",
     counters,
     checked_record_ordinals: plan.latest.map((record) => record.ordinal),
+    ...spellings.view,
   };
 };

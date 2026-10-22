@@ -10,10 +10,12 @@ import {
   BOOK_ROWS,
   DELETE_NOT_FOUND,
   FIRST_BOOK,
+  OFFSET_LIST_ROWS,
   SECOND_BOOK,
   THIRD_BOOK,
   book,
   bookClock,
+  offsetListed,
   renamedBook,
   type Book,
 } from "../../../tests/fixtures/environmentStateWrites.js";
@@ -246,6 +248,19 @@ describe("served updates and deletes", () => {
           "holds no /api/books entity 99 in /api/books",
         ),
       });
+  });
+});
+
+describe("clock spellings per view", () => {
+  it("lists a created book with the list's clock spelling and reads it back with the item's", () => {
+    const books = servedFrom(OFFSET_LIST_ROWS);
+    // The served clock starts after the sixth recorded exchange.
+    const created = book(3, "New Book", bookClock(7));
+    books.answer("post_books", CREATE_NEW_BOOK);
+    expect(books.answer("get_books").body).toEqual(
+      [FIRST_BOOK, SECOND_BOOK, created].map(offsetListed),
+    );
+    expect(books.answer("get_books_by_id", { id: "3" }).body).toEqual(created);
   });
 });
 

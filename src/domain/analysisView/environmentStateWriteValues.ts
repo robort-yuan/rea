@@ -82,16 +82,51 @@ export const readClock = (
 const pad = (value: number, width: number): string =>
   String(value).padStart(width, "0");
 
+/** An ISO-8601 date-time from the UTC fields of `at`, with fraction digits and a zone suffix. */
+const isoText = (
+  at: Date,
+  separator: string,
+  digits: string,
+  zone: string,
+): string =>
+  `${pad(at.getUTCFullYear(), 4)}-${pad(at.getUTCMonth() + 1, 2)}-${pad(at.getUTCDate(), 2)}${separator}${pad(at.getUTCHours(), 2)}:${pad(at.getUTCMinutes(), 2)}:${pad(at.getUTCSeconds(), 2)}${digits === "" ? "" : `.${digits}`}${zone}`;
+
 /** An instant spelled in a recorded clock format; fraction digits past milliseconds are zeros. */
 export const formatClock = (ms: number, format: ClockFormat): JsonValue => {
   if (format.kind === "epoch")
     return format.unit === "s" ? Math.floor(ms / 1000) : ms;
   const at = new Date(ms + zoneMinutes(format.zone) * MINUTE_MS);
-  const fraction =
-    format.fraction === 0
-      ? ""
-      : `.${`${pad(at.getUTCMilliseconds(), 3)}${"0".repeat(9)}`.slice(0, format.fraction)}`;
-  return `${pad(at.getUTCFullYear(), 4)}-${pad(at.getUTCMonth() + 1, 2)}-${pad(at.getUTCDate(), 2)}${format.separator}${pad(at.getUTCHours(), 2)}:${pad(at.getUTCMinutes(), 2)}:${pad(at.getUTCSeconds(), 2)}${fraction}${format.zone}`;
+  const digits = `${pad(at.getUTCMilliseconds(), 3)}${"0".repeat(9)}`.slice(
+    0,
+    format.fraction,
+  );
+  return isoText(at, format.separator, digits, format.zone);
+};
+
+/**
+ * A clock value spelled in another ISO format: its wall clock in the format's zone, under the format's separator, with
+ * the value's own fraction digits padded to the format's width, so no digit is lost; an epoch format is computed from
+ * the instant.
+ */
+export const respellClock = (
+  value: JsonValue,
+  format: ClockFormat,
+): JsonValue => {
+  const clock = readClock(value);
+  if (clock === undefined) return value;
+  if (format.kind === "epoch") return formatClock(clock.ms, format);
+  const match = typeof value === "string" ? ISO_INSTANT.exec(value) : null;
+  const millis = ((clock.ms % 1000) + 1000) % 1000;
+  // An epoch value's fraction is its milliseconds, without trailing zeros.
+  const digits =
+    match === null ? pad(millis, 3).replace(/0+$/u, "") : (match[8] ?? "");
+  const at = new Date(clock.ms - millis + zoneMinutes(format.zone) * MINUTE_MS);
+  return isoText(
+    at,
+    format.separator,
+    digits.padEnd(format.fraction, "0"),
+    format.zone,
+  );
 };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
