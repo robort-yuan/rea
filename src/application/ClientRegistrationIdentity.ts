@@ -2,8 +2,10 @@ import { realpathSync } from "node:fs";
 import { isAbsolute } from "node:path";
 import { normalizeEntrypointPath } from "../process/CurrentEntrypointPath.js";
 import { valid } from "semver";
+import { z } from "zod";
 
 import { PRODUCT_IDENTITY } from "../identity.js";
+import type { SetupClient } from "./SupportedClients.js";
 
 /** Package runners whose pinned launcher setup can register. */
 export type PackageRunner = "npx" | "bunx";
@@ -190,4 +192,38 @@ export const classifyClientRegistrationCommand = (
     if (/[./\\]/u.test(executable)) return "unknown";
   }
   return "foreign";
+};
+
+const commandEntrySchema = z
+  .object({ command: z.string(), args: z.array(z.string()) })
+  .passthrough();
+
+const openCodeEntrySchema = z
+  .object({ type: z.literal("local"), command: z.array(z.string()).min(1) })
+  .passthrough();
+
+/** Ownership rule for a persistent MCP registration entry created by REA setup. */
+export const isOwnedClientRegistrationEntry = (
+  value: unknown,
+  format: SetupClient["format"],
+  currentCommandPath: string | undefined,
+): boolean => {
+  if (format === "opencode") {
+    const parsed = openCodeEntrySchema.safeParse(value);
+    return (
+      parsed.success &&
+      classifyClientRegistrationCommand(
+        parsed.data.command,
+        currentCommandPath,
+      ) === "owned"
+    );
+  }
+  const parsed = commandEntrySchema.safeParse(value);
+  return (
+    parsed.success &&
+    classifyClientRegistrationCommand(
+      [parsed.data.command, ...parsed.data.args],
+      currentCommandPath,
+    ) === "owned"
+  );
 };

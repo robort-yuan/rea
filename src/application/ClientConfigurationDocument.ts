@@ -31,6 +31,7 @@ import { err, ok, type Result } from "../domain/result.js";
 import { PRODUCT_IDENTITY } from "../identity.js";
 import type { SetupClient } from "./SupportedClients.js";
 import { compareUnicodeCodePoints } from "../domain/unicodeCodePointOrder.js";
+import { ConfigurationError } from "../domain/configurationErrors.js";
 
 export type ClientConfigurationFormat = NonNullable<SetupClient["format"]>;
 export type ClientServersKey = "mcp_servers" | "mcpServers" | "mcp" | "servers";
@@ -158,8 +159,10 @@ const parseDocument = (
       parseHermesConfigurationYaml(text),
       "The configuration root",
     );
-  // ZCode loads nonempty native files with strict JSON.parse.
-  if (format === "zcode")
+  // ZCode loads nonempty native files with strict JSON.parse. Kiro CLI's
+  // default engine skips an mcp.json holding comments, trailing commas or a
+  // BOM, so setup must refuse to register into one rather than accept JSONC.
+  if (format === "zcode" || format === "kiro")
     return requireObject(JSON.parse(text), "The configuration root");
   // Claude Code loads `.claude.json` with strict JSON.parse after a UTF-8 BOM,
   // so comments and trailing commas it rejects must not be admitted as JSONC.
@@ -1648,6 +1651,99 @@ const serializeHermesConfiguration = (
   );
 };
 
+/** How a refresh treats one caller-owned member of an existing REA entry. */
+interface PreservedRegistrationMember {
+  /** Value shape the client needs to load its configuration file at all. */
+  readonly schema?: z.ZodType;
+  readonly constraint?: string;
+  /** Grants tool authority, so it is carried only from REA's own entry. */
+  readonly grantsAuthority?: true;
+}
+
+/**
+ * Caller-owned members of an existing REA entry that a refresh carries over
+ * unchanged. The client owns their meaning, so setup neither defaults nor
+ * normalizes them. Kiro CLI 2.32.0's default engine skips its whole mcp.json
+ * when `disabledTools` or `timeout` has another type, and ignores a malformed
+ * `autoApprove`.
+ */
+const PRESERVED_REGISTRATION_MEMBERS: Partial<
+  Record<
+    ClientRegistrationDialect,
+    Readonly<Record<string, PreservedRegistrationMember>>
+  >
+> = {
+  kimi: { enabledTools: {} },
+  kiro: {
+    autoApprove: { grantsAuthority: true },
+    disabledTools: {
+      schema: z.array(z.string()),
+      constraint: "Kiro requires an array of tool-name strings",
+    },
+    timeout: {
+      schema: z.int().nonnegative(),
+      constraint: "Kiro requires a non-negative integer number of milliseconds",
+    },
+  },
+};
+
+/** Names of the members a refresh keeps for one dialect, for plan disclosure. */
+export const preservedClientRegistrationMemberNames = (
+  dialect: ClientRegistrationDialect | undefined,
+): {
+  readonly members: readonly string[];
+  readonly grants: readonly string[];
+} => {
+  const members = Object.entries(
+    (dialect === undefined
+      ? undefined
+      : PRESERVED_REGISTRATION_MEMBERS[dialect]) ?? {},
+  );
+  return {
+    members: members.map(([name]) => name),
+    grants: members
+      .filter(([, rule]) => rule.grantsAuthority === true)
+      .map(([name]) => name),
+  };
+};
+
+/**
+ * The caller-owned members of the existing REA entry that a refreshed entry
+ * keeps. A member the client could not load fails instead of being copied
+ * into a registration that would not load; authority grants are dropped
+ * unless the existing entry is REA's own.
+ */
+export const preservedClientRegistrationMembers = (
+  parsed: ClientConfigurationDocument | undefined,
+  ownedEntry: boolean,
+): Result<Record<string, unknown>, ConfigurationError> => {
+  const previous = parsed?.servers[PRODUCT_IDENTITY.mcpServerKey];
+  const rules = parsed && PRESERVED_REGISTRATION_MEMBERS[parsed.dialect];
+  if (rules === undefined || typeof previous !== "object" || previous === null)
+    return ok({});
+  const kept: Record<string, unknown> = {};
+  const issues: { setting: string; constraint: string }[] = [];
+  for (const [name, rule] of Object.entries(rules)) {
+    if (!Object.hasOwn(previous, name)) continue;
+    const value: unknown = Reflect.get(previous, name);
+    if (rule.schema !== undefined && !rule.schema.safeParse(value).success) {
+      issues.push({
+        setting: name,
+        constraint: rule.constraint ?? "Unsupported value",
+      });
+      continue;
+    }
+    if (rule.grantsAuthority !== true || ownedEntry) kept[name] = value;
+  }
+  return issues.length === 0
+    ? ok(kept)
+    : err(
+        new ConfigurationError("Invalid REA server settings", {
+          settings: issues,
+        }),
+      );
+};
+
 /** Build the stdio entry shape expected by one client's configuration dialect. */
 export const clientRegistrationEntry = (
   format: ClientRegistrationDialect,
@@ -1705,6 +1801,15 @@ export const clientRegistrationEntry = (
         command: executable,
         args,
         ...(Object.keys(environment).length === 0 ? {} : { env: environment }),
+      };
+    case "kiro":
+      // Kiro infers stdio from command. Its MCP panel toggles `disabled`, so
+      // the entry states the enabled state in the client's own spelling.
+      return {
+        command: executable,
+        args,
+        ...(Object.keys(environment).length === 0 ? {} : { env: environment }),
+        disabled: false,
       };
     case "dsh":
       return dshClientRegistrationEntry(command, environment);

@@ -75,6 +75,7 @@ describe("client configuration filesystem lifecycle", () => {
       "hermes",
       "qoder",
       "droid",
+      "kiro",
       "zcode",
       "dsh",
       "grok_bot",

@@ -515,6 +515,7 @@ hosted connector; see [its configuration](client-configuration.md#other-client-s
 | Hermes             | `hermes`         |
 | Qoder              | `qoder`          |
 | Factory Droid      | `droid`          |
+| Kiro               | `kiro`           |
 | Trae               | `trae`           |
 | WorkBuddy          | `workbuddy`      |
 | ZCode              | `zcode`          |
@@ -522,6 +523,8 @@ hosted connector; see [its configuration](client-configuration.md#other-client-s
 
 `droid`, `dsh`, `kimi`, `qoder`, `trae`, `workbuddy`, and `zcode` require
 `rea-agents@6.5.0` or later. The 6.4.0 registry check above does not cover them.
+`kiro` is available on repository main and requires a source build or a
+release that includes it.
 
 See [client configuration and troubleshooting](client-configuration.md) for
 configuration paths, profiles, trust policies, and schema-limit workarounds.

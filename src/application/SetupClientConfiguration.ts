@@ -16,6 +16,7 @@ import {
   OMP_DISABLED_SERVERS_KEY,
   parseClientConfiguration,
   parseZcodeFallbackConfiguration,
+  preservedClientRegistrationMembers,
   serializeClientConfiguration,
   withClientServers,
   type ClientConfigurationDocument,
@@ -33,7 +34,11 @@ import {
 
 import { PRODUCT_IDENTITY } from "../identity.js";
 import { snapshotEnvironment } from "../process/snapshotEnvironment.js";
-import { npxRegistrationCommand } from "./ClientRegistrationIdentity.js";
+import {
+  isOwnedClientRegistrationEntry,
+  npxRegistrationCommand,
+} from "./ClientRegistrationIdentity.js";
+import { CURRENT_ENTRYPOINT_PATH } from "../process/CurrentEntrypointPath.js";
 import {
   MCP_STARTUP_POLICY,
   recommendedMcpToolTimeoutMs,
@@ -742,19 +747,20 @@ const clientConfigurationDesired = async (
           REA_MCP_INPUT_SCHEMA_PROFILE: "compact",
         }
       : environment.value;
-  const registration = clientRegistrationEntry(
-    format,
-    launcher,
-    registrationEnvironment,
-  );
   const previous = parsed?.servers[PRODUCT_IDENTITY.mcpServerKey];
-  if (
-    client.name === "kimi" &&
-    typeof previous === "object" &&
-    previous !== null &&
-    "enabledTools" in previous
-  )
-    registration.enabledTools = previous.enabledTools;
+  const preserved = preservedClientRegistrationMembers(
+    parsed,
+    isOwnedClientRegistrationEntry(
+      previous,
+      client.format,
+      CURRENT_ENTRYPOINT_PATH,
+    ),
+  );
+  if (!preserved.ok) throw preserved.error;
+  const registration = {
+    ...clientRegistrationEntry(format, launcher, registrationEnvironment),
+    ...preserved.value,
+  };
   return {
     ...registration,
     ...(client.name === "codex" || client.name === "grok_build"

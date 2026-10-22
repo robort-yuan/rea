@@ -50,6 +50,7 @@ export interface SetupClient {
     | "omp"
     | "pi"
     | "kimi"
+    | "kiro"
     | "hermes"
     | "zcode_fallback"
     | "zcode"
@@ -669,6 +670,15 @@ export const SUPPORTED_CLIENT_DEFINITIONS = [
       join(factoryDirectory(context), "mcp.json"),
     markerPath: factoryDirectory,
     format: "json",
+  },
+  {
+    // Kiro IDE and Kiro CLI read the same user-level MCP file and skill root.
+    name: "kiro",
+    displayName: "Kiro",
+    skillPath: [".kiro", "skills"],
+    configPath: [".kiro", "settings", "mcp.json"],
+    markerPath: [".kiro"],
+    format: "kiro",
   },
   {
     name: "zcode",

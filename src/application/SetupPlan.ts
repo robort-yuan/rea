@@ -1,4 +1,5 @@
 import { classifyClientRegistrationCommand } from "./ClientRegistrationIdentity.js";
+import { preservedClientRegistrationMemberNames } from "./ClientConfigurationDocument.js";
 import {
   linuxHopperInstallDisclosure,
   type LinuxPackageFamily,
@@ -367,6 +368,8 @@ const linuxDisclosure = (family: LinuxPackageFamily) => {
 const majorVersion = (version: string): number =>
   Number.parseInt(version.split(".")[0] ?? "0", 10);
 
+const MEMBER_LIST = new Intl.ListFormat("en", { type: "conjunction" });
+
 const clientConfigurationDetail = (
   client: SetupClient,
   command: readonly string[],
@@ -386,5 +389,19 @@ const clientConfigurationDetail = (
       : " The HOPPER_LAUNCHER_PATH value shown above is the current fallback; if this plan installs Hopper, REA will replace it with the launcher path reported by that installation."
     : "";
   const persistence = registrationPersistenceDetail(client);
-  return `Add the REA MCP registration for ${client.displayName ?? client.name}; preserve unrelated configuration. The backup path reflects the configuration inspected for this plan; if that file changes before execution, setup will select a recovery path for its current contents. Command: ${command.map((part) => JSON.stringify(part)).join(" ")}.${environmentDetail}${hopperDetail}${persistence === undefined ? "" : ` ${persistence}`}`;
+  const preserved = preservedClientRegistrationMemberNames(client.format);
+  const kept = preserved.members.filter(
+    (name) => !preserved.grants.includes(name),
+  );
+  const preservedDetail = [
+    ...(kept.length === 0
+      ? []
+      : [` Existing ${MEMBER_LIST.format(kept)} values are retained.`]),
+    ...(preserved.grants.length === 0
+      ? []
+      : [
+          ` Existing ${MEMBER_LIST.format(preserved.grants)} values are retained only from REA's own registration.`,
+        ]),
+  ].join("");
+  return `Add the REA MCP registration for ${client.displayName ?? client.name}; preserve unrelated configuration. The backup path reflects the configuration inspected for this plan; if that file changes before execution, setup will select a recovery path for its current contents. Command: ${command.map((part) => JSON.stringify(part)).join(" ")}.${environmentDetail}${preservedDetail}${hopperDetail}${persistence === undefined ? "" : ` ${persistence}`}`;
 };
