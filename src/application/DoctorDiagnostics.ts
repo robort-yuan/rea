@@ -379,8 +379,8 @@ const providerDoctorChecks = (
 
 const unsupportedHopperRemediation = (configured: boolean): string =>
   configured
-    ? "Check HOPPER_LAUNCHER_PATH and its publisher verification evidence. Run rea setup to install and retain an authenticated official Hopper package for offline use."
-    : "Run rea setup to install and retain an authenticated official Hopper package for offline use.";
+    ? "The configured HOPPER_LAUNCHER_PATH binary does not match the current official Linux demo or any retained authenticated package. If this build was extracted from an older official .deb, run rea setup --yes --install-hopper to install and retain the current authenticated build. Otherwise check HOPPER_LAUNCHER_PATH and its publisher verification evidence."
+    : "Run rea setup --yes --install-hopper to install and retain an authenticated official Hopper package for offline use.";
 
 const parseMajor = (version: string | undefined): number =>
   Number.parseInt(version?.split(".")[0] ?? "0", 10);

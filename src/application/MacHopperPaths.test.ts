@@ -1,6 +1,6 @@
 import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, posix } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -44,10 +44,15 @@ describe("macOS Hopper launcher paths", () => {
   it("finds renamed user bundles through the runtime filesystem scan", async () => {
     const temporary = await mkdtemp(join(tmpdir(), "rea-hopper-paths-"));
     const appDirectory = join(temporary, "Applications", "Hopper Preview.app");
+    const macHomeDirectory = temporary.replaceAll("\\", "/");
+    expect(macHomeDirectory).not.toContain("\\");
     try {
       await mkdir(appDirectory, { recursive: true });
-      expect([...macHopperLauncherCandidates(temporary)]).toContain(
-        join(appDirectory, "Contents/MacOS/hopper"),
+      expect([...macHopperLauncherCandidates(macHomeDirectory)]).toContain(
+        posix.join(
+          macHomeDirectory,
+          "Applications/Hopper Preview.app/Contents/MacOS/hopper",
+        ),
       );
     } finally {
       await rm(temporary, { recursive: true, force: true });

@@ -1,5 +1,7 @@
 import { readdirSync } from "node:fs";
-import { join } from "node:path";
+import { posix } from "node:path";
+
+const join = posix.join;
 
 export const MAC_HOPPER_APPLICATION_DIRECTORY = "/Applications";
 export const MAC_HOPPER_APPLICATION_NAME = "Hopper Disassembler.app";
