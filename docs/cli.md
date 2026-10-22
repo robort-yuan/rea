@@ -285,6 +285,32 @@ rea evidence-export /absolute/path/to/evidence/bundle.json /absolute/path/to/evi
 rea compare /absolute/path/to/evidence/left.json /absolute/path/to/evidence/right.json
 ```
 
+When observations have different Evidence IDs, `compare` leaves their
+correspondence unknown unless you supply explicit one-to-one pairs. Pass
+`--record-pairs` an inline JSON array or a JSON file path containing that array:
+
+```json
+[
+  {
+    "left_evidence_id": "ev_<64 lowercase hexadecimal characters>",
+    "right_evidence_id": "ev_<64 lowercase hexadecimal characters>"
+  }
+]
+```
+
+Replace the placeholders with IDs from the respective bundles, then run:
+
+```bash
+rea compare left.json right.json --record-pairs pairs.json --json
+```
+
+The `compare-bundles` alias accepts the same option. Every selected ID must
+exist on its named side, and no ID may be paired twice on that side. Omitting
+the option or supplying `[]` keeps the existing unpaired behavior. Pairing
+selects observations for comparison; it does not establish behavioral
+equivalence of their subjects. The comparison preserves both bundle digests
+and the selected Evidence IDs.
+
 Exports preserve an existing destination unless `--overwrite` is explicit.
 For application traces and version comparisons, see
 [JavaScript application workflows](javascript-application-workflows.md).

@@ -11,6 +11,7 @@ import { CLI_COMMANDS } from "./cliCommandNames.js";
 import type { JsonValue } from "./domain/jsonValue.js";
 import { projectAnalysisError } from "./domain/analysisErrorProjection.js";
 import type { AnalysisError } from "./domain/analysisErrorBase.js";
+import { parseCliJsonInput } from "./cliJsonInput.js";
 
 /** Register caller-path Evidence commands. */
 export const registerEvidenceCommands = (
@@ -54,11 +55,29 @@ export const registerEvidenceCommands = (
       left: z.string().describe("Left Evidence bundle JSON path"),
       right: z.string().describe("Right Evidence bundle JSON path"),
     }),
-    run: ({ args }) =>
+    options: z.object({
+      recordPairs: z
+        .string()
+        .optional()
+        .describe(
+          "Inline JSON array or JSON file path of left_evidence_id/right_evidence_id pairs",
+        ),
+    }),
+    run: ({ args, options }) =>
       logCliCommand(logger, "compare", async () => {
+        let recordPairs: unknown;
+        if (options.recordPairs !== undefined) {
+          const parsed = await parseCliJsonInput(
+            options.recordPairs,
+            "compare_bundles",
+          );
+          if (!parsed.ok) return parsed.error;
+          recordPairs = parsed.value;
+        }
         const compared = await compareEvidenceBundlesCommand({
           leftPath: args.left,
           rightPath: args.right,
+          recordPairs,
         });
         return compared.ok ? compared.value : cliError(compared.error);
       }),

@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -7,7 +7,10 @@ import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
 import { expect, onTestFinished } from "vitest";
 
 import { createEvidence } from "../../../src/domain/evidence.js";
-import { bundleComparisonResultSchema } from "../../../src/domain/bundleComparison.js";
+import {
+  bundleComparisonResultSchema,
+  compareBundles,
+} from "../../../src/domain/bundleComparison.js";
 import {
   createEvidenceBundle,
   serializeEvidenceBundle,
@@ -104,6 +107,146 @@ cliTest(
         }),
       ],
     });
+  },
+);
+
+const pairedBundles = async () => {
+  const root = await createTestTempDirectory("rea-bundle-pairs-cli-");
+  const observe = (value: number) =>
+    createEvidence(
+      undefined,
+      { id: "fixture", name: "Fixture", version: "1" },
+      {
+        operation: "observe",
+        parameters: {},
+        result: { value },
+        confidence: "derived",
+        authority: "analyst-inference",
+      },
+    );
+  const leftRecord = observe(1);
+  const rightRecord = observe(2);
+  const left = createEvidenceBundle([leftRecord]);
+  const right = createEvidenceBundle([rightRecord]);
+  const leftPath = join(root, "left.json");
+  const rightPath = join(root, "right.json");
+  const pair = {
+    left_evidence_id: leftRecord.evidence_id,
+    right_evidence_id: rightRecord.evidence_id,
+  };
+  await Promise.all([
+    writeFile(leftPath, serializeEvidenceBundle(left)),
+    writeFile(rightPath, serializeEvidenceBundle(right)),
+  ]);
+  return { root, left, right, leftPath, rightPath, pair };
+};
+
+cliTest(
+  "compares only explicitly paired observations from inline JSON or a file",
+  async ({ cli }) => {
+    const { root, left, right, leftPath, rightPath, pair } =
+      await pairedBundles();
+    const pairs = JSON.stringify([pair]);
+    const pairsPath = join(root, "pairs.json");
+    await writeFile(pairsPath, pairs);
+    const expected = compareBundles(left, right, [pair]);
+    expect(expected).toMatchObject({
+      status: "changed",
+      summary: { records_changed: 1, unresolved: 0 },
+      changes: [
+        {
+          left_evidence_ids: [pair.left_evidence_id],
+          right_evidence_ids: [pair.right_evidence_id],
+          conclusion_kind: "observed_change",
+        },
+      ],
+    });
+    for (const [command, input] of [
+      ["compare", pairs],
+      ["compare-bundles", pairsPath],
+    ] as const) {
+      const result = await cli.run({
+        arguments: [
+          command,
+          leftPath,
+          rightPath,
+          "--record-pairs",
+          input,
+          "--json",
+        ],
+      });
+      expect(result.exitCode).toBe(0);
+      expect(bundleComparisonResultSchema.parse(result.json)).toEqual(expected);
+    }
+    const empty = await cli.run({
+      arguments: [
+        "compare",
+        leftPath,
+        rightPath,
+        "--record-pairs",
+        "[]",
+        "--json",
+      ],
+    });
+    expect(empty.exitCode).toBe(0);
+    expect(bundleComparisonResultSchema.parse(empty.json)).toEqual(
+      compareBundles(left, right),
+    );
+    expect(await readFile(leftPath, "utf8")).toBe(
+      serializeEvidenceBundle(left),
+    );
+    expect(await readFile(rightPath, "utf8")).toBe(
+      serializeEvidenceBundle(right),
+    );
+    const help = await cli.run({ arguments: ["compare", "--help"] });
+    expect(help.stdout).toContain("--record-pairs");
+    expect(help.stdout).toContain("JSON");
+  },
+);
+
+cliTest(
+  "rejects invalid pair selections without publishing a comparison",
+  async ({ cli }) => {
+    const { root, leftPath, rightPath, pair } = await pairedBundles();
+    const absentId = `ev_${"0".repeat(64)}`;
+    const missingFile = join(root, "missing.json");
+    for (const [input, code] of [
+      ["[", "invalid_request"],
+      ["{}", "invalid_request"],
+      [
+        JSON.stringify([{ ...pair, left_evidence_id: "invalid" }]),
+        "invalid_request",
+      ],
+      [missingFile, "invalid_request"],
+      [
+        JSON.stringify([{ ...pair, left_evidence_id: absentId }]),
+        "evidence_integrity_mismatch",
+      ],
+      [
+        JSON.stringify([{ ...pair, right_evidence_id: absentId }]),
+        "evidence_integrity_mismatch",
+      ],
+      [JSON.stringify([pair, pair]), "evidence_integrity_mismatch"],
+    ] as const) {
+      const result = await cli.run({
+        arguments: [
+          "compare",
+          leftPath,
+          rightPath,
+          "--record-pairs",
+          input,
+          "--json",
+        ],
+      });
+      expect(result.exitCode).toBe(1);
+      expect(result.json).toMatchObject({ code });
+      expect(result.json).not.toHaveProperty("status");
+      if (input === missingFile)
+        expect(result.json).toMatchObject({
+          input_path: missingFile,
+          input_reason: "read-failed",
+        });
+    }
   },
 );
 
