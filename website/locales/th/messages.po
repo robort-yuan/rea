@@ -66,7 +66,7 @@ msgstr "โดย N0zoM1z0 ·10 ตุลาคม 2026"
 #. {ph1}: </span>
 #: website/public/blog/index.html:250
 #: website/public/blog/reverse-engineering-models/index.html:889
-#: website/public/blog/touhou-reconstruction/index.html:1086
+#: website/public/blog/touhou-reconstruction/index.html:1079
 #: website/public/contributors/index.html:1137
 #: website/public/examples/dino-lab/index.html:481
 #: website/public/faq/index.html:579
@@ -340,77 +340,65 @@ msgstr ""
 "{ph0}ทดสอบการอ้างอิงการยืนยัน(ออราเคิล)ด้วย{ph1} ลองกรณีที่มันควรจะปฏิเสธ "
 "ถ้ามันพลาดข้อผิดพลาด,ทบทวนผลลัพธ์ก่อนหน้านี้ที่ขึ้นอยู่กับมัน."
 
-#. {ph0}: <strong >
-#. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:229
-#, python-brace-format
-msgctxt "page:blog/touhou-reconstruction/index.html"
-msgid ""
-"{ph0}We are in the early days of RE's industrial revolution.{ph1} The "
-"methods are still taking shape. There is plenty left to explore."
-msgstr ""
-"{ph0}เราอยู่ในยุคแรกของการปฏิวัติอุตสาหกรรมของรี{ph1} "
-"วิธีการยังคงเป็นรูปเป็นร่าง มีเหลืออีกมากมายให้สำรวจ"
-
-#: website/public/blog/touhou-reconstruction/index.html:241
+#: website/public/blog/touhou-reconstruction/index.html:234
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "How experience compounds"
 msgstr "วิธีสารประกอบประสบการณ์"
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:242
+#: website/public/blog/touhou-reconstruction/index.html:235
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}Human direction{ph1} · Goal and acceptance criteria"
 msgstr "{ph0}ทิศทางของมนุษย์{ph1} *เป้าหมายและเกณฑ์การยอมรับ"
 
-#: website/public/blog/touhou-reconstruction/index.html:330
+#: website/public/blog/touhou-reconstruction/index.html:323
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Autonomy"
 msgstr "อิสระในการทำงาน"
 
-#: website/public/blog/touhou-reconstruction/index.html:331
+#: website/public/blog/touhou-reconstruction/index.html:324
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Agent"
 msgstr "ผู้ช่วย AI"
 
 #. {ph0}: <br />
-#: website/public/blog/touhou-reconstruction/index.html:332
+#: website/public/blog/touhou-reconstruction/index.html:325
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Choose an experiment.{ph0}Propose a hypothesis."
 msgstr "เลือกการทดสอบ{ph0}เสนอสมมติฐาน"
 
-#: website/public/blog/touhou-reconstruction/index.html:335
+#: website/public/blog/touhou-reconstruction/index.html:328
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Verification"
 msgstr "การตรวจสอบ"
 
-#: website/public/blog/touhou-reconstruction/index.html:336
+#: website/public/blog/touhou-reconstruction/index.html:329
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Oracle"
 msgstr "เกณฑ์อ้างอิงสำหรับตรวจสอบ"
 
 #. {ph0}: <br />
-#: website/public/blog/touhou-reconstruction/index.html:337
+#: website/public/blog/touhou-reconstruction/index.html:330
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Test against a{ph0}concrete reference."
 msgstr "ทดสอบกับ{ph0}การอ้างอิงคอนกรีต"
 
-#: website/public/blog/touhou-reconstruction/index.html:340
+#: website/public/blog/touhou-reconstruction/index.html:333
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Repository"
 msgstr "คลังโค้ด"
 
-#: website/public/blog/touhou-reconstruction/index.html:341
+#: website/public/blog/touhou-reconstruction/index.html:334
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Working memory"
 msgstr "หน่วยความจำของงาน"
 
 #. {ph0}: <br />
-#: website/public/blog/touhou-reconstruction/index.html:342
+#: website/public/blog/touhou-reconstruction/index.html:335
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Code, evidence,{ph0}checks and lessons."
@@ -419,7 +407,7 @@ msgstr "รหัส,หลักฐาน,{ph0}ตรวจสอบและ�
 #. {ph0}: <br />
 #. {ph1}: <strong>
 #. {ph2}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:344
+#: website/public/blog/touhou-reconstruction/index.html:337
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Mismatch{ph0}{ph1}Revise the hypothesis{ph2}"
@@ -428,26 +416,26 @@ msgstr "ไม่ตรงกัน{ph0}{ph1}แก้ไขสมมติฐ�
 #. {ph0}: <br />
 #. {ph1}: <strong>
 #. {ph2}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:347
+#: website/public/blog/touhou-reconstruction/index.html:340
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "A better{ph0}{ph1}starting point{ph2}"
 msgstr "ดีกว่า{ph0}{ph1}จุดเริ่มต้น{ph2}"
 
-#: website/public/blog/touhou-reconstruction/index.html:350
+#: website/public/blog/touhou-reconstruction/index.html:343
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Reuse"
 msgstr "นำกลับมาใช้"
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:351
+#: website/public/blog/touhou-reconstruction/index.html:344
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}Pass{ph1} · Keep the result and its evidence"
 msgstr "{ph0}ผ่าน{ph1} *เก็บผลและหลักฐาน"
 
-#: website/public/blog/touhou-reconstruction/index.html:363
+#: website/public/blog/touhou-reconstruction/index.html:356
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Each project leaves the next with a better starting point. That includes "
@@ -456,14 +444,14 @@ msgstr ""
 "แต่ละโครงการออกต่อไปด้วยจุดเริ่มต้นที่ดีขึ้น "
 "ซึ่งรวมถึงการแก้ไขเช็คเมื่อเราค้นพบช่องว่าง"
 
-#: website/public/blog/touhou-reconstruction/index.html:370
+#: website/public/blog/touhou-reconstruction/index.html:363
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "In this article"
 msgstr "ในบทความนี้"
 
 #. {ph0}: <a href="#august">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:372
+#: website/public/blog/touhou-reconstruction/index.html:365
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}August 2026{ph1}"
@@ -471,7 +459,7 @@ msgstr "{ph0}สิงหาคม 2026{ph1}"
 
 #. {ph0}: <a href="#th08">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:373
+#: website/public/blog/touhou-reconstruction/index.html:366
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}TH08: the continuation{ph1}"
@@ -479,7 +467,7 @@ msgstr "{ph0}TH08:ความต่อเนื่อง{ph1}"
 
 #. {ph0}: <a href="#different-approaches">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:374
+#: website/public/blog/touhou-reconstruction/index.html:367
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}Two approaches{ph1}"
@@ -487,7 +475,7 @@ msgstr "{ph0}สองวิธี{ph1}"
 
 #. {ph0}: <a href="#th095">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:375
+#: website/public/blog/touhou-reconstruction/index.html:368
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}TH095: compounding{ph1}"
@@ -495,7 +483,7 @@ msgstr "{ph0}TH095:การทบต้น{ph1}"
 
 #. {ph0}: <a href="#th04">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:376
+#: website/public/blog/touhou-reconstruction/index.html:369
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}TH04: across architectures{ph1}"
@@ -503,7 +491,7 @@ msgstr "{ph0}TH04:สถาปัตยกรรม{ph1}"
 
 #. {ph0}: <a href="#semantic-reconstruction">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:377
+#: website/public/blog/touhou-reconstruction/index.html:370
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}From exact to readable{ph1}"
@@ -511,7 +499,7 @@ msgstr "{ph0}จากที่แน่นอนที่จะอ่านไ�
 
 #. {ph0}: <a href="#industrial-shift">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:380
+#: website/public/blog/touhou-reconstruction/index.html:373
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}The industrial shift{ph1}"
@@ -519,18 +507,18 @@ msgstr "{ph0}การเปลี่ยนแปลงอุตสาหกร�
 
 #. {ph0}: <a href="#possibilities">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:381
+#: website/public/blog/touhou-reconstruction/index.html:374
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}What becomes possible{ph1}"
 msgstr "{ph0}สิ่งที่เป็นไปได้{ph1}"
 
-#: website/public/blog/touhou-reconstruction/index.html:386
+#: website/public/blog/touhou-reconstruction/index.html:379
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "What changed in August 2026"
 msgstr "สิ่งที่เปลี่ยนแปลงในเดือนสิงหาคม 2026"
 
-#: website/public/blog/touhou-reconstruction/index.html:387
+#: website/public/blog/touhou-reconstruction/index.html:380
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Before this work, I had done a lot of manual reverse engineering. I would "
@@ -544,7 +532,7 @@ msgstr ""
 "การต่อไปหมายถึงการใช้จ่ายมากขึ้นของเวลาของตัวเองในการทำงานต่อไป "
 "มันยังหมายถึงการเก็บภาพขนาดใหญ่มากขึ้นในหัวของฉัน."
 
-#: website/public/blog/touhou-reconstruction/index.html:394
+#: website/public/blog/touhou-reconstruction/index.html:387
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Most of my RE work is on games. I reconstruct them so their behavior can be "
@@ -557,7 +545,7 @@ msgstr ""
 "นั่นคือประสบการณ์ที่อยู่เบื้องหลังบทความนี้. "
 "วิธีการที่จะมีประโยชน์อื่นๆแต่แต่ละเขตข้อมูลความต้องการที่จะสร้างสิ่งที่มันสามารถตรวจ"
 
-#: website/public/blog/touhou-reconstruction/index.html:401
+#: website/public/blog/touhou-reconstruction/index.html:394
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "In August 2026, I started exploring agent-driven RE seriously. I wanted to "
@@ -569,7 +557,7 @@ msgstr ""
 "ผมอยากเห็นว่าตัวแทนจะสามารถเข้าถึงโปรแกรมและเครื่องมือพัฒนาสามัญได้ไกลแค่ไหน"
 " การฟื้นฟูทูโฮทำให้ผมมีโครงการมากมายที่จะหาคำตอบได้"
 
-#: website/public/blog/touhou-reconstruction/index.html:407
+#: website/public/blog/touhou-reconstruction/index.html:400
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The early progress was startling. An investigation could keep moving without"
@@ -585,7 +573,7 @@ msgstr ""
 "มันอาจจะเขียนการวินิจฉัยขนาดเล็กและใช้ผลในการตัดสินใจว่าจะลองต่อไป "
 "ให้มันว่าเสรีภาพสร้างความแตกต่าง:ฉันสามารถใช้ความสนใจมากขึ้นในทิศทางของโครง"
 
-#: website/public/blog/touhou-reconstruction/index.html:416
+#: website/public/blog/touhou-reconstruction/index.html:409
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The pace got my attention first. Then I began wondering what would survive "
@@ -596,7 +584,7 @@ msgstr ""
 "แล้วผมก็เริ่มสงสัยว่าอะไรจะรอดพ้นจากโครงการปัจจุบัน "
 "เกมต่อไปจะได้รับประโยชน์จากทุกอย่างที่เราเพิ่งได้เรียนรู้?"
 
-#: website/public/blog/touhou-reconstruction/index.html:423
+#: website/public/blog/touhou-reconstruction/index.html:416
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "TH08: building on human work"
 msgstr "TH08:อาคารในการทำงานของมนุษย์"
@@ -605,7 +593,7 @@ msgstr "TH08:อาคารในการทำงานของมนุษ�
 #. {ph1}: </a>
 #. {ph2}: <a href="https://github.com/GensokyoClub/th08" >
 #. {ph3}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:424
+#: website/public/blog/touhou-reconstruction/index.html:417
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -619,7 +607,7 @@ msgstr ""
 "แหล่งข่าวสาธารณะของพวกเขาทำให้ฉันมีรากฐานที่สำคัญ "
 "มันมาพร้อมกับความรู้เกี่ยวกับการสร้างและประวัติของการมีส่วนร่วมที่ผมเก็บรักษาไว้ใน"
 
-#: website/public/blog/touhou-reconstruction/index.html:433
+#: website/public/blog/touhou-reconstruction/index.html:426
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The imported history ends at the public 10 August checkpoint. My independent"
@@ -630,7 +618,7 @@ msgstr ""
 "ความต่อเนื่องของฉันเริ่มต้นในวันที่ 13 สิงหาคม โดย 19 "
 "สิงหาคมบัญชีแยกประเภทที่บันทึกไว้สำหรับทุก 1,107 ระบุฟังก์ชั่นเกม"
 
-#: website/public/blog/touhou-reconstruction/index.html:438
+#: website/public/blog/touhou-reconstruction/index.html:431
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "A playable Linux reconstruction port was committed on 24 August, roughly "
@@ -641,7 +629,7 @@ msgstr ""
 "สิงหาคมประมาณสิบเอ็ดวันหลังจากที่ต่อเนื่องเริ่ม ฉบับเว็บตาม เดอะพื้นเมือง "
 "Linux ปล่อย 64 บิตมาถึงเมื่อวันที่ 30 สิงหาคม"
 
-#: website/public/blog/touhou-reconstruction/index.html:443
+#: website/public/blog/touhou-reconstruction/index.html:436
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "What struck me was that the work had reached a program people could run. "
@@ -655,7 +643,7 @@ msgstr ""
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:450
+#: website/public/blog/touhou-reconstruction/index.html:443
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -672,12 +660,12 @@ msgstr ""
 "ตรวจสอบรันไทม์สามารถบอกเราว่าเส้นทางที่ใช้สิทธิถึงสถานะที่คาดไว้ "
 "ตัวแทนเสนอคำอธิบายและทดสอบมัน;ไม่ตรงกันให้มันบางสิ่งบางอย่างที่เฉพาะเจาะจงใน"
 
-#: website/public/blog/touhou-reconstruction/index.html:458
+#: website/public/blog/touhou-reconstruction/index.html:451
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "An exact match with the wrong constant"
 msgstr "ตรงกับค่าคงที่ผิดพอดี"
 
-#: website/public/blog/touhou-reconstruction/index.html:459
+#: website/public/blog/touhou-reconstruction/index.html:452
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "An oracle is software someone wrote. TH08 gave me a clear reminder of how "
@@ -688,7 +676,7 @@ msgstr ""
 
 #. {ph0}: <code>0.0</code>
 #. {ph1}: <code>128.0</code>
-#: website/public/blog/touhou-reconstruction/index.html:463
+#: website/public/blog/touhou-reconstruction/index.html:456
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -700,7 +688,7 @@ msgstr ""
 " แหล่งที่มาที่สร้างขึ้นใหม่ตรวจสอบอำนาจของผู้เล่นกับ {ph0}. ต้นฉบับที่ใช้ "
 "{ph1} เกณฑ์สูงสุด-อำนาจ"
 
-#: website/public/blog/touhou-reconstruction/index.html:469
+#: website/public/blog/touhou-reconstruction/index.html:462
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Normal power is non-negative, so the reconstructed power check was "
@@ -714,13 +702,13 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:476
+#: website/public/blog/touhou-reconstruction/index.html:469
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}Yet the function had already passed the exact comparison.{ph1}"
 msgstr "{ph0}แต่ฟังก์ชั่นที่มีอยู่แล้วผ่านการเปรียบเทียบที่แน่นอน{ph1}"
 
-#: website/public/blog/touhou-reconstruction/index.html:482
+#: website/public/blog/touhou-reconstruction/index.html:475
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "A rebuild can put a constant at a different address. The comparison tool "
@@ -734,7 +722,7 @@ msgstr ""
 
 #. {ph0}: <code>128.0</code>
 #. {ph1}: <code>0.0</code>
-#: website/public/blog/touhou-reconstruction/index.html:489
+#: website/public/blog/touhou-reconstruction/index.html:482
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -751,7 +739,7 @@ msgstr ""
 #. {ph1}: </a >
 #. {ph2}: <a href="https://github.com/N0zoM1z0/th08/pull/13">
 #. {ph3}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:495
+#: website/public/blog/touhou-reconstruction/index.html:488
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -766,7 +754,7 @@ msgstr ""
 "จุดลอยตัวอ้างอิงอย่างต่อเนื่อง "
 "มันพบอีกสิบสองอ้างอิงที่ไม่ถูกต้องในห้าฟังก์ชั่นที่ยอมรับ"
 
-#: website/public/blog/touhou-reconstruction/index.html:506
+#: website/public/blog/touhou-reconstruction/index.html:499
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The comparison now checks every such floating literal. Its tests include "
@@ -779,7 +767,7 @@ msgstr ""
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:511
+#: website/public/blog/touhou-reconstruction/index.html:504
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -789,7 +777,7 @@ msgstr ""
 "{ph0}การเขียนข้อความโฆษณา,การเขียนในนามคนอื่น,บทความ{ph1} "
 "ซ่อมมันเป็นส่วนหนึ่งของการซ่อมเกม"
 
-#: website/public/blog/touhou-reconstruction/index.html:515
+#: website/public/blog/touhou-reconstruction/index.html:508
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "That matters when the team is mostly one person working with agents. I "
@@ -806,7 +794,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:523
+#: website/public/blog/touhou-reconstruction/index.html:516
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -821,7 +809,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:532
+#: website/public/blog/touhou-reconstruction/index.html:525
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -830,7 +818,7 @@ msgid ""
 msgstr ""
 "{ph0}ชุดที่ประสบความสำเร็จให้เราทั้งการกู้คืนรหัสและสภาพแวดล้อมที่ดีกว่าสำหรับชุดต่อไป.{ph1}"
 
-#: website/public/blog/touhou-reconstruction/index.html:540
+#: website/public/blog/touhou-reconstruction/index.html:533
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Two different ideas of reconstruction"
 msgstr "สองความคิดที่แตกต่างกันของการฟื้นฟู"
@@ -839,7 +827,7 @@ msgstr "สองความคิดที่แตกต่างกันข
 #. href="https://web.archive.org/web/20260909051514/https://github.com/GensokyoClub/th08#important-
 #. notice" >
 #. {ph1}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:541
+#: website/public/blog/touhou-reconstruction/index.html:534
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -851,7 +839,7 @@ msgstr ""
 "ทำให้ความขัดแย้งกับชนิดของงานนี้อย่างชัดเจน "
 "ประกาศประกาศว่าการพัฒนาต่อไปจะเกิดขึ้นเอกชนจนกว่าจะเสร็จสิ้น หนึ่งทางอ่าน:"
 
-#: website/public/blog/touhou-reconstruction/index.html:552
+#: website/public/blog/touhou-reconstruction/index.html:545
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The rise of grifters (AI decompilations and ports) in this space taking from"
@@ -859,7 +847,7 @@ msgid ""
 msgstr ""
 "การเพิ่มขึ้นของกริฟเตอร์(ไอรวบรวมและพอร์ต)ในพื้นที่นี้การจากการทำงานของเราสีภาพที่ไ…"
 
-#: website/public/blog/touhou-reconstruction/index.html:558
+#: website/public/blog/touhou-reconstruction/index.html:551
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The notice also describes the psychological toll on the maintainers. Their "
@@ -875,7 +863,7 @@ msgstr ""
 "ผมเคารพความพยายามที่อยู่เบื้องหลังมัน "
 "ความขัดแย้งที่ฉันต้องการจะหารือเกี่ยวกับวิธีการฟื้นฟูควรดำเนินการและวิธีการมีส่วนร่วม"
 
-#: website/public/blog/touhou-reconstruction/index.html:567
+#: website/public/blog/touhou-reconstruction/index.html:560
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "In the manual workflow I knew, developing an understanding of a function and"
@@ -887,7 +875,7 @@ msgstr ""
 " โครงการหนึ่งต้องอาศัยความเชี่ยวชาญของบุคคลนั้นอย่างมาก "
 "ความไว้วางใจในผู้สนับสนุนที่สำคัญเพราะมากของเหตุผลที่เกิดขึ้นในขณะที่พวกเขาทำงา"
 
-#: website/public/blog/touhou-reconstruction/index.html:574
+#: website/public/blog/touhou-reconstruction/index.html:567
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Existing projects already preserve knowledge in their source and build "
@@ -897,7 +885,7 @@ msgstr ""
 "โครงการที่มีอยู่แล้วรักษาความรู้ในแหล่งที่มาของพวกเขาและสร้างเครื่องมือ "
 "สิ่งที่เปลี่ยนแปลงสำหรับผมก็คือเจ้าหน้าที่สามารถใช้ความรู้นั้นเพื่อติดตามการสืบสวนต่อไปได้ด้วยตัวเอง"
 
-#: website/public/blog/touhou-reconstruction/index.html:579
+#: website/public/blog/touhou-reconstruction/index.html:572
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "In my continuation, I decide the objective and the standard for accepting a "
@@ -911,7 +899,7 @@ msgstr ""
 "การฟื้นฟูที่นำเสนอแล้วมีเพื่อความอยู่รอดการตรวจสอบที่เกี่ยวข้อง "
 "ฉันต้องการให้บุคคลอื่นสามารถที่จะตรวจสอบว่าทำไมเราเลือกการดำเนินงาน,แม้ว่าตัวแ"
 
-#: website/public/blog/touhou-reconstruction/index.html:586
+#: website/public/blog/touhou-reconstruction/index.html:579
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "This can be a difficult transition. Years of careful work may become the "
@@ -924,7 +912,7 @@ msgstr ""
 "ที่ทำให้เกิดคำถามจริงเกี่ยวกับเครดิต "
 "การเปลี่ยนแปลงสิ่งที่ผู้ดูแลจำเป็นต้องรู้ก่อนที่จะยอมรับการมีส่วนร่วม"
 
-#: website/public/blog/touhou-reconstruction/index.html:592
+#: website/public/blog/touhou-reconstruction/index.html:585
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The industrial analogy helps me think about this. In a craft, much of the "
@@ -939,7 +927,7 @@ msgstr ""
 "คนยังคงมีการออกแบบกระบวนการและรับรู้เมื่อผลผลิตที่ไม่ถูกต้อง "
 "ชุมชนต่างๆสามารถเลือกได้ว่าพวกเขาต้องการเปลี่ยนแปลงมากแค่ไหน"
 
-#: website/public/blog/touhou-reconstruction/index.html:600
+#: website/public/blog/touhou-reconstruction/index.html:593
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "My choice is to continue openly, with the inherited work credited and its "
@@ -963,7 +951,7 @@ msgstr ""
 #. href="https://github.com/N0zoM1z0/th08/blob/d2a00f4acb4a13916e07a00bd13f714961714628/README.md#credits-
 #. and-provenance" >
 #. {ph5}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:606
+#: website/public/blog/touhou-reconstruction/index.html:599
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -976,14 +964,14 @@ msgstr ""
 "ใบเสนอราคาเป็นข้อความที่ตัดตอนมาที่สั้นลง TH08ของ "
 "{ph4}เครดิตและแหล่งที่มา{ph5} บันทึกขอบเขตความต่อเนื่อง"
 
-#: website/public/blog/touhou-reconstruction/index.html:624
+#: website/public/blog/touhou-reconstruction/index.html:617
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "TH095: experience starts compounding"
 msgstr "TH095:ประสบการณ์เริ่มต้นการทบต้น"
 
 #. {ph0}: <a href="https://github.com/N0zoM1z0/th095">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:625
+#: website/public/blog/touhou-reconstruction/index.html:618
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -997,7 +985,7 @@ msgstr ""
 "สิงหาคมกับศูนย์ยืนยันฟังก์ชั่นเกมในบัญชีแยกประเภท เรายังคงต้องเรียนรู้เกม "
 "แต่เรารู้อยู่แล้วมากขึ้นเกี่ยวกับวิธีการเริ่มต้นการฟื้นฟูและวิธีการที่จะให้มันย้าย"
 
-#: website/public/blog/touhou-reconstruction/index.html:633
+#: website/public/blog/touhou-reconstruction/index.html:626
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "By 7 September, all 697 identified game functions had source. By 8 "
@@ -1011,7 +999,7 @@ msgstr ""
 "ฟื้นฟูถูกทำเครื่องหมายเล่นได้เมื่อวันที่ 10 "
 "กันยายนประมาณสิบสองวันหลังจากการเริ่มต้น"
 
-#: website/public/blog/touhou-reconstruction/index.html:640
+#: website/public/blog/touhou-reconstruction/index.html:633
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "I found this more exciting than the first project's speed. A fresh target "
@@ -1022,7 +1010,7 @@ msgstr ""
 "เป้าหมายใหม่จะได้รับประโยชน์จากการทำงานที่ทำในเกมอื่น. "
 "ประสบการณ์ที่มีอยู่แล้วในเครื่องมือและในวิธีการที่โครงการได้รับการจัด"
 
-#: website/public/blog/touhou-reconstruction/index.html:646
+#: website/public/blog/touhou-reconstruction/index.html:639
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "For example, TH08 had taught us to pay attention to the assembled program "
@@ -1036,7 +1024,7 @@ msgstr ""
 " เราต้องเห็นพวกเขาทำงานด้วยกัน บทเรียนนั้นช่วยสร้างวิธีการที่เราเข้าหา "
 "TH095ทั้งโปรแกรมสร้าง"
 
-#: website/public/blog/touhou-reconstruction/index.html:653
+#: website/public/blog/touhou-reconstruction/index.html:646
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "A lesson that stays in my head is useful while I am there. Once it becomes a"
@@ -1048,7 +1036,7 @@ msgstr ""
 "เมื่อมันกลายเป็นตรวจสอบว่าเซสชั่นอื่นสามารถทำงานก็สามารถให้ความช่วยเหลือหลังจ"
 " ตัวแทนต่อไปสามารถใช้ผลลัพธ์โดยไม่ต้องทำซ้ำการสืบสวนที่นำไปสู่มัน"
 
-#: website/public/blog/touhou-reconstruction/index.html:659
+#: website/public/blog/touhou-reconstruction/index.html:652
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The floating-literal bug belongs in that memory too. It explains why "
@@ -1062,7 +1050,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:665
+#: website/public/blog/touhou-reconstruction/index.html:658
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1073,7 +1061,7 @@ msgstr ""
 "{ph0}วิธีการที่จะกลายเป็นส่วนหนึ่งของวัสดุเริ่มต้นสำหรับเกมถัดไป{ph1} "
 "เราสามารถใช้ความพยายามของโครงการต่อไปมากขึ้นกับสิ่งที่เป็นจริงใหม่เกี่ยวกับเป้าหมาย"
 
-#: website/public/blog/touhou-reconstruction/index.html:673
+#: website/public/blog/touhou-reconstruction/index.html:666
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The same benefit is available to people joining later. They can inspect a "
@@ -1085,7 +1073,7 @@ msgstr ""
 "Theyตรวจสอบการตัดสินใจและเรียกใช้การตรวจสอบก่อนที่จะดำเนินการต่อการทำงา "
 "พวกเขาไม่ได้มีการสร้างประวัติของโครงการทั้งหมดเพื่อหาเหตุผลที่แหล่งที่มาที่มีลักษณะ"
 
-#: website/public/blog/touhou-reconstruction/index.html:681
+#: website/public/blog/touhou-reconstruction/index.html:674
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "TH04: the workflow survives a different architecture"
 msgstr "TH04:เวิร์กโฟลว์มีชีวิตอยู่สถาปัตยกรรมที่แตกต่างกัน"
@@ -1094,7 +1082,7 @@ msgstr "TH04:เวิร์กโฟลว์มีชีวิตอยู่�
 #. {ph1}: </a>
 #. {ph2}: <a href="https://github.com/nmlgc/ReC98">
 #. {ph3}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:682
+#: website/public/blog/touhou-reconstruction/index.html:675
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1110,7 +1098,7 @@ msgstr ""
 "กเขา ที่อยู่ {ph2}เรค 98{ph3} "
 "ให้ความรู้ที่มีคุณค่าและวัสดุแหล่งที่มาที่นี่ด้วย"
 
-#: website/public/blog/touhou-reconstruction/index.html:691
+#: website/public/blog/touhou-reconstruction/index.html:684
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The DOS reconstruction is now working. In my manual testing, I played "
@@ -1123,7 +1111,7 @@ msgstr ""
 "งานปัจจุบันเป็นพอร์ตพื้นเมือง 64 บิต "
 "การสร้างเวอร์ชันดอสทำงานก่อนทำให้พอร์ตการสื่อสารนั้นมีการอ้างอิง"
 
-#: website/public/blog/touhou-reconstruction/index.html:697
+#: website/public/blog/touhou-reconstruction/index.html:690
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The architecture changed what we needed to investigate. It also changed the "
@@ -1135,7 +1123,7 @@ msgstr ""
 "นอกจากนี้ยังมีการเปลี่ยนแปลงคอมไพเลอร์และรันไทม์กับที่เราตรวจสอบการทำงานของ "
 "แต่ตัวแทนยังคงสามารถทำตามคำถามผ่านไปยังผลลัพธ์และให้ผลลัพธ์ที่เป็นแนวทางในการทดลองต่อไป"
 
-#: website/public/blog/touhou-reconstruction/index.html:703
+#: website/public/blog/touhou-reconstruction/index.html:696
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Consider the transition from gameplay to an ending. We need to know what "
@@ -1150,7 +1138,7 @@ msgstr ""
 "เมื่อหลักฐานและการตรวจสอบที่มีอยู่ตัวแทนสามารถทำงานผ่านคำถามมากที่สุดเท่าที่มันไ"
 " Windows ชื่อเรื่อง"
 
-#: website/public/blog/touhou-reconstruction/index.html:711
+#: website/public/blog/touhou-reconstruction/index.html:704
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "This is why TH04 matters to the argument. A substantial platform change did "
@@ -1161,7 +1149,7 @@ msgstr ""
 "การเปลี่ยนแปลงแพลตฟอร์มอย่างมีนัยสำคัญไม่ได้บังคับให้เราเริ่มต้นใหม่ด้วยวิธีการใหม่ในการทำงาน"
 " สถาปัตยกรรมกำหนดปัญหาเวิร์กโฟลว์ยังคงให้เราวิธีแก้ปัญหา"
 
-#: website/public/blog/touhou-reconstruction/index.html:717
+#: website/public/blog/touhou-reconstruction/index.html:710
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "For the 64-bit port, we can now examine the new implementation against "
@@ -1178,7 +1166,7 @@ msgstr ""
 #. {ph1}: </a >
 #. {ph2}: <a href="https://github.com/N0zoM1z0/th04/tree/port/modern-64" >
 #. {ph3}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:722
+#: website/public/blog/touhou-reconstruction/index.html:715
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1188,19 +1176,19 @@ msgstr ""
 "รัฐโครงการณวันที่ 10 ตุลาคม 2026: {ph0}การฟื้นฟูและทดสอบด้วยตนเอง{ph1} · "
 "{ph2}พอร์ต 64 บิต{ph3}. ท่าเรือยังคงอยู่ในการพัฒนา"
 
-#: website/public/blog/touhou-reconstruction/index.html:735
+#: website/public/blog/touhou-reconstruction/index.html:728
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "From exact code to readable code"
 msgstr "จากโค้ดที่แน่นอนไปยังโค้ดที่อ่านได้"
 
-#: website/public/blog/touhou-reconstruction/index.html:736
+#: website/public/blog/touhou-reconstruction/index.html:729
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Once a reconstruction works, I want someone else to be able to understand "
 "it."
 msgstr "เมื่อการฟื้นฟูการทำงานผมต้องการให้คนอื่นที่จะสามารถที่จะเข้าใจมัน"
 
-#: website/public/blog/touhou-reconstruction/index.html:740
+#: website/public/blog/touhou-reconstruction/index.html:733
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "To me, assembly and raw offsets can feel like old friends. I realise this is"
@@ -1213,7 +1201,7 @@ msgstr ""
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:746
+#: website/public/blog/touhou-reconstruction/index.html:739
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1229,7 +1217,7 @@ msgstr ""
 "จากนั้นเราสามารถให้ชื่อที่มีความหมายและประเภทที่เหมาะกับหลักฐาน "
 "เราให้เหตุผลกับแหล่งที่มาเพื่อให้คนต่อไปสามารถดูว่าการตีความที่มาจากไหน"
 
-#: website/public/blog/touhou-reconstruction/index.html:754
+#: website/public/blog/touhou-reconstruction/index.html:747
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "This becomes especially important for a port. An absolute address tells me "
@@ -1244,14 +1232,14 @@ msgstr ""
 "บิตในการตัดสินใจว่าวัตถุที่ควรจะเป็นเจ้าข "
 "ที่จะย้ายพฤติกรรมได้อย่างปลอดภัยเราจำเป็นต้องกู้คืนความสัมพันธ์ที่อยู่เบื้องหลังการเข้"
 
-#: website/public/blog/touhou-reconstruction/index.html:761
+#: website/public/blog/touhou-reconstruction/index.html:754
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "The order I now use is:"
 msgstr "คำสั่งที่ผมใช้ตอนนี้คือ:"
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:763
+#: website/public/blog/touhou-reconstruction/index.html:756
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1267,7 +1255,7 @@ msgstr ""
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:770
+#: website/public/blog/touhou-reconstruction/index.html:763
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1283,7 +1271,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:777
+#: website/public/blog/touhou-reconstruction/index.html:770
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1299,7 +1287,7 @@ msgstr ""
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:786
+#: website/public/blog/touhou-reconstruction/index.html:779
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1313,7 +1301,7 @@ msgstr ""
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:793
+#: website/public/blog/touhou-reconstruction/index.html:786
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1329,7 +1317,7 @@ msgstr ""
 " "
 "การตรวจสอบที่สองว่าโปรแกรมที่สร้างขึ้นใหม่ยังคงสร้างและทำงานอย่างถูกต้องตามเส้นทางที่เราออกกำลังกาย"
 
-#: website/public/blog/touhou-reconstruction/index.html:801
+#: website/public/blog/touhou-reconstruction/index.html:794
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "They catch different mistakes. A type change can alter the generated "
@@ -1342,7 +1330,7 @@ msgstr ""
 "การเปลี่ยนแปลงความเป็นเจ้าของสามารถออกจากสองส่วนของเกมโดยใช้สำเนาที่แตกต่ "
 "การเก็บรักษาทั้งสองตรวจสอบให้ตัวแทนคอนกรีตล้มเหลวในการตรวจสอบก่อนที่จะดำเนิ"
 
-#: website/public/blog/touhou-reconstruction/index.html:808
+#: website/public/blog/touhou-reconstruction/index.html:801
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "A name needs evidence of its own. An exact comparison cannot tell us whether"
@@ -1359,7 +1347,7 @@ msgstr ""
 #. factory/blob/717e1b8560783ed17a39fdf159d30aa16bb307a7/docs/semantic-
 #. reconstruction.md" >
 #. {ph1}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:815
+#: website/public/blog/touhou-reconstruction/index.html:808
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1377,7 +1365,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:826
+#: website/public/blog/touhou-reconstruction/index.html:819
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1388,12 +1376,12 @@ msgstr ""
 "การฟื้นฟูความหมายทำให้ความรู้ที่กู้คืนใช้งานได้{ph1} "
 "พอร์ตแล้วสามารถสร้างทั้งสอง"
 
-#: website/public/blog/touhou-reconstruction/index.html:835
+#: website/public/blog/touhou-reconstruction/index.html:828
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "What makes this an industrial shift"
 msgstr "อะไรทำให้เกิดการเปลี่ยนแปลงทางอุตสาหกรรม"
 
-#: website/public/blog/touhou-reconstruction/index.html:836
+#: website/public/blog/touhou-reconstruction/index.html:829
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "These projects changed where I spent my attention. Once agents could carry "
@@ -1405,7 +1393,7 @@ msgstr ""
 "เมื่อตัวแทนสามารถดำเนินการมากของการสอบสวนไปข้างหน้า,การปรับปรุงสภาพแวดล้ "
 "เครื่องมือที่ดีกว่าจะช่วยให้มีทุกฟังก์ชันในภายหลังที่จำเป็น."
 
-#: website/public/blog/touhou-reconstruction/index.html:843
+#: website/public/blog/touhou-reconstruction/index.html:836
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Autonomy matters here. The useful next step often becomes clear only after a"
@@ -1418,7 +1406,7 @@ msgstr ""
 " ตัวแทนต้องการอิสรภาพมากพอที่จะทำตามผลลัพธ์ที่ไม่คาดคิด "
 "ถ้าต้องรอให้ดิฉันกำหนดแต่ละขั้นงานส่วนใหญ่ยังคงเกี่ยวข้องกับความสนใจของดิฉัน."
 
-#: website/public/blog/touhou-reconstruction/index.html:850
+#: website/public/blog/touhou-reconstruction/index.html:843
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "I expect the agent to make wrong hypotheses. What matters is whether we can "
@@ -1431,7 +1419,7 @@ msgstr ""
 "ตรวจสอบล้มเหลวจะช่วยให้มันเข้าใจความผิดพลาดดีพอที่จะลองอีกครั้ง. "
 "ฉันยังต้องตัดสินใจว่าหลักฐานที่สะสมจะสนับสนุนโครงการนี้หรือไม่"
 
-#: website/public/blog/touhou-reconstruction/index.html:857
+#: website/public/blog/touhou-reconstruction/index.html:850
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "REA gives the agent access to analysis tools. A question about a function's "
@@ -1445,7 +1433,7 @@ msgstr ""
 "โครงการฟื้นฟูวัสดุคอมไพเลอร์และการตรวจสอบการอ้างอิงของตัวเอง "
 "ตัวแทนสามารถใช้ผู้ที่จะทดสอบแหล่งที่มาที่นำเสนอและดูว่าคำอธิบายของมันถือขึ้น"
 
-#: website/public/blog/touhou-reconstruction/index.html:864
+#: website/public/blog/touhou-reconstruction/index.html:857
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The TH08 bug shows why those checks deserve engineering attention of their "
@@ -1463,7 +1451,7 @@ msgstr ""
 #. href="https://collection.sciencemuseumgroup.org.uk/objects/co51439/watts-
 #. steam-engine-indicator" >
 #. {ph1}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:871
+#: website/public/blog/touhou-reconstruction/index.html:864
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1482,7 +1470,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:884
+#: website/public/blog/touhou-reconstruction/index.html:877
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1498,7 +1486,7 @@ msgstr ""
 "เมื่อเราพบข้อบกพร่องในเครื่องมือที่ใช้ร่วมกัน,เราต้องซ่อมแซมและทบทวนผลที่ได้รับผลก"
 " โครงการถัดไปแล้วสามารถสืบทอดเครื่องมือที่แข็งแกร่ง"
 
-#: website/public/blog/touhou-reconstruction/index.html:894
+#: website/public/blog/touhou-reconstruction/index.html:887
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "There is also a practical limit to any one conversation. It will end before "
@@ -1513,7 +1501,7 @@ msgstr ""
 #. {ph0}: <a href="https://github.com/N0zoM1z0/touhou-reconstruction-factory"
 #. >
 #. {ph1}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:900
+#: website/public/blog/touhou-reconstruction/index.html:893
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1525,7 +1513,7 @@ msgstr ""
 "รงการที่ใช้ร่วมกันเพื่อดำเนินการตรวจสอบและบทเรียนของพวกเขาไปข้างหน้า. "
 "ทำงานในหนึ่งเกมสามารถปรับปรุงเงื่อนไขเริ่มต้นอีก"
 
-#: website/public/blog/touhou-reconstruction/index.html:910
+#: website/public/blog/touhou-reconstruction/index.html:903
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "That is what makes the industrial analogy meaningful to me. Experience "
@@ -1537,12 +1525,12 @@ msgstr ""
 "ปรับปรุงเครื่องมือเหล่านั้นจะเปลี่ยนแปลงจำนวนคนถัดไป-หรือตัวแทนถัดไป-"
 "สามารถทำได้."
 
-#: website/public/blog/touhou-reconstruction/index.html:918
+#: website/public/blog/touhou-reconstruction/index.html:911
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "The projects we can now consider"
 msgstr "โครงการที่เราสามารถพิจารณาได้ในขณะนี้"
 
-#: website/public/blog/touhou-reconstruction/index.html:919
+#: website/public/blog/touhou-reconstruction/index.html:912
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The pace matters because it changes the decision to begin. A game could be "
@@ -1553,7 +1541,7 @@ msgstr ""
 "เกมอาจจะน่าสนใจที่จะย้อนกลับวิศวกรและยังคงต้องการมากขึ้นของความสนใจของตัวเอ "
 "หลายโครงการจะอยู่ความคิด"
 
-#: website/public/blog/touhou-reconstruction/index.html:925
+#: website/public/blog/touhou-reconstruction/index.html:918
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Now I can see a way to keep such a project moving through repeated "
@@ -1569,7 +1557,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:932
+#: website/public/blog/touhou-reconstruction/index.html:925
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1579,7 +1567,7 @@ msgstr ""
 "ตอนนี้ผมมองไปที่โปรแกรมที่ไม่คุ้นเคยและขอให้: "
 "{ph0}อะไรการเข้าถึงข้อเสนอแนะและความรู้ที่สะสมจะช่วยให้ตัวแทนทำงานเกี่ยวกับเรื่องนี้{ph1}"
 
-#: website/public/blog/touhou-reconstruction/index.html:939
+#: website/public/blog/touhou-reconstruction/index.html:932
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "That question makes me consider projects I would previously have left alone."
@@ -1590,12 +1578,12 @@ msgstr ""
 "แต่ละคนสามารถปรับปรุงวิธีการที่เราเข้าใกล้ต่อไป "
 "ผมอยากสืบต่อไปว่ามันพาเราไปได้ไกลแค่ไหน"
 
-#: website/public/blog/touhou-reconstruction/index.html:947
+#: website/public/blog/touhou-reconstruction/index.html:940
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Project milestones and sources"
 msgstr "ความคืบหน้าโครงการและแหล่งที่มา"
 
-#: website/public/blog/touhou-reconstruction/index.html:948
+#: website/public/blog/touhou-reconstruction/index.html:941
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The dates describe recorded project checkpoints, checked against public "
@@ -1628,7 +1616,7 @@ msgstr ""
 #. {ph10}: <a
 #. href="https://github.com/N0zoM1z0/th08/releases/tag/v0.2.0-linux-64bit" >
 #. {ph11}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:956
+#: website/public/blog/touhou-reconstruction/index.html:949
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1662,7 +1650,7 @@ msgstr ""
 #. href="https://github.com/N0zoM1z0/th095/blob/3442dcf29d9e0b5bef384a49bd0c9ad32a711826/docs/WHOLE_BUILD_TODO.md"
 #. >
 #. {ph11}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:979
+#: website/public/blog/touhou-reconstruction/index.html:972
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1680,7 +1668,7 @@ msgstr ""
 #. href="https://github.com/N0zoM1z0/th04/blob/bb9faca54e2eb3c0d6c757c75d59ac29d2cd5e93/docs/RE_HANDOFF.md"
 #. >
 #. {ph3}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:1002
+#: website/public/blog/touhou-reconstruction/index.html:995
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1704,7 +1692,7 @@ msgstr ""
 #. href="https://github.com/N0zoM1z0/th08/commit/a393f400786e4cc6cbb1000af0dad3276da12c78"
 #. >
 #. {ph7}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:1011
+#: website/public/blog/touhou-reconstruction/index.html:1004
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1727,7 +1715,7 @@ msgstr ""
 #. factory/blob/717e1b8560783ed17a39fdf159d30aa16bb307a7/docs/semantic-
 #. reconstruction.md" >
 #. {ph5}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:1025
+#: website/public/blog/touhou-reconstruction/index.html:1018
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1743,7 +1731,7 @@ msgstr ""
 #. href="https://collection.sciencemuseumgroup.org.uk/objects/co51439/watts-
 #. steam-engine-indicator" >
 #. {ph3}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:1037
+#: website/public/blog/touhou-reconstruction/index.html:1030
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1765,7 +1753,7 @@ msgstr ""
 #. factory/blob/038b6bed51d273c8b3680553b6f43e1b97d19bd1/docs/knowledge-
 #. base.md" >
 #. {ph5}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:1046
+#: website/public/blog/touhou-reconstruction/index.html:1039
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1779,7 +1767,7 @@ msgstr ""
 #. {ph1}: </a>
 #. {ph2}: <a class="text-link" href="../../showcase/th04/" >
 #. {ph3}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:1061
+#: website/public/blog/touhou-reconstruction/index.html:1054
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}More articles{ph1} · {ph2}Explore a TH04 investigation{ph3}"
@@ -1799,22 +1787,22 @@ msgstr ""
 "N0zoM1z0สะท้อนถึงป้อนเองย้อนกลับวิศวกรรม,Touhou ชิ้นกับ AI "
 "เจ้าหน้าที่และความรู้รประกอบที่ข้ามTH08,TH095และPC-98TH04."
 
-#: website/public/blog/touhou-reconstruction/index.html:355
+#: website/public/blog/touhou-reconstruction/index.html:348
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Experience carried between projects"
 msgstr "ประสบการณ์การทำงานระหว่างโครงการ"
 
-#: website/public/blog/touhou-reconstruction/index.html:369
+#: website/public/blog/touhou-reconstruction/index.html:362
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "On this page"
 msgstr "ในหน้านี้"
 
-#: website/public/blog/touhou-reconstruction/index.html:384
+#: website/public/blog/touhou-reconstruction/index.html:377
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Touhou reconstruction essay"
 msgstr "เรียงความการฟื้นฟู"
 
-#: website/public/blog/touhou-reconstruction/index.html:1086
+#: website/public/blog/touhou-reconstruction/index.html:1079
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Back to top"
 msgstr "กลับขึ้นด้านบน"
@@ -10660,7 +10648,7 @@ msgstr "คู่มือ"
 
 #: website/public/blog/index.html:242
 #: website/public/blog/reverse-engineering-models/index.html:881
-#: website/public/blog/touhou-reconstruction/index.html:1078
+#: website/public/blog/touhou-reconstruction/index.html:1071
 #: website/public/contributors/index.html:1129
 #: website/public/examples/dino-lab/index.html:473
 #: website/public/faq/index.html:571
@@ -10682,7 +10670,7 @@ msgstr "ซอร์สโค้ด"
 
 #: website/public/blog/index.html:243
 #: website/public/blog/reverse-engineering-models/index.html:882
-#: website/public/blog/touhou-reconstruction/index.html:1079
+#: website/public/blog/touhou-reconstruction/index.html:1072
 #: website/public/contributors/index.html:1130
 #: website/public/examples/dino-lab/index.html:474
 #: website/public/faq/index.html:572
@@ -10704,7 +10692,7 @@ msgstr "สัญญาอนุญาต MIT"
 
 #: website/public/blog/index.html:244
 #: website/public/blog/reverse-engineering-models/index.html:883
-#: website/public/blog/touhou-reconstruction/index.html:1080
+#: website/public/blog/touhou-reconstruction/index.html:1073
 #: website/public/contributors/index.html:1131
 #: website/public/examples/dino-lab/index.html:475
 #: website/public/faq/index.html:573
@@ -10726,7 +10714,7 @@ msgstr "เข้าร่วมชุมชน"
 
 #: website/public/blog/index.html:245
 #: website/public/blog/reverse-engineering-models/index.html:884
-#: website/public/blog/touhou-reconstruction/index.html:1081
+#: website/public/blog/touhou-reconstruction/index.html:1074
 #: website/public/contributors/index.html:1132
 #: website/public/examples/dino-lab/index.html:476
 #: website/public/faq/index.html:574
@@ -14787,7 +14775,7 @@ msgstr ""
 #: website/public/blog/reverse-engineering-models/index.html:122
 #: website/public/blog/reverse-engineering-models/index.html:880
 #: website/public/blog/touhou-reconstruction/index.html:122
-#: website/public/blog/touhou-reconstruction/index.html:1077
+#: website/public/blog/touhou-reconstruction/index.html:1070
 #: website/public/contributors/index.html:123
 #: website/public/contributors/index.html:1128
 #: website/public/examples/dino-lab/index.html:123
@@ -14910,6 +14898,15 @@ msgstr "กลับขึ้นด้านบน"
 msgctxt "runtime"
 msgid "Contributors: {count}"
 msgstr "ผู้มีส่วนร่วม: {count}"
+
+#, python-brace-format
+#~ msgctxt "page:blog/touhou-reconstruction/index.html"
+#~ msgid ""
+#~ "{ph0}We are in the early days of RE's industrial revolution.{ph1} The "
+#~ "methods are still taking shape. There is plenty left to explore."
+#~ msgstr ""
+#~ "{ph0}เราอยู่ในยุคแรกของการปฏิวัติอุตสาหกรรมของรี{ph1} "
+#~ "วิธีการยังคงเป็นรูปเป็นร่าง มีเหลืออีกมากมายให้สำรวจ"
 
 #, python-brace-format
 #~ msgctxt "runtime"

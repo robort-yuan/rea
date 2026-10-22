@@ -64,7 +64,7 @@ msgstr "作者 N0zoM1z0 · 2026 年 10 月 10 日"
 #. {ph1}: </span>
 #: website/public/blog/index.html:250
 #: website/public/blog/reverse-engineering-models/index.html:889
-#: website/public/blog/touhou-reconstruction/index.html:1086
+#: website/public/blog/touhou-reconstruction/index.html:1079
 #: website/public/contributors/index.html:1137
 #: website/public/examples/dino-lab/index.html:481
 #: website/public/faq/index.html:579
@@ -326,75 +326,65 @@ msgid ""
 "bug, revisit the earlier results that depended on it."
 msgstr "{ph0}校验基准本身也要测试。{ph1}故意给它应当拒绝的错误案例。如果它漏掉了 bug，就重新检查依赖这套基准的早期结果。"
 
-#. {ph0}: <strong >
-#. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:229
-#, python-brace-format
-msgctxt "page:blog/touhou-reconstruction/index.html"
-msgid ""
-"{ph0}We are in the early days of RE's industrial revolution.{ph1} The "
-"methods are still taking shape. There is plenty left to explore."
-msgstr "{ph0}我们正处于逆向工程工业革命的早期。{ph1}方法还在成形，还有很多值得探索的地方。"
-
-#: website/public/blog/touhou-reconstruction/index.html:241
+#: website/public/blog/touhou-reconstruction/index.html:234
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "How experience compounds"
 msgstr "经验如何产生复利"
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:242
+#: website/public/blog/touhou-reconstruction/index.html:235
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}Human direction{ph1} · Goal and acceptance criteria"
 msgstr "{ph0}人来定方向{ph1} · 目标和验收标准"
 
-#: website/public/blog/touhou-reconstruction/index.html:330
+#: website/public/blog/touhou-reconstruction/index.html:323
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Autonomy"
 msgstr "自主探索"
 
-#: website/public/blog/touhou-reconstruction/index.html:331
+#: website/public/blog/touhou-reconstruction/index.html:324
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Agent"
 msgstr "编程助手"
 
 #. {ph0}: <br />
-#: website/public/blog/touhou-reconstruction/index.html:332
+#: website/public/blog/touhou-reconstruction/index.html:325
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Choose an experiment.{ph0}Propose a hypothesis."
 msgstr "选择实验。{ph0}提出假设。"
 
-#: website/public/blog/touhou-reconstruction/index.html:335
+#: website/public/blog/touhou-reconstruction/index.html:328
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Verification"
 msgstr "验证"
 
-#: website/public/blog/touhou-reconstruction/index.html:336
+#: website/public/blog/touhou-reconstruction/index.html:329
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Oracle"
 msgstr "校验基准"
 
 #. {ph0}: <br />
-#: website/public/blog/touhou-reconstruction/index.html:337
+#: website/public/blog/touhou-reconstruction/index.html:330
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Test against a{ph0}concrete reference."
 msgstr "对照{ph0}具体的基准验证。"
 
-#: website/public/blog/touhou-reconstruction/index.html:340
+#: website/public/blog/touhou-reconstruction/index.html:333
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Repository"
 msgstr "代码仓库"
 
-#: website/public/blog/touhou-reconstruction/index.html:341
+#: website/public/blog/touhou-reconstruction/index.html:334
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Working memory"
 msgstr "工作记忆"
 
 #. {ph0}: <br />
-#: website/public/blog/touhou-reconstruction/index.html:342
+#: website/public/blog/touhou-reconstruction/index.html:335
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Code, evidence,{ph0}checks and lessons."
@@ -403,7 +393,7 @@ msgstr "代码、证据、{ph0}检查和经验。"
 #. {ph0}: <br />
 #. {ph1}: <strong>
 #. {ph2}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:344
+#: website/public/blog/touhou-reconstruction/index.html:337
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Mismatch{ph0}{ph1}Revise the hypothesis{ph2}"
@@ -412,40 +402,40 @@ msgstr "不匹配{ph0}{ph1}修正假设{ph2}"
 #. {ph0}: <br />
 #. {ph1}: <strong>
 #. {ph2}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:347
+#: website/public/blog/touhou-reconstruction/index.html:340
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "A better{ph0}{ph1}starting point{ph2}"
 msgstr "更好的{ph0}{ph1}起点{ph2}"
 
-#: website/public/blog/touhou-reconstruction/index.html:350
+#: website/public/blog/touhou-reconstruction/index.html:343
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Reuse"
 msgstr "复用"
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:351
+#: website/public/blog/touhou-reconstruction/index.html:344
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}Pass{ph1} · Keep the result and its evidence"
 msgstr "{ph0}通过{ph1} · 保留结果及其证据"
 
-#: website/public/blog/touhou-reconstruction/index.html:363
+#: website/public/blog/touhou-reconstruction/index.html:356
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Each project leaves the next with a better starting point. That includes "
 "fixing the checks when we discover a gap."
 msgstr "每个项目都为下一个项目留下更好的起点。发现检查有漏洞时，也要把检查修好。"
 
-#: website/public/blog/touhou-reconstruction/index.html:370
+#: website/public/blog/touhou-reconstruction/index.html:363
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "In this article"
 msgstr "在本文中"
 
 #. {ph0}: <a href="#august">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:372
+#: website/public/blog/touhou-reconstruction/index.html:365
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}August 2026{ph1}"
@@ -453,7 +443,7 @@ msgstr "{ph0}2026年8月{ph1}"
 
 #. {ph0}: <a href="#th08">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:373
+#: website/public/blog/touhou-reconstruction/index.html:366
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}TH08: the continuation{ph1}"
@@ -461,7 +451,7 @@ msgstr "{ph0}TH08：接续前人的工作{ph1}"
 
 #. {ph0}: <a href="#different-approaches">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:374
+#: website/public/blog/touhou-reconstruction/index.html:367
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}Two approaches{ph1}"
@@ -469,7 +459,7 @@ msgstr "{ph0}两种方法{ph1}"
 
 #. {ph0}: <a href="#th095">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:375
+#: website/public/blog/touhou-reconstruction/index.html:368
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}TH095: compounding{ph1}"
@@ -477,7 +467,7 @@ msgstr "{ph0}TH095：经验的复利{ph1}"
 
 #. {ph0}: <a href="#th04">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:376
+#: website/public/blog/touhou-reconstruction/index.html:369
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}TH04: across architectures{ph1}"
@@ -485,7 +475,7 @@ msgstr "{ph0} TH04：跨架构{ph1}"
 
 #. {ph0}: <a href="#semantic-reconstruction">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:377
+#: website/public/blog/touhou-reconstruction/index.html:370
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}From exact to readable{ph1}"
@@ -493,7 +483,7 @@ msgstr "{ph0}从精确到可读{ph1}"
 
 #. {ph0}: <a href="#industrial-shift">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:380
+#: website/public/blog/touhou-reconstruction/index.html:373
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}The industrial shift{ph1}"
@@ -501,18 +491,18 @@ msgstr "{ph0}工业化的转变{ph1}"
 
 #. {ph0}: <a href="#possibilities">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:381
+#: website/public/blog/touhou-reconstruction/index.html:374
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}What becomes possible{ph1}"
 msgstr "{ph0}新的可能性{ph1}"
 
-#: website/public/blog/touhou-reconstruction/index.html:386
+#: website/public/blog/touhou-reconstruction/index.html:379
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "What changed in August 2026"
 msgstr "2026年8月发生了什么变化"
 
-#: website/public/blog/touhou-reconstruction/index.html:387
+#: website/public/blog/touhou-reconstruction/index.html:380
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Before this work, I had done a lot of manual reverse engineering. I would "
@@ -523,7 +513,7 @@ msgid ""
 msgstr ""
 "在这之前，我做过很多手工逆向。我会反复查看一个函数，直到能解释它，再对照程序验证这个解释。想推进项目，就得亲自花更多时间研究下一个函数，脑子里也要记住越来越多的整体关系。"
 
-#: website/public/blog/touhou-reconstruction/index.html:394
+#: website/public/blog/touhou-reconstruction/index.html:387
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Most of my RE work is on games. I reconstruct them so their behavior can be "
@@ -534,7 +524,7 @@ msgstr ""
 "我的逆向工作主要围绕游戏。我希望通过重建弄清游戏的行为，最终做出移植版或 "
 "mod。这篇文章来自这些经历。方法可以迁移到其他领域，但每个领域都需要先明确：什么可以用可靠的基准来验证。"
 
-#: website/public/blog/touhou-reconstruction/index.html:401
+#: website/public/blog/touhou-reconstruction/index.html:394
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "In August 2026, I started exploring agent-driven RE seriously. I wanted to "
@@ -544,7 +534,7 @@ msgid ""
 msgstr ""
 "2026 年 8 月，我开始认真探索让编程助手做逆向。有了程序本身和常用开发工具，它究竟能走多远？东方游戏重建给了我一个足够完整的项目来寻找答案。"
 
-#: website/public/blog/touhou-reconstruction/index.html:407
+#: website/public/blog/touhou-reconstruction/index.html:400
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The early progress was startling. An investigation could keep moving without"
@@ -556,7 +546,7 @@ msgid ""
 msgstr ""
 "早期的进展让我吃惊。我不再需要为每一步作选择，调查也能持续推进。对比失败后，助手可能转去查看另一个调用方，写一段诊断程序，再根据结果决定下一步。这种自主性改变了我的工作：我可以更多关注项目方向，以及检查是否可靠。"
 
-#: website/public/blog/touhou-reconstruction/index.html:416
+#: website/public/blog/touhou-reconstruction/index.html:409
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The pace got my attention first. Then I began wondering what would survive "
@@ -564,7 +554,7 @@ msgid ""
 "had just learned?"
 msgstr "速度先引起了我的注意。随后我开始想：当前项目结束后，什么会留下来？下一个游戏能不能用上我们刚学到的经验？"
 
-#: website/public/blog/touhou-reconstruction/index.html:423
+#: website/public/blog/touhou-reconstruction/index.html:416
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "TH08: building on human work"
 msgstr "TH08：接续前人的工作"
@@ -573,7 +563,7 @@ msgstr "TH08：接续前人的工作"
 #. {ph1}: </a>
 #. {ph2}: <a href="https://github.com/GensokyoClub/th08" >
 #. {ph3}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:424
+#: website/public/blog/touhou-reconstruction/index.html:417
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -585,7 +575,7 @@ msgstr ""
 "{ph0}TH08{ph1}，也就是《东方永夜抄》，从接续{ph2}GensokyoClub "
 "的重建工作{ph3}开始。他们的公开源码提供了扎实的基础，也留下了构建经验和贡献历史。我在后续工作中保留了这些历史。"
 
-#: website/public/blog/touhou-reconstruction/index.html:433
+#: website/public/blog/touhou-reconstruction/index.html:426
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The imported history ends at the public 10 August checkpoint. My independent"
@@ -595,7 +585,7 @@ msgstr ""
 "导入的历史截至 8 月 10 日的公开检查点。我的独立续作从 8 月 13 日开始。到 8 月 19 日，进度台账中已识别的 1,107 "
 "个游戏函数都有了源码。"
 
-#: website/public/blog/touhou-reconstruction/index.html:438
+#: website/public/blog/touhou-reconstruction/index.html:431
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "A playable Linux reconstruction port was committed on 24 August, roughly "
@@ -605,7 +595,7 @@ msgstr ""
 "8 月 24 日，我们提交了可玩的 Linux 重建移植版，距离开始续作约十一天。随后做出了 Web 版。8 月 30 日，原生 Linux 64 "
 "位版发布。"
 
-#: website/public/blog/touhou-reconstruction/index.html:443
+#: website/public/blog/touhou-reconstruction/index.html:436
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "What struck me was that the work had reached a program people could run. "
@@ -617,7 +607,7 @@ msgstr ""
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:450
+#: website/public/blog/touhou-reconstruction/index.html:443
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -630,12 +620,12 @@ msgid ""
 msgstr ""
 "这让对照检查成为整个工作的核心。我把这些基准称为{ph0}校验基准{ph1}。代码对比可以判断重建的函数是否复现了原始指令；运行时检查可以判断实际走过的路径是否到达了预期状态。编程助手提出一种解释并加以验证；一旦对不上，它就有了具体的调查方向。"
 
-#: website/public/blog/touhou-reconstruction/index.html:458
+#: website/public/blog/touhou-reconstruction/index.html:451
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "An exact match with the wrong constant"
 msgstr "常量错了，却仍然“精确匹配”"
 
-#: website/public/blog/touhou-reconstruction/index.html:459
+#: website/public/blog/touhou-reconstruction/index.html:452
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "An oracle is software someone wrote. TH08 gave me a clear reminder of how "
@@ -644,7 +634,7 @@ msgstr "校验工具也是人写的软件。TH08 让我清楚地看到，多少�
 
 #. {ph0}: <code>0.0</code>
 #. {ph1}: <code>128.0</code>
-#: website/public/blog/touhou-reconstruction/index.html:463
+#: website/public/blog/touhou-reconstruction/index.html:456
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -655,7 +645,7 @@ msgstr ""
 "9 月，下游 Switch 移植版报告了一个 bug，最后追溯到道具自动收集。重建源码把玩家火力与 {ph0} 比较，而原版用的是 "
 "{ph1}，即满火力的阈值。"
 
-#: website/public/blog/touhou-reconstruction/index.html:469
+#: website/public/blog/touhou-reconstruction/index.html:462
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Normal power is non-negative, so the reconstructed power check was "
@@ -667,13 +657,13 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:476
+#: website/public/blog/touhou-reconstruction/index.html:469
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}Yet the function had already passed the exact comparison.{ph1}"
 msgstr "{ph0}可这个函数之前已经通过了精确对比。{ph1}"
 
-#: website/public/blog/touhou-reconstruction/index.html:482
+#: website/public/blog/touhou-reconstruction/index.html:475
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "A rebuild can put a constant at a different address. The comparison tool "
@@ -685,7 +675,7 @@ msgstr ""
 
 #. {ph0}: <code>128.0</code>
 #. {ph1}: <code>0.0</code>
-#: website/public/blog/touhou-reconstruction/index.html:489
+#: website/public/blog/touhou-reconstruction/index.html:482
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -698,7 +688,7 @@ msgstr "漏洞就在这里：工具可以把重建指令的引用地址调整为
 #. {ph1}: </a >
 #. {ph2}: <a href="https://github.com/N0zoM1z0/th08/pull/13">
 #. {ph3}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:495
+#: website/public/blog/touhou-reconstruction/index.html:488
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -710,7 +700,7 @@ msgstr ""
 "{ph0}9 月 2 日的修复{ph1}纠正了源码，并让比较工具检查被引用常量的实际字节。随后进行的{ph2}全面审计{ph3}检查了 1,548 "
 "处浮点常量引用，又在五个已通过验收的函数中发现十二处错误引用。"
 
-#: website/public/blog/touhou-reconstruction/index.html:506
+#: website/public/blog/touhou-reconstruction/index.html:499
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The comparison now checks every such floating literal. Its tests include "
@@ -720,7 +710,7 @@ msgstr "现在工具会检查每一处这样的浮点常量。测试还会故意
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:511
+#: website/public/blog/touhou-reconstruction/index.html:504
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -728,7 +718,7 @@ msgid ""
 "repairing the game."
 msgstr "{ph0}校验基准本身也需要重建。{ph1}修复它，就是修复游戏的一部分。"
 
-#: website/public/blog/touhou-reconstruction/index.html:515
+#: website/public/blog/touhou-reconstruction/index.html:508
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "That matters when the team is mostly one person working with agents. I "
@@ -741,7 +731,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:523
+#: website/public/blog/touhou-reconstruction/index.html:516
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -754,7 +744,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:532
+#: website/public/blog/touhou-reconstruction/index.html:525
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -762,7 +752,7 @@ msgid ""
 " for the next batch.{ph1}"
 msgstr "{ph0}每完成一批工作，我们既得到了还原的代码，也改善了下一批工作的环境。{ph1}"
 
-#: website/public/blog/touhou-reconstruction/index.html:540
+#: website/public/blog/touhou-reconstruction/index.html:533
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Two different ideas of reconstruction"
 msgstr "两种不同的重建理念"
@@ -771,7 +761,7 @@ msgstr "两种不同的重建理念"
 #. href="https://web.archive.org/web/20260909051514/https://github.com/GensokyoClub/th08#important-
 #. notice" >
 #. {ph1}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:541
+#: website/public/blog/touhou-reconstruction/index.html:534
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -782,14 +772,14 @@ msgstr ""
 "GensokyoClub 的{ph0}公开 "
 "README{ph1}明确表达了对这种工作的异议。公告说，项目完成前，后续开发将在私下进行。其中有这样一段话："
 
-#: website/public/blog/touhou-reconstruction/index.html:552
+#: website/public/blog/touhou-reconstruction/index.html:545
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The rise of grifters (AI decompilations and ports) in this space taking from"
 " our work paints a bad image for future decompilation efforts…"
 msgstr "“这个领域里出现了利用我们成果的投机者（AI 反编译和移植项目），给未来的反编译工作留下了不好的印象……”"
 
-#: website/public/blog/touhou-reconstruction/index.html:558
+#: website/public/blog/touhou-reconstruction/index.html:551
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The notice also describes the psychological toll on the maintainers. Their "
@@ -802,7 +792,7 @@ msgstr ""
 "公告也提到了维护者承受的心理压力。他们的贡献政策不接受主要由 AI 生成的 "
 "PR。他们用业余时间投入了艰难的工作，这些成果让我的续作成为可能。我尊重他们付出的努力。我想讨论的分歧，是重建应当如何推进，以及贡献应当如何评价。"
 
-#: website/public/blog/touhou-reconstruction/index.html:567
+#: website/public/blog/touhou-reconstruction/index.html:560
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "In the manual workflow I knew, developing an understanding of a function and"
@@ -812,7 +802,7 @@ msgid ""
 msgstr ""
 "在我熟悉的手工流程中，理解一个函数和重建它，通常由同一个人完成。项目非常依赖这个人的专业能力。很多推理发生在工作过程中，所以对贡献者本人的信任很重要。"
 
-#: website/public/blog/touhou-reconstruction/index.html:574
+#: website/public/blog/touhou-reconstruction/index.html:567
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Existing projects already preserve knowledge in their source and build "
@@ -820,7 +810,7 @@ msgid ""
 "pursue the next investigation on its own."
 msgstr "已有项目本就会在源码和构建工具中保存知识。对我而言，变化在于：编程助手能利用这些知识，自主推进下一次调查。"
 
-#: website/public/blog/touhou-reconstruction/index.html:579
+#: website/public/blog/touhou-reconstruction/index.html:572
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "In my continuation, I decide the objective and the standard for accepting a "
@@ -831,7 +821,7 @@ msgid ""
 msgstr ""
 "在我的续作中，我来确定目标和验收标准，助手有充分的调查自由。它提出的重建方案必须通过相应检查。我希望其他人能够看懂我们为什么选择这个实现，即使大部分工作由助手完成。"
 
-#: website/public/blog/touhou-reconstruction/index.html:586
+#: website/public/blog/touhou-reconstruction/index.html:579
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "This can be a difficult transition. Years of careful work may become the "
@@ -841,7 +831,7 @@ msgid ""
 msgstr ""
 "这可能是一个艰难的转变。多年的细致工作，可能成为一个推进得更快的续作的基础。这会带来真实的归属与署名问题，也改变维护者在接受贡献前需要了解的事情。"
 
-#: website/public/blog/touhou-reconstruction/index.html:592
+#: website/public/blog/touhou-reconstruction/index.html:585
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The industrial analogy helps me think about this. In a craft, much of the "
@@ -852,7 +842,7 @@ msgid ""
 msgstr ""
 "工业化的比喻有助于理解这一点。手工作业的过程往往依赖操作者的技艺。机器改变了这些技艺发挥作用的位置，但仍然需要人设计流程、识别错误产出。不同社区可以选择接受多少这样的变化。"
 
-#: website/public/blog/touhou-reconstruction/index.html:600
+#: website/public/blog/touhou-reconstruction/index.html:593
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "My choice is to continue openly, with the inherited work credited and its "
@@ -873,7 +863,7 @@ msgstr "我的选择是公开继续，注明继承的工作并保留其历史。
 #. href="https://github.com/N0zoM1z0/th08/blob/d2a00f4acb4a13916e07a00bd13f714961714628/README.md#credits-
 #. and-provenance" >
 #. {ph5}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:606
+#: website/public/blog/touhou-reconstruction/index.html:599
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -884,14 +874,14 @@ msgstr ""
 "来源：GensokyoClub 的{ph0}README 公告{ph1}（于 2026 年 10 月 10 "
 "日核对）及其{ph2}贡献政策{ph3}。上面的引文为节选译文。TH08 的{ph4}贡献署名与来源记录{ph5}说明了独立续作的起点。"
 
-#: website/public/blog/touhou-reconstruction/index.html:624
+#: website/public/blog/touhou-reconstruction/index.html:617
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "TH095: experience starts compounding"
 msgstr "TH095：经验开始产生复利"
 
 #. {ph0}: <a href="https://github.com/N0zoM1z0/th095">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:625
+#: website/public/blog/touhou-reconstruction/index.html:618
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -903,7 +893,7 @@ msgstr ""
 "{ph0}TH095{ph1}，也就是《东方文花帖》，让这些经验的价值更容易看清。仓库于 8 月 29 "
 "日建立，当时台账中确认的游戏函数数量为零。我们仍需研究游戏本身，但已经更清楚如何开始重建，以及怎样持续推进。"
 
-#: website/public/blog/touhou-reconstruction/index.html:633
+#: website/public/blog/touhou-reconstruction/index.html:626
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "By 7 September, all 697 identified game functions had source. By 8 "
@@ -914,7 +904,7 @@ msgstr ""
 "到 9 月 7 日，全部 697 个已识别游戏函数都有了源码。9 月 8 日，其中 696 个通过了精确对比。9 月 9 日，整个程序完成链接。9 月 "
 "10 日，Windows i386 重建版被记录为可玩，距离初始化约十二天。"
 
-#: website/public/blog/touhou-reconstruction/index.html:640
+#: website/public/blog/touhou-reconstruction/index.html:633
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "I found this more exciting than the first project's speed. A fresh target "
@@ -922,7 +912,7 @@ msgid ""
 "present in the tools and in the way the project was organized."
 msgstr "这比第一个项目的速度更让我兴奋。新目标能受益于另一个游戏的工作。经验已经进入工具，也进入了项目的组织方式。"
 
-#: website/public/blog/touhou-reconstruction/index.html:646
+#: website/public/blog/touhou-reconstruction/index.html:639
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "For example, TH08 had taught us to pay attention to the assembled program "
@@ -934,7 +924,7 @@ msgstr ""
 "例如，TH08 教会我们尽早关注整个程序。如果几个还原函数依赖同一份状态，分别对比它们仍然会留下一个关键问题：它们能否一起正常工作？这条经验影响了 "
 "TH095 的整程序构建方式。"
 
-#: website/public/blog/touhou-reconstruction/index.html:653
+#: website/public/blog/touhou-reconstruction/index.html:646
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "A lesson that stays in my head is useful while I am there. Once it becomes a"
@@ -944,7 +934,7 @@ msgid ""
 msgstr ""
 "经验只记在我脑子里，我在场时它才有用。变成其他会话能运行的检查后，即使我离开，它仍能帮助项目。下一个助手可以利用检查结果，不用重复当初得出这条经验的调查。"
 
-#: website/public/blog/touhou-reconstruction/index.html:659
+#: website/public/blog/touhou-reconstruction/index.html:652
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The floating-literal bug belongs in that memory too. It explains why "
@@ -956,7 +946,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:665
+#: website/public/blog/touhou-reconstruction/index.html:658
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -965,7 +955,7 @@ msgid ""
 "actually new about its target."
 msgstr "{ph0}方法本身成了下一个游戏的起始材料。{ph1}我们可以把更多精力放在新目标真正不同的地方。"
 
-#: website/public/blog/touhou-reconstruction/index.html:673
+#: website/public/blog/touhou-reconstruction/index.html:666
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The same benefit is available to people joining later. They can inspect a "
@@ -974,7 +964,7 @@ msgid ""
 "the way it does."
 msgstr "后来加入的人也能受益。他们可以查看某个决定，重新运行检查，再继续工作。不用先重走整个项目的历史，才能理解源码为何这样写。"
 
-#: website/public/blog/touhou-reconstruction/index.html:681
+#: website/public/blog/touhou-reconstruction/index.html:674
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "TH04: the workflow survives a different architecture"
 msgstr "TH04：换了架构，工作方式仍然适用"
@@ -983,7 +973,7 @@ msgstr "TH04：换了架构，工作方式仍然适用"
 #. {ph1}: </a>
 #. {ph2}: <a href="https://github.com/nmlgc/ReC98">
 #. {ph3}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:682
+#: website/public/blog/touhou-reconstruction/index.html:675
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -996,7 +986,7 @@ msgstr ""
 "{ph0}TH04{ph1}，也就是《东方幻想乡》，把这套工作带到了 PC-98 DOS 时代。这次是一个由四个程序协作的 16 "
 "位环境。理解硬件行为，需要和 Windows 游戏不同的证据。已有的{ph2}ReC98 工作{ph3}同样提供了宝贵的知识与源码材料。"
 
-#: website/public/blog/touhou-reconstruction/index.html:691
+#: website/public/blog/touhou-reconstruction/index.html:684
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The DOS reconstruction is now working. In my manual testing, I played "
@@ -1007,7 +997,7 @@ msgstr ""
 "DOS 重建版现在已经能运行。我手工打完了完整的 Normal 路线，看到结局，并检查了存档。目前正在做原生 64 位移植。先得到一个正常工作的 DOS"
 " 版，就为移植提供了参照。"
 
-#: website/public/blog/touhou-reconstruction/index.html:697
+#: website/public/blog/touhou-reconstruction/index.html:690
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The architecture changed what we needed to investigate. It also changed the "
@@ -1016,7 +1006,7 @@ msgid ""
 "next experiment."
 msgstr "架构改变了要调查的问题，也改变了用来验证的编译器和运行时。但助手依然能沿着问题找到结果，再用结果指导下一次实验。"
 
-#: website/public/blog/touhou-reconstruction/index.html:703
+#: website/public/blog/touhou-reconstruction/index.html:696
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Consider the transition from gameplay to an ending. We need to know what "
@@ -1028,7 +1018,7 @@ msgstr ""
 "比如从游戏过程切换到结局：哪些状态需要跨越这个边界？哪个程序负责它们？我们可以对照 DOS 原版调查。只要证据和检查可用，助手就能像研究 Windows"
 " 游戏一样推进这个问题。"
 
-#: website/public/blog/touhou-reconstruction/index.html:711
+#: website/public/blog/touhou-reconstruction/index.html:704
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "This is why TH04 matters to the argument. A substantial platform change did "
@@ -1036,7 +1026,7 @@ msgid ""
 "defined the problem; the workflow still gave us a way to solve it."
 msgstr "这就是 TH04 对这篇文章的意义。大幅的平台变化，并没有迫使我们重新发明一套工作方式。架构决定了问题，工作流程仍然提供了解决问题的方法。"
 
-#: website/public/blog/touhou-reconstruction/index.html:717
+#: website/public/blog/touhou-reconstruction/index.html:710
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "For the 64-bit port, we can now examine the new implementation against "
@@ -1050,7 +1040,7 @@ msgstr "做 64 位移植时，我们可以把新实现与 DOS 上已经还原的
 #. {ph1}: </a >
 #. {ph2}: <a href="https://github.com/N0zoM1z0/th04/tree/port/modern-64" >
 #. {ph3}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:722
+#: website/public/blog/touhou-reconstruction/index.html:715
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1058,19 +1048,19 @@ msgid ""
 "testing{ph1} · {ph2}64-bit port{ph3}. The port remains in development."
 msgstr "截至 2026 年 10 月 10 日：{ph0}DOS 重建与手工测试{ph1} · {ph2}64 位移植{ph3}。移植仍在开发中。"
 
-#: website/public/blog/touhou-reconstruction/index.html:735
+#: website/public/blog/touhou-reconstruction/index.html:728
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "From exact code to readable code"
 msgstr "从精确还原到可读源码"
 
-#: website/public/blog/touhou-reconstruction/index.html:736
+#: website/public/blog/touhou-reconstruction/index.html:729
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Once a reconstruction works, I want someone else to be able to understand "
 "it."
 msgstr "重建版能运行之后，我还希望别人能读懂它。"
 
-#: website/public/blog/touhou-reconstruction/index.html:740
+#: website/public/blog/touhou-reconstruction/index.html:733
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "To me, assembly and raw offsets can feel like old friends. I realise this is"
@@ -1082,7 +1072,7 @@ msgstr ""
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:746
+#: website/public/blog/touhou-reconstruction/index.html:739
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1094,7 +1084,7 @@ msgid ""
 msgstr ""
 "这就需要{ph0}语义重建{ph1}。一个还原字段可能仍然只有偏移作为标识。我们追踪游戏如何使用它，直到能解释其作用，再依据证据赋予合适的名称和类型。推理过程和源码一起保存，后来的人就能知道这个解释从何而来。"
 
-#: website/public/blog/touhou-reconstruction/index.html:754
+#: website/public/blog/touhou-reconstruction/index.html:747
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "This becomes especially important for a port. An absolute address tells me "
@@ -1106,14 +1096,14 @@ msgstr ""
 "移植时，语义尤其重要。绝对地址能告诉我数据在旧程序中的位置，却很难帮助 64 "
 "位实现决定哪个对象应当持有这份状态。要正确迁移行为，就得还原旧内存访问背后的关系。"
 
-#: website/public/blog/touhou-reconstruction/index.html:761
+#: website/public/blog/touhou-reconstruction/index.html:754
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "The order I now use is:"
 msgstr "我现在采用这样的顺序："
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:763
+#: website/public/blog/touhou-reconstruction/index.html:756
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1126,7 +1116,7 @@ msgstr ""
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:770
+#: website/public/blog/touhou-reconstruction/index.html:763
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1139,7 +1129,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:777
+#: website/public/blog/touhou-reconstruction/index.html:770
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1152,7 +1142,7 @@ msgstr ""
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:786
+#: website/public/blog/touhou-reconstruction/index.html:779
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1163,7 +1153,7 @@ msgstr "{ph0}再做现代平台移植。{ph1}把已经确定的行为带入新�
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:793
+#: website/public/blog/touhou-reconstruction/index.html:786
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1175,7 +1165,7 @@ msgid ""
 msgstr ""
 "第二阶段的可玩构建，在第三阶段成为{ph0}第二套校验基准{ph1}。第一套检查修改后的源码是否仍然复现原版相关代码和数据；第二套检查重建程序是否能构建，并在实际测试的路径上保持正确行为。"
 
-#: website/public/blog/touhou-reconstruction/index.html:801
+#: website/public/blog/touhou-reconstruction/index.html:794
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "They catch different mistakes. A type change can alter the generated "
@@ -1185,7 +1175,7 @@ msgid ""
 msgstr ""
 "它们能发现不同类型的错误。类型修改可能改变生成的指令。状态归属的修改，可能让游戏的两部分各自使用一份状态。保留两套检查，助手就能在继续重构之前，针对具体的失败展开调查。"
 
-#: website/public/blog/touhou-reconstruction/index.html:808
+#: website/public/blog/touhou-reconstruction/index.html:801
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "A name needs evidence of its own. An exact comparison cannot tell us whether"
@@ -1199,7 +1189,7 @@ msgstr ""
 #. factory/blob/717e1b8560783ed17a39fdf159d30aa16bb307a7/docs/semantic-
 #. reconstruction.md" >
 #. {ph1}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:815
+#: website/public/blog/touhou-reconstruction/index.html:808
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1214,7 +1204,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:826
+#: website/public/blog/touhou-reconstruction/index.html:819
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1222,12 +1212,12 @@ msgid ""
 "makes the recovered knowledge usable.{ph1} A port can then build on both."
 msgstr "{ph0}精确重建提供基准，语义重建让还原的知识可用。{ph1}移植随后建立在两者之上。"
 
-#: website/public/blog/touhou-reconstruction/index.html:835
+#: website/public/blog/touhou-reconstruction/index.html:828
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "What makes this an industrial shift"
 msgstr "为什么这是工业化的转变"
 
-#: website/public/blog/touhou-reconstruction/index.html:836
+#: website/public/blog/touhou-reconstruction/index.html:829
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "These projects changed where I spent my attention. Once agents could carry "
@@ -1237,7 +1227,7 @@ msgid ""
 msgstr ""
 "这些项目改变了我投入注意力的地方。助手能自主推进大部分调查之后，改善它们的工作环境，就成了我最值得做的事情之一。一项工具的改进，可以帮助之后所有需要它的函数。"
 
-#: website/public/blog/touhou-reconstruction/index.html:843
+#: website/public/blog/touhou-reconstruction/index.html:836
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Autonomy matters here. The useful next step often becomes clear only after a"
@@ -1247,7 +1237,7 @@ msgid ""
 msgstr ""
 "自主性在这里很重要。下一步该怎么做，常常在实验失败后才清楚。助手需要足够的自由，沿着结果探索意料之外的方向。如果每一步都要等我指定，大部分工作仍然绑在我的注意力上。"
 
-#: website/public/blog/touhou-reconstruction/index.html:850
+#: website/public/blog/touhou-reconstruction/index.html:843
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "I expect the agent to make wrong hypotheses. What matters is whether we can "
@@ -1257,7 +1247,7 @@ msgid ""
 msgstr ""
 "我预期助手会提出错误假设。关键是我们能否验证它们，并从结果中学习。失败的检查应该帮助它理解错误，再次尝试。我仍要判断：累积的证据是否足以支持某个项目里程碑。"
 
-#: website/public/blog/touhou-reconstruction/index.html:857
+#: website/public/blog/touhou-reconstruction/index.html:850
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "REA gives the agent access to analysis tools. A question about a function's "
@@ -1269,7 +1259,7 @@ msgstr ""
 "REA "
 "让助手能够使用分析工具。调查某函数的调用方时，它可以直接继续检查那个调用方。重建项目提供编译器和自己的对照检查。助手用它们验证提出的源码，看看解释在哪些地方成立。"
 
-#: website/public/blog/touhou-reconstruction/index.html:864
+#: website/public/blog/touhou-reconstruction/index.html:857
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The TH08 bug shows why those checks deserve engineering attention of their "
@@ -1284,7 +1274,7 @@ msgstr ""
 #. href="https://collection.sciencemuseumgroup.org.uk/objects/co51439/watts-
 #. steam-engine-indicator" >
 #. {ph1}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:871
+#: website/public/blog/touhou-reconstruction/index.html:864
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1300,7 +1290,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:884
+#: website/public/blog/touhou-reconstruction/index.html:877
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1312,7 +1302,7 @@ msgid ""
 msgstr ""
 "{ph0}我们正处于这场工业化转变的早期。{ph1}许多基础设施还不成熟。助手推进工作的速度，可能超过原有检查的承受能力，所以流程也要一起发展。共享工具出现缺陷时，要修好它，并重查受影响的结果。下一个项目才能继承更可靠的工具。"
 
-#: website/public/blog/touhou-reconstruction/index.html:894
+#: website/public/blog/touhou-reconstruction/index.html:887
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "There is also a practical limit to any one conversation. It will end before "
@@ -1324,7 +1314,7 @@ msgstr "任何一段对话都有实际的长度限制。大型重建完成之前
 #. {ph0}: <a href="https://github.com/N0zoM1z0/touhou-reconstruction-factory"
 #. >
 #. {ph1}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:900
+#: website/public/blog/touhou-reconstruction/index.html:893
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1335,7 +1325,7 @@ msgstr ""
 "{ph0}Touhou Reconstruction "
 "Factory{ph1}正是为此而建立。它提供一种共用方式，让项目把检查和经验传递下去。一个游戏的工作，可以改善另一个游戏的起点。"
 
-#: website/public/blog/touhou-reconstruction/index.html:910
+#: website/public/blog/touhou-reconstruction/index.html:903
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "That is what makes the industrial analogy meaningful to me. Experience "
@@ -1343,12 +1333,12 @@ msgid ""
 "changes how much the next person—or the next agent—can get done."
 msgstr "这就是工业化比喻对我的意义：经验开始进入别人也能使用的工具。改善工具，就能改变下一个人或下一个助手能完成多少工作。"
 
-#: website/public/blog/touhou-reconstruction/index.html:918
+#: website/public/blog/touhou-reconstruction/index.html:911
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "The projects we can now consider"
 msgstr "现在值得尝试的项目"
 
-#: website/public/blog/touhou-reconstruction/index.html:919
+#: website/public/blog/touhou-reconstruction/index.html:912
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The pace matters because it changes the decision to begin. A game could be "
@@ -1356,7 +1346,7 @@ msgid ""
 "than I could realistically give it. Many projects would stay ideas."
 msgstr "速度的意义在于，它改变了是否开始一个项目的决定。某个游戏也许很值得逆向，却需要我投入远超现实所能承受的精力。很多项目因此一直停留在想法里。"
 
-#: website/public/blog/touhou-reconstruction/index.html:925
+#: website/public/blog/touhou-reconstruction/index.html:918
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Now I can see a way to keep such a project moving through repeated "
@@ -1370,7 +1360,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:932
+#: website/public/blog/touhou-reconstruction/index.html:925
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1378,7 +1368,7 @@ msgid ""
 "accumulated knowledge would let an agent work on this reliably?{ph1}"
 msgstr "现在看到一个陌生的程序，我会问：{ph0}要提供什么样的访问途径、反馈和知识积累，编程助手才能可靠地处理它？{ph1}"
 
-#: website/public/blog/touhou-reconstruction/index.html:939
+#: website/public/blog/touhou-reconstruction/index.html:932
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "That question makes me consider projects I would previously have left alone."
@@ -1386,12 +1376,12 @@ msgid ""
 " how far that can take us."
 msgstr "这个问题让我重新考虑那些原本会搁置的项目。每一个都能改善我们处理下一个项目的方式。我想继续探索这条路能把我们带多远。"
 
-#: website/public/blog/touhou-reconstruction/index.html:947
+#: website/public/blog/touhou-reconstruction/index.html:940
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Project milestones and sources"
 msgstr "项目里程碑与来源"
 
-#: website/public/blog/touhou-reconstruction/index.html:948
+#: website/public/blog/touhou-reconstruction/index.html:941
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The dates describe recorded project checkpoints, checked against public "
@@ -1423,7 +1413,7 @@ msgstr ""
 #. {ph10}: <a
 #. href="https://github.com/N0zoM1z0/th08/releases/tag/v0.2.0-linux-64bit" >
 #. {ph11}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:956
+#: website/public/blog/touhou-reconstruction/index.html:949
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1456,7 +1446,7 @@ msgstr ""
 #. href="https://github.com/N0zoM1z0/th095/blob/3442dcf29d9e0b5bef384a49bd0c9ad32a711826/docs/WHOLE_BUILD_TODO.md"
 #. >
 #. {ph11}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:979
+#: website/public/blog/touhou-reconstruction/index.html:972
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1473,7 +1463,7 @@ msgstr ""
 #. href="https://github.com/N0zoM1z0/th04/blob/bb9faca54e2eb3c0d6c757c75d59ac29d2cd5e93/docs/RE_HANDOFF.md"
 #. >
 #. {ph3}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:1002
+#: website/public/blog/touhou-reconstruction/index.html:995
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1496,7 +1486,7 @@ msgstr ""
 #. href="https://github.com/N0zoM1z0/th08/commit/a393f400786e4cc6cbb1000af0dad3276da12c78"
 #. >
 #. {ph7}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:1011
+#: website/public/blog/touhou-reconstruction/index.html:1004
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1517,7 +1507,7 @@ msgstr ""
 #. factory/blob/717e1b8560783ed17a39fdf159d30aa16bb307a7/docs/semantic-
 #. reconstruction.md" >
 #. {ph5}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:1025
+#: website/public/blog/touhou-reconstruction/index.html:1018
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1531,7 +1521,7 @@ msgstr "{ph0}语义重建：{ph1}{ph2}TH08 可读性指南{ph3}和{ph4}Factory �
 #. href="https://collection.sciencemuseumgroup.org.uk/objects/co51439/watts-
 #. steam-engine-indicator" >
 #. {ph3}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:1037
+#: website/public/blog/touhou-reconstruction/index.html:1030
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1550,7 +1540,7 @@ msgstr "{ph0}工业史：{ph1}{ph2}英国科学博物馆集团的蒸汽机示功
 #. factory/blob/038b6bed51d273c8b3680553b6f43e1b97d19bd1/docs/knowledge-
 #. base.md" >
 #. {ph5}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:1046
+#: website/public/blog/touhou-reconstruction/index.html:1039
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1562,7 +1552,7 @@ msgstr "{ph0}方法：{ph1}Factory 的{ph2}助手自主性{ph3}与{ph4}跨游戏
 #. {ph1}: </a>
 #. {ph2}: <a class="text-link" href="../../showcase/th04/" >
 #. {ph3}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:1061
+#: website/public/blog/touhou-reconstruction/index.html:1054
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}More articles{ph1} · {ph2}Explore a TH04 investigation{ph3}"
@@ -1580,22 +1570,22 @@ msgid ""
 "AI agents, and how knowledge compounds across TH08, TH095 and PC-98 TH04."
 msgstr "N0zoM1z0 回顾从手工逆向到编程助手参与的东方游戏重建，以及经验如何在 TH08、TH095 和 PC-98 TH04 之间积累。"
 
-#: website/public/blog/touhou-reconstruction/index.html:355
+#: website/public/blog/touhou-reconstruction/index.html:348
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Experience carried between projects"
 msgstr "在项目之间传递经验"
 
-#: website/public/blog/touhou-reconstruction/index.html:369
+#: website/public/blog/touhou-reconstruction/index.html:362
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "On this page"
 msgstr "在本页"
 
-#: website/public/blog/touhou-reconstruction/index.html:384
+#: website/public/blog/touhou-reconstruction/index.html:377
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Touhou reconstruction essay"
 msgstr "东方游戏重建随笔"
 
-#: website/public/blog/touhou-reconstruction/index.html:1086
+#: website/public/blog/touhou-reconstruction/index.html:1079
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Back to top"
 msgstr "回到顶部"
@@ -9966,7 +9956,7 @@ msgstr "指南"
 
 #: website/public/blog/index.html:242
 #: website/public/blog/reverse-engineering-models/index.html:881
-#: website/public/blog/touhou-reconstruction/index.html:1078
+#: website/public/blog/touhou-reconstruction/index.html:1071
 #: website/public/contributors/index.html:1129
 #: website/public/examples/dino-lab/index.html:473
 #: website/public/faq/index.html:571
@@ -9988,7 +9978,7 @@ msgstr "源代码"
 
 #: website/public/blog/index.html:243
 #: website/public/blog/reverse-engineering-models/index.html:882
-#: website/public/blog/touhou-reconstruction/index.html:1079
+#: website/public/blog/touhou-reconstruction/index.html:1072
 #: website/public/contributors/index.html:1130
 #: website/public/examples/dino-lab/index.html:474
 #: website/public/faq/index.html:572
@@ -10010,7 +10000,7 @@ msgstr "MIT 许可证"
 
 #: website/public/blog/index.html:244
 #: website/public/blog/reverse-engineering-models/index.html:883
-#: website/public/blog/touhou-reconstruction/index.html:1080
+#: website/public/blog/touhou-reconstruction/index.html:1073
 #: website/public/contributors/index.html:1131
 #: website/public/examples/dino-lab/index.html:475
 #: website/public/faq/index.html:573
@@ -10032,7 +10022,7 @@ msgstr "加入社区"
 
 #: website/public/blog/index.html:245
 #: website/public/blog/reverse-engineering-models/index.html:884
-#: website/public/blog/touhou-reconstruction/index.html:1081
+#: website/public/blog/touhou-reconstruction/index.html:1074
 #: website/public/contributors/index.html:1132
 #: website/public/examples/dino-lab/index.html:476
 #: website/public/faq/index.html:574
@@ -13704,7 +13694,7 @@ msgstr "用 REA 通过我已配置的分析引擎检查 {ph0}。列出它的函�
 #: website/public/blog/reverse-engineering-models/index.html:122
 #: website/public/blog/reverse-engineering-models/index.html:880
 #: website/public/blog/touhou-reconstruction/index.html:122
-#: website/public/blog/touhou-reconstruction/index.html:1077
+#: website/public/blog/touhou-reconstruction/index.html:1070
 #: website/public/contributors/index.html:123
 #: website/public/contributors/index.html:1128
 #: website/public/examples/dino-lab/index.html:123
@@ -13827,6 +13817,13 @@ msgstr "回到顶部"
 msgctxt "runtime"
 msgid "Contributors: {count}"
 msgstr "贡献者: {count}"
+
+#, python-brace-format
+#~ msgctxt "page:blog/touhou-reconstruction/index.html"
+#~ msgid ""
+#~ "{ph0}We are in the early days of RE's industrial revolution.{ph1} The "
+#~ "methods are still taking shape. There is plenty left to explore."
+#~ msgstr "{ph0}我们正处于逆向工程工业革命的早期。{ph1}方法还在成形，还有很多值得探索的地方。"
 
 #, python-brace-format
 #~ msgctxt "runtime"

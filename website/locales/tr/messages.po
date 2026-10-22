@@ -67,7 +67,7 @@ msgstr "Başlangıç N0zoM1z0 * 10 Ekim 2026"
 #. {ph1}: </span>
 #: website/public/blog/index.html:250
 #: website/public/blog/reverse-engineering-models/index.html:889
-#: website/public/blog/touhou-reconstruction/index.html:1086
+#: website/public/blog/touhou-reconstruction/index.html:1079
 #: website/public/contributors/index.html:1137
 #: website/public/examples/dino-lab/index.html:481
 #: website/public/faq/index.html:579
@@ -345,77 +345,65 @@ msgstr ""
 "davaları deneyin. Bir hatayı kaçırırsa, ona bağlı olan önceki sonuçları "
 "tekrar ziyaret edin."
 
-#. {ph0}: <strong >
-#. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:229
-#, python-brace-format
-msgctxt "page:blog/touhou-reconstruction/index.html"
-msgid ""
-"{ph0}We are in the early days of RE's industrial revolution.{ph1} The "
-"methods are still taking shape. There is plenty left to explore."
-msgstr ""
-"{ph0}RE'NİN sanayi devriminin ilk günlerindeyiz.{ph1} Yöntemler hala "
-"şekilleniyor. Keşfedilecek çok şey kaldı."
-
-#: website/public/blog/touhou-reconstruction/index.html:241
+#: website/public/blog/touhou-reconstruction/index.html:234
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "How experience compounds"
 msgstr "Bileşikler nasıl deneyimlenir"
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:242
+#: website/public/blog/touhou-reconstruction/index.html:235
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}Human direction{ph1} · Goal and acceptance criteria"
 msgstr "{ph0}İnsan yönü{ph1} * Hedef ve kabul kriterleri"
 
-#: website/public/blog/touhou-reconstruction/index.html:330
+#: website/public/blog/touhou-reconstruction/index.html:323
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Autonomy"
 msgstr "Özerklik"
 
-#: website/public/blog/touhou-reconstruction/index.html:331
+#: website/public/blog/touhou-reconstruction/index.html:324
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Agent"
 msgstr "Ajan"
 
 #. {ph0}: <br />
-#: website/public/blog/touhou-reconstruction/index.html:332
+#: website/public/blog/touhou-reconstruction/index.html:325
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Choose an experiment.{ph0}Propose a hypothesis."
 msgstr "Bir deney seçin.{ph0}Bir hipotez öner."
 
-#: website/public/blog/touhou-reconstruction/index.html:335
+#: website/public/blog/touhou-reconstruction/index.html:328
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Verification"
 msgstr "Doğrulama"
 
-#: website/public/blog/touhou-reconstruction/index.html:336
+#: website/public/blog/touhou-reconstruction/index.html:329
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Oracle"
 msgstr "Doğrulama ölçütü"
 
 #. {ph0}: <br />
-#: website/public/blog/touhou-reconstruction/index.html:337
+#: website/public/blog/touhou-reconstruction/index.html:330
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Test against a{ph0}concrete reference."
 msgstr "A'ya karşı test{ph0}somut referans."
 
-#: website/public/blog/touhou-reconstruction/index.html:340
+#: website/public/blog/touhou-reconstruction/index.html:333
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Repository"
 msgstr "Depo"
 
-#: website/public/blog/touhou-reconstruction/index.html:341
+#: website/public/blog/touhou-reconstruction/index.html:334
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Working memory"
 msgstr "Çalışma belleği"
 
 #. {ph0}: <br />
-#: website/public/blog/touhou-reconstruction/index.html:342
+#: website/public/blog/touhou-reconstruction/index.html:335
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Code, evidence,{ph0}checks and lessons."
@@ -424,7 +412,7 @@ msgstr "Kod, kanıt,{ph0}çekler ve dersler."
 #. {ph0}: <br />
 #. {ph1}: <strong>
 #. {ph2}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:344
+#: website/public/blog/touhou-reconstruction/index.html:337
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Mismatch{ph0}{ph1}Revise the hypothesis{ph2}"
@@ -433,26 +421,26 @@ msgstr "Uyumsuzluk{ph0}{ph1}Hipotezi gözden geçirin{ph2}"
 #. {ph0}: <br />
 #. {ph1}: <strong>
 #. {ph2}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:347
+#: website/public/blog/touhou-reconstruction/index.html:340
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "A better{ph0}{ph1}starting point{ph2}"
 msgstr "Daha iyi bir{ph0}{ph1}başlangıç noktası{ph2}"
 
-#: website/public/blog/touhou-reconstruction/index.html:350
+#: website/public/blog/touhou-reconstruction/index.html:343
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Reuse"
 msgstr "Yeniden kullanım"
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:351
+#: website/public/blog/touhou-reconstruction/index.html:344
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}Pass{ph1} · Keep the result and its evidence"
 msgstr "{ph0}Geçmek{ph1} * Sonucu ve kanıtını saklayın"
 
-#: website/public/blog/touhou-reconstruction/index.html:363
+#: website/public/blog/touhou-reconstruction/index.html:356
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Each project leaves the next with a better starting point. That includes "
@@ -461,14 +449,14 @@ msgstr ""
 "Her proje bir sonrakini daha iyi bir başlangıç noktasıyla bırakır. Bu, bir "
 "boşluk keşfettiğimizde çekleri düzeltmeyi de içerir."
 
-#: website/public/blog/touhou-reconstruction/index.html:370
+#: website/public/blog/touhou-reconstruction/index.html:363
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "In this article"
 msgstr "Bu makalede"
 
 #. {ph0}: <a href="#august">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:372
+#: website/public/blog/touhou-reconstruction/index.html:365
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}August 2026{ph1}"
@@ -476,7 +464,7 @@ msgstr "{ph0}Ağustos 2026{ph1}"
 
 #. {ph0}: <a href="#th08">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:373
+#: website/public/blog/touhou-reconstruction/index.html:366
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}TH08: the continuation{ph1}"
@@ -484,7 +472,7 @@ msgstr "{ph0} TH08 : devamı{ph1}"
 
 #. {ph0}: <a href="#different-approaches">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:374
+#: website/public/blog/touhou-reconstruction/index.html:367
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}Two approaches{ph1}"
@@ -492,7 +480,7 @@ msgstr "{ph0}İki yaklaşım{ph1}"
 
 #. {ph0}: <a href="#th095">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:375
+#: website/public/blog/touhou-reconstruction/index.html:368
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}TH095: compounding{ph1}"
@@ -500,7 +488,7 @@ msgstr "{ph0} TH095 : bileşik{ph1}"
 
 #. {ph0}: <a href="#th04">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:376
+#: website/public/blog/touhou-reconstruction/index.html:369
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}TH04: across architectures{ph1}"
@@ -508,7 +496,7 @@ msgstr "{ph0} TH04: mimariler arası{ph1}"
 
 #. {ph0}: <a href="#semantic-reconstruction">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:377
+#: website/public/blog/touhou-reconstruction/index.html:370
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}From exact to readable{ph1}"
@@ -516,7 +504,7 @@ msgstr "{ph0}Kesinden okunabilirliğe{ph1}"
 
 #. {ph0}: <a href="#industrial-shift">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:380
+#: website/public/blog/touhou-reconstruction/index.html:373
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}The industrial shift{ph1}"
@@ -524,18 +512,18 @@ msgstr "{ph0}Endüstriyel değişim{ph1}"
 
 #. {ph0}: <a href="#possibilities">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:381
+#: website/public/blog/touhou-reconstruction/index.html:374
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}What becomes possible{ph1}"
 msgstr "{ph0}Ne mümkün olur{ph1}"
 
-#: website/public/blog/touhou-reconstruction/index.html:386
+#: website/public/blog/touhou-reconstruction/index.html:379
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "What changed in August 2026"
 msgstr "Ağustos 2026'da neler değişti"
 
-#: website/public/blog/touhou-reconstruction/index.html:387
+#: website/public/blog/touhou-reconstruction/index.html:380
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Before this work, I had done a lot of manual reverse engineering. I would "
@@ -550,7 +538,7 @@ msgstr ""
 "harcamak anlamına geliyordu. Aynı zamanda kafamda giderek daha büyük bir "
 "resim tutmak anlamına geliyordu."
 
-#: website/public/blog/touhou-reconstruction/index.html:394
+#: website/public/blog/touhou-reconstruction/index.html:387
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Most of my RE work is on games. I reconstruct them so their behavior can be "
@@ -564,7 +552,7 @@ msgstr ""
 "başka yerlerde yararlı olabilir, ancak her alanın güvenilir bir referansa "
 "karşı neyi kontrol edebileceğini belirlemesi gerekir."
 
-#: website/public/blog/touhou-reconstruction/index.html:401
+#: website/public/blog/touhou-reconstruction/index.html:394
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "In August 2026, I started exploring agent-driven RE seriously. I wanted to "
@@ -577,7 +565,7 @@ msgstr ""
 "gidebileceğini görmek istedim. Touhou'nun yeniden inşası bana öğrenmem "
 "gereken önemli bir proje verdi."
 
-#: website/public/blog/touhou-reconstruction/index.html:407
+#: website/public/blog/touhou-reconstruction/index.html:400
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The early progress was startling. An investigation could keep moving without"
@@ -594,7 +582,7 @@ msgstr ""
 "Projenin yönüne ve kontrollerinin güvenilir olup olmadığına daha fazla "
 "dikkat edebilirdim."
 
-#: website/public/blog/touhou-reconstruction/index.html:416
+#: website/public/blog/touhou-reconstruction/index.html:409
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The pace got my attention first. Then I began wondering what would survive "
@@ -605,7 +593,7 @@ msgstr ""
 "kalacağını merak etmeye başladım. Bir sonraki oyun yeni öğrendiğimiz her "
 "şeyden faydalanır mı?"
 
-#: website/public/blog/touhou-reconstruction/index.html:423
+#: website/public/blog/touhou-reconstruction/index.html:416
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "TH08: building on human work"
 msgstr "TH08: insan işi üzerine inşa etmek"
@@ -614,7 +602,7 @@ msgstr "TH08: insan işi üzerine inşa etmek"
 #. {ph1}: </a>
 #. {ph2}: <a href="https://github.com/GensokyoClub/th08" >
 #. {ph3}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:424
+#: website/public/blog/touhou-reconstruction/index.html:417
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -628,7 +616,7 @@ msgstr ""
 " bir temel verdi. Devamında koruduğum yapı bilgisi ve katkıların tarihi ile "
 "geldi."
 
-#: website/public/blog/touhou-reconstruction/index.html:433
+#: website/public/blog/touhou-reconstruction/index.html:426
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The imported history ends at the public 10 August checkpoint. My independent"
@@ -639,7 +627,7 @@ msgstr ""
 "Bağımsız devamım 13 Ağustos'ta başladı. 19 Ağustos'a kadar defter, "
 "tanımlanan 1.107 oyun işlevinin tümü için kaynak kaydetti."
 
-#: website/public/blog/touhou-reconstruction/index.html:438
+#: website/public/blog/touhou-reconstruction/index.html:431
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "A playable Linux reconstruction port was committed on 24 August, roughly "
@@ -650,7 +638,7 @@ msgstr ""
 "Linux yeniden yapılanma limanı işlendi. Bunu bir Web baskısı izledi. Yerel "
 "Linux 64 bit sürümü 30 Ağustos'ta geldi."
 
-#: website/public/blog/touhou-reconstruction/index.html:443
+#: website/public/blog/touhou-reconstruction/index.html:436
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "What struck me was that the work had reached a program people could run. "
@@ -665,7 +653,7 @@ msgstr ""
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:450
+#: website/public/blog/touhou-reconstruction/index.html:443
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -684,12 +672,12 @@ msgstr ""
 " önerir ve onu test eder; Bir uyumsuzluk ona araştırması gereken belirli bir"
 " şey verir."
 
-#: website/public/blog/touhou-reconstruction/index.html:458
+#: website/public/blog/touhou-reconstruction/index.html:451
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "An exact match with the wrong constant"
 msgstr "Yanlış sabitle tam bir eşleşme"
 
-#: website/public/blog/touhou-reconstruction/index.html:459
+#: website/public/blog/touhou-reconstruction/index.html:452
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "An oracle is software someone wrote. TH08 gave me a clear reminder of how "
@@ -700,7 +688,7 @@ msgstr ""
 
 #. {ph0}: <code>0.0</code>
 #. {ph1}: <code>128.0</code>
-#: website/public/blog/touhou-reconstruction/index.html:463
+#: website/public/blog/touhou-reconstruction/index.html:456
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -713,7 +701,7 @@ msgstr ""
 "oyuncu gücünü {ph0}'a karşı kontrol etti. Orijinal, maksimum güç eşiği olan "
 "{ph1}'ı kullandı."
 
-#: website/public/blog/touhou-reconstruction/index.html:469
+#: website/public/blog/touhou-reconstruction/index.html:462
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Normal power is non-negative, so the reconstructed power check was "
@@ -728,13 +716,13 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:476
+#: website/public/blog/touhou-reconstruction/index.html:469
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}Yet the function had already passed the exact comparison.{ph1}"
 msgstr "{ph0}Yine de işlev tam karşılaştırmayı çoktan geçmişti.{ph1}"
 
-#: website/public/blog/touhou-reconstruction/index.html:482
+#: website/public/blog/touhou-reconstruction/index.html:475
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "A rebuild can put a constant at a different address. The comparison tool "
@@ -749,7 +737,7 @@ msgstr ""
 
 #. {ph0}: <code>128.0</code>
 #. {ph1}: <code>0.0</code>
-#: website/public/blog/touhou-reconstruction/index.html:489
+#: website/public/blog/touhou-reconstruction/index.html:482
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -765,7 +753,7 @@ msgstr ""
 #. {ph1}: </a >
 #. {ph2}: <a href="https://github.com/N0zoM1z0/th08/pull/13">
 #. {ph3}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:495
+#: website/public/blog/touhou-reconstruction/index.html:488
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -779,7 +767,7 @@ msgstr ""
 "denetim{ph3} daha sonra 1.548 kayan noktalı sabit referansı inceledi. Kabul "
 "edilen beş işlevde on iki yanlış referans daha buldu."
 
-#: website/public/blog/touhou-reconstruction/index.html:506
+#: website/public/blog/touhou-reconstruction/index.html:499
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The comparison now checks every such floating literal. Its tests include "
@@ -793,7 +781,7 @@ msgstr ""
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:511
+#: website/public/blog/touhou-reconstruction/index.html:504
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -803,7 +791,7 @@ msgstr ""
 "{ph0}Doğrulama referansının (oracle) da yeniden yapılandırılması "
 "gerekiyordu.{ph1} Tamir etmek, oyunu tamir etmenin bir parçasıydı."
 
-#: website/public/blog/touhou-reconstruction/index.html:515
+#: website/public/blog/touhou-reconstruction/index.html:508
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "That matters when the team is mostly one person working with agents. I "
@@ -821,7 +809,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:523
+#: website/public/blog/touhou-reconstruction/index.html:516
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -837,7 +825,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:532
+#: website/public/blog/touhou-reconstruction/index.html:525
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -847,7 +835,7 @@ msgstr ""
 "{ph0}Başarılı bir parti bize hem kurtarılan kodu hem de bir sonraki parti "
 "için daha iyi bir ortam sağladı.{ph1}"
 
-#: website/public/blog/touhou-reconstruction/index.html:540
+#: website/public/blog/touhou-reconstruction/index.html:533
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Two different ideas of reconstruction"
 msgstr "İki farklı yeniden yapılanma fikri"
@@ -856,7 +844,7 @@ msgstr "İki farklı yeniden yapılanma fikri"
 #. href="https://web.archive.org/web/20260909051514/https://github.com/GensokyoClub/th08#important-
 #. notice" >
 #. {ph1}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:541
+#: website/public/blog/touhou-reconstruction/index.html:534
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -868,7 +856,7 @@ msgstr ""
 "anlaşmazlığını açıkça ortaya koyuyor. Bildirim, tamamlanana kadar daha fazla"
 " gelişmenin özel olarak gerçekleşeceğini duyurdu. Bir pasaj okur:"
 
-#: website/public/blog/touhou-reconstruction/index.html:552
+#: website/public/blog/touhou-reconstruction/index.html:545
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The rise of grifters (AI decompilations and ports) in this space taking from"
@@ -878,7 +866,7 @@ msgstr ""
 "çalışmalarımızdan aldığı yükseliş, gelecekteki ayrıştırma çabaları için kötü"
 " bir imaj çiziyor…"
 
-#: website/public/blog/touhou-reconstruction/index.html:558
+#: website/public/blog/touhou-reconstruction/index.html:551
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The notice also describes the psychological toll on the maintainers. Their "
@@ -895,7 +883,7 @@ msgstr ""
 "anlaşmazlık, yeniden yapılanmanın nasıl ilerlemesi gerektiği ve bir katkının"
 " nasıl değerlendirilmesi gerektiği ile ilgili."
 
-#: website/public/blog/touhou-reconstruction/index.html:567
+#: website/public/blog/touhou-reconstruction/index.html:560
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "In the manual workflow I knew, developing an understanding of a function and"
@@ -908,7 +896,7 @@ msgstr ""
 "ölçüde o kişinin uzmanlığına dayanıyordu. Katılımcıya olan güven önemliydi "
 "çünkü akıl yürütmenin çoğu onlar çalışırken gerçekleşti."
 
-#: website/public/blog/touhou-reconstruction/index.html:574
+#: website/public/blog/touhou-reconstruction/index.html:567
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Existing projects already preserve knowledge in their source and build "
@@ -919,7 +907,7 @@ msgstr ""
 "Benim için değişen şey, bir ajanın bu bilgiyi bir sonraki soruşturmayı kendi"
 " başına yürütmek için kullanabilmesiydi."
 
-#: website/public/blog/touhou-reconstruction/index.html:579
+#: website/public/blog/touhou-reconstruction/index.html:572
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "In my continuation, I decide the objective and the standard for accepting a "
@@ -934,7 +922,7 @@ msgstr ""
 "temsilci yapmış olsa bile, başka bir kişinin neden bir uygulamayı "
 "seçtiğimizi inceleyebilmesini istiyorum."
 
-#: website/public/blog/touhou-reconstruction/index.html:586
+#: website/public/blog/touhou-reconstruction/index.html:579
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "This can be a difficult transition. Years of careful work may become the "
@@ -947,7 +935,7 @@ msgstr ""
 "soruları gündeme getiriyor. Ayrıca, bir katkıyı kabul etmeden önce "
 "bakıcıların bilmesi gerekenleri de değiştirir."
 
-#: website/public/blog/touhou-reconstruction/index.html:592
+#: website/public/blog/touhou-reconstruction/index.html:585
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The industrial analogy helps me think about this. In a craft, much of the "
@@ -962,7 +950,7 @@ msgstr ""
 "ne zaman yanlış olduğunu anlamalıdır. Farklı topluluklar bu değişimin ne "
 "kadarını üstlenmek istediklerini seçebilir."
 
-#: website/public/blog/touhou-reconstruction/index.html:600
+#: website/public/blog/touhou-reconstruction/index.html:593
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "My choice is to continue openly, with the inherited work credited and its "
@@ -987,7 +975,7 @@ msgstr ""
 #. href="https://github.com/N0zoM1z0/th08/blob/d2a00f4acb4a13916e07a00bd13f714961714628/README.md#credits-
 #. and-provenance" >
 #. {ph5}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:606
+#: website/public/blog/touhou-reconstruction/index.html:599
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -999,14 +987,14 @@ msgstr ""
 "bildirimi{ph1} ve {ph2}katkı politikası{ph3}. Alıntı kısaltılmış bir "
 "alıntıdır.  TH08 {ph4}kredileri ve kaynağı{ph5} devam sınırını kaydeder."
 
-#: website/public/blog/touhou-reconstruction/index.html:624
+#: website/public/blog/touhou-reconstruction/index.html:617
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "TH095: experience starts compounding"
 msgstr "TH095: deneyim birleştirmeye başlar"
 
 #. {ph0}: <a href="https://github.com/N0zoM1z0/th095">
 #. {ph1}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:625
+#: website/public/blog/touhou-reconstruction/index.html:618
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1021,7 +1009,7 @@ msgstr ""
 "nasıl başlanacağı ve nasıl devam ettirileceği hakkında çok daha fazlasını "
 "zaten biliyorduk."
 
-#: website/public/blog/touhou-reconstruction/index.html:633
+#: website/public/blog/touhou-reconstruction/index.html:626
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "By 7 September, all 697 identified game functions had source. By 8 "
@@ -1035,7 +1023,7 @@ msgstr ""
 "başlatmadan yaklaşık on iki gün sonra 10 Eylül'de oynanabilir olarak "
 "işaretlendi."
 
-#: website/public/blog/touhou-reconstruction/index.html:640
+#: website/public/blog/touhou-reconstruction/index.html:633
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "I found this more exciting than the first project's speed. A fresh target "
@@ -1046,7 +1034,7 @@ msgstr ""
 " bir oyun üzerinde yapılan işten yararlanabilir. Deneyim, araçlarda ve "
 "projenin organize edilme biçiminde zaten mevcuttu."
 
-#: website/public/blog/touhou-reconstruction/index.html:646
+#: website/public/blog/touhou-reconstruction/index.html:639
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "For example, TH08 had taught us to pay attention to the assembled program "
@@ -1061,7 +1049,7 @@ msgstr ""
 " TH095'NUN tüm program yapısına nasıl yaklaştığımızı şekillendirmeye "
 "yardımcı oldu."
 
-#: website/public/blog/touhou-reconstruction/index.html:653
+#: website/public/blog/touhou-reconstruction/index.html:646
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "A lesson that stays in my head is useful while I am there. Once it becomes a"
@@ -1074,7 +1062,7 @@ msgstr ""
 "olmaya devam edebilir. Bir sonraki temsilci, sonuca yol açan soruşturmayı "
 "tekrar etmeden sonucu kullanabilir."
 
-#: website/public/blog/touhou-reconstruction/index.html:659
+#: website/public/blog/touhou-reconstruction/index.html:652
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The floating-literal bug belongs in that memory too. It explains why "
@@ -1089,7 +1077,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:665
+#: website/public/blog/touhou-reconstruction/index.html:658
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1101,7 +1089,7 @@ msgstr ""
 " gelir.{ph1} Bir sonraki projenin çabalarının çoğunu, hedefiyle ilgili "
 "gerçekte yeni olan şeylere harcayabiliriz."
 
-#: website/public/blog/touhou-reconstruction/index.html:673
+#: website/public/blog/touhou-reconstruction/index.html:666
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The same benefit is available to people joining later. They can inspect a "
@@ -1114,7 +1102,7 @@ msgstr ""
 "Kaynağın neden bu şekilde göründüğünü bulmak için tüm projenin geçmişini "
 "yeniden yapılandırmaları gerekmez."
 
-#: website/public/blog/touhou-reconstruction/index.html:681
+#: website/public/blog/touhou-reconstruction/index.html:674
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "TH04: the workflow survives a different architecture"
 msgstr "TH04: iş akışı farklı bir mimariden sağ çıkıyor"
@@ -1123,7 +1111,7 @@ msgstr "TH04: iş akışı farklı bir mimariden sağ çıkıyor"
 #. {ph1}: </a>
 #. {ph2}: <a href="https://github.com/nmlgc/ReC98">
 #. {ph3}: </a>
-#: website/public/blog/touhou-reconstruction/index.html:682
+#: website/public/blog/touhou-reconstruction/index.html:675
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1139,7 +1127,7 @@ msgstr ""
 "gerektiriyordu. Mevcut {ph2}ReC98 çalışması{ph3} bize burada da değerli "
 "bilgiler ve kaynak materyaller verdi."
 
-#: website/public/blog/touhou-reconstruction/index.html:691
+#: website/public/blog/touhou-reconstruction/index.html:684
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The DOS reconstruction is now working. In my manual testing, I played "
@@ -1152,7 +1140,7 @@ msgstr ""
 "yerel bir 64 bit bağlantı noktasıdır. Çalışan bir DOS sürümü oluşturmak, "
 "önce bu bağlantı noktasına bir başvuru verir."
 
-#: website/public/blog/touhou-reconstruction/index.html:697
+#: website/public/blog/touhou-reconstruction/index.html:690
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The architecture changed what we needed to investigate. It also changed the "
@@ -1165,7 +1153,7 @@ msgstr ""
 "bir soruyu sonuca kadar takip edebilir ve bu sonucun bir sonraki deneye "
 "rehberlik etmesine izin verebilir."
 
-#: website/public/blog/touhou-reconstruction/index.html:703
+#: website/public/blog/touhou-reconstruction/index.html:696
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Consider the transition from gameplay to an ending. We need to know what "
@@ -1179,7 +1167,7 @@ msgstr ""
 "araştırabileceğimiz bir şey. Kanıt ve kontroller mevcut olduğunda, bir "
 "temsilci, bir Windows başlığında olduğu gibi soru üzerinde de çalışabilir."
 
-#: website/public/blog/touhou-reconstruction/index.html:711
+#: website/public/blog/touhou-reconstruction/index.html:704
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "This is why TH04 matters to the argument. A substantial platform change did "
@@ -1190,7 +1178,7 @@ msgstr ""
 " yeni bir çalışma şekliyle baştan başlamaya zorlamadı. Mimari sorunu "
 "tanımladı; iş akışı hala bize bunu çözmenin bir yolunu verdi."
 
-#: website/public/blog/touhou-reconstruction/index.html:717
+#: website/public/blog/touhou-reconstruction/index.html:710
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "For the 64-bit port, we can now examine the new implementation against "
@@ -1207,7 +1195,7 @@ msgstr ""
 #. {ph1}: </a >
 #. {ph2}: <a href="https://github.com/N0zoM1z0/th04/tree/port/modern-64" >
 #. {ph3}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:722
+#: website/public/blog/touhou-reconstruction/index.html:715
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1218,12 +1206,12 @@ msgstr ""
 "manuel test{ph1} · {ph2}64 bit bağlantı{ph3} noktası. Liman geliştirme "
 "aşamasındadır."
 
-#: website/public/blog/touhou-reconstruction/index.html:735
+#: website/public/blog/touhou-reconstruction/index.html:728
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "From exact code to readable code"
 msgstr "Tam koddan okunabilir koda"
 
-#: website/public/blog/touhou-reconstruction/index.html:736
+#: website/public/blog/touhou-reconstruction/index.html:729
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Once a reconstruction works, I want someone else to be able to understand "
@@ -1232,7 +1220,7 @@ msgstr ""
 "Bir yeniden yapılanma işe yaradığında, başka birinin bunu anlayabilmesini "
 "istiyorum."
 
-#: website/public/blog/touhou-reconstruction/index.html:740
+#: website/public/blog/touhou-reconstruction/index.html:733
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "To me, assembly and raw offsets can feel like old friends. I realise this is"
@@ -1247,7 +1235,7 @@ msgstr ""
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:746
+#: website/public/blog/touhou-reconstruction/index.html:739
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1264,7 +1252,7 @@ msgstr ""
 "kaynakla birlikte tutarız, böylece bir sonraki kişi bu yorumun nereden "
 "geldiğini görebilir."
 
-#: website/public/blog/touhou-reconstruction/index.html:754
+#: website/public/blog/touhou-reconstruction/index.html:747
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "This becomes especially important for a port. An absolute address tells me "
@@ -1279,14 +1267,14 @@ msgstr ""
 "karar vermede çok az yardım sağlar. Davranışı güvenli bir şekilde taşımak "
 "için eski bellek erişiminin arkasındaki ilişkiyi kurtarmamız gerekiyor."
 
-#: website/public/blog/touhou-reconstruction/index.html:761
+#: website/public/blog/touhou-reconstruction/index.html:754
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "The order I now use is:"
 msgstr "Şu anda kullandığım sipariş:"
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:763
+#: website/public/blog/touhou-reconstruction/index.html:756
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1302,7 +1290,7 @@ msgstr ""
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:770
+#: website/public/blog/touhou-reconstruction/index.html:763
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1318,7 +1306,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:777
+#: website/public/blog/touhou-reconstruction/index.html:770
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1334,7 +1322,7 @@ msgstr ""
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:786
+#: website/public/blog/touhou-reconstruction/index.html:779
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1349,7 +1337,7 @@ msgstr ""
 
 #. {ph0}: <strong>
 #. {ph1}: </strong>
-#: website/public/blog/touhou-reconstruction/index.html:793
+#: website/public/blog/touhou-reconstruction/index.html:786
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1366,7 +1354,7 @@ msgstr ""
 "programın egzersiz yaptığımız yollar boyunca hala doğru şekilde "
 "oluşturulduğunu ve davrandığını kontrol eder."
 
-#: website/public/blog/touhou-reconstruction/index.html:801
+#: website/public/blog/touhou-reconstruction/index.html:794
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "They catch different mistakes. A type change can alter the generated "
@@ -1380,7 +1368,7 @@ msgstr ""
 "acenteye bir refaktörü daha fazla taşımadan önce soruşturmada somut bir "
 "başarısızlık sağlar."
 
-#: website/public/blog/touhou-reconstruction/index.html:808
+#: website/public/blog/touhou-reconstruction/index.html:801
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "A name needs evidence of its own. An exact comparison cannot tell us whether"
@@ -1398,7 +1386,7 @@ msgstr ""
 #. factory/blob/717e1b8560783ed17a39fdf159d30aa16bb307a7/docs/semantic-
 #. reconstruction.md" >
 #. {ph1}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:815
+#: website/public/blog/touhou-reconstruction/index.html:808
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1416,7 +1404,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:826
+#: website/public/blog/touhou-reconstruction/index.html:819
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1427,12 +1415,12 @@ msgstr ""
 "yapılanma, kurtarılan bilgiyi kullanılabilir hale getirir.{ph1} Daha sonra "
 "her ikisine de bir liman inşa edilebilir."
 
-#: website/public/blog/touhou-reconstruction/index.html:835
+#: website/public/blog/touhou-reconstruction/index.html:828
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "What makes this an industrial shift"
 msgstr "Bunu endüstriyel bir değişim yapan nedir"
 
-#: website/public/blog/touhou-reconstruction/index.html:836
+#: website/public/blog/touhou-reconstruction/index.html:829
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "These projects changed where I spent my attention. Once agents could carry "
@@ -1445,7 +1433,7 @@ msgstr ""
 "en faydalı şeylerden biri haline geldi. Daha iyi bir araç, ihtiyacı olan "
 "sonraki her işleve yardımcı olabilir."
 
-#: website/public/blog/touhou-reconstruction/index.html:843
+#: website/public/blog/touhou-reconstruction/index.html:836
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Autonomy matters here. The useful next step often becomes clear only after a"
@@ -1458,7 +1446,7 @@ msgstr ""
 "yerde takip etmek için yeterli özgürlüğe ihtiyacı vardır. Her adımı yazmamı "
 "beklemek zorunda kalırsa, işin çoğu dikkatime bağlı kalır."
 
-#: website/public/blog/touhou-reconstruction/index.html:850
+#: website/public/blog/touhou-reconstruction/index.html:843
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "I expect the agent to make wrong hypotheses. What matters is whether we can "
@@ -1472,7 +1460,7 @@ msgstr ""
 "proje kilometre taşını destekleyip desteklemediğine hala karar vermem "
 "gerekiyor."
 
-#: website/public/blog/touhou-reconstruction/index.html:857
+#: website/public/blog/touhou-reconstruction/index.html:850
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "REA gives the agent access to analysis tools. A question about a function's "
@@ -1487,7 +1475,7 @@ msgstr ""
 "Aracı, önerdiği kaynağı test etmek ve açıklamasının nerede geçerli olduğunu "
 "görmek için bunları kullanabilir."
 
-#: website/public/blog/touhou-reconstruction/index.html:864
+#: website/public/blog/touhou-reconstruction/index.html:857
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The TH08 bug shows why those checks deserve engineering attention of their "
@@ -1505,7 +1493,7 @@ msgstr ""
 #. href="https://collection.sciencemuseumgroup.org.uk/objects/co51439/watts-
 #. steam-engine-indicator" >
 #. {ph1}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:871
+#: website/public/blog/touhou-reconstruction/index.html:864
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1525,7 +1513,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:884
+#: website/public/blog/touhou-reconstruction/index.html:877
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1542,7 +1530,7 @@ msgstr ""
 "onarmalı ve etkilediği sonuçları tekrar gözden geçirmeliyiz. Bir sonraki "
 "proje daha sonra daha güçlü bir aracı devralabilir."
 
-#: website/public/blog/touhou-reconstruction/index.html:894
+#: website/public/blog/touhou-reconstruction/index.html:887
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "There is also a practical limit to any one conversation. It will end before "
@@ -1557,7 +1545,7 @@ msgstr ""
 #. {ph0}: <a href="https://github.com/N0zoM1z0/touhou-reconstruction-factory"
 #. >
 #. {ph1}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:900
+#: website/public/blog/touhou-reconstruction/index.html:893
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1569,7 +1557,7 @@ msgstr ""
 "çeklerini ve derslerini ileriye taşımak için ortak bir yol sunar. Bir oyun "
 "üzerinde çalışmak, diğerinin başlangıç koşullarını iyileştirebilir."
 
-#: website/public/blog/touhou-reconstruction/index.html:910
+#: website/public/blog/touhou-reconstruction/index.html:903
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "That is what makes the industrial analogy meaningful to me. Experience "
@@ -1581,12 +1569,12 @@ msgstr ""
 "araçları geliştirmek, bir sonraki kişinin - veya bir sonraki temsilcinin - "
 "ne kadarını yapabileceğini değiştirir."
 
-#: website/public/blog/touhou-reconstruction/index.html:918
+#: website/public/blog/touhou-reconstruction/index.html:911
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "The projects we can now consider"
 msgstr "Şimdi düşünebileceğimiz projeler"
 
-#: website/public/blog/touhou-reconstruction/index.html:919
+#: website/public/blog/touhou-reconstruction/index.html:912
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The pace matters because it changes the decision to begin. A game could be "
@@ -1598,7 +1586,7 @@ msgstr ""
 "verebileceğimden daha fazla kendi dikkatimi talep edebilir. Birçok proje "
 "fikir olarak kalacaktır."
 
-#: website/public/blog/touhou-reconstruction/index.html:925
+#: website/public/blog/touhou-reconstruction/index.html:918
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "Now I can see a way to keep such a project moving through repeated "
@@ -1616,7 +1604,7 @@ msgstr ""
 
 #. {ph0}: <strong >
 #. {ph1}: </strong >
-#: website/public/blog/touhou-reconstruction/index.html:932
+#: website/public/blog/touhou-reconstruction/index.html:925
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1627,7 +1615,7 @@ msgstr ""
 "geri bildirim ve birikmiş bilgi, bir temsilcinin bu konuda güvenilir bir "
 "şekilde çalışmasına izin verir?{ph1}"
 
-#: website/public/blog/touhou-reconstruction/index.html:939
+#: website/public/blog/touhou-reconstruction/index.html:932
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "That question makes me consider projects I would previously have left alone."
@@ -1638,12 +1626,12 @@ msgstr ""
 " bir sonrakine yaklaşma şeklimizi geliştirebilir. Bunun bizi ne kadar ileri "
 "götürebileceğini araştırmaya devam etmek istiyorum."
 
-#: website/public/blog/touhou-reconstruction/index.html:947
+#: website/public/blog/touhou-reconstruction/index.html:940
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Project milestones and sources"
 msgstr "Proje kilometre taşları ve kaynakları"
 
-#: website/public/blog/touhou-reconstruction/index.html:948
+#: website/public/blog/touhou-reconstruction/index.html:941
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
 "The dates describe recorded project checkpoints, checked against public "
@@ -1677,7 +1665,7 @@ msgstr ""
 #. {ph10}: <a
 #. href="https://github.com/N0zoM1z0/th08/releases/tag/v0.2.0-linux-64bit" >
 #. {ph11}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:956
+#: website/public/blog/touhou-reconstruction/index.html:949
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1711,7 +1699,7 @@ msgstr ""
 #. href="https://github.com/N0zoM1z0/th095/blob/3442dcf29d9e0b5bef384a49bd0c9ad32a711826/docs/WHOLE_BUILD_TODO.md"
 #. >
 #. {ph11}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:979
+#: website/public/blog/touhou-reconstruction/index.html:972
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1729,7 +1717,7 @@ msgstr ""
 #. href="https://github.com/N0zoM1z0/th04/blob/bb9faca54e2eb3c0d6c757c75d59ac29d2cd5e93/docs/RE_HANDOFF.md"
 #. >
 #. {ph3}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:1002
+#: website/public/blog/touhou-reconstruction/index.html:995
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1753,7 +1741,7 @@ msgstr ""
 #. href="https://github.com/N0zoM1z0/th08/commit/a393f400786e4cc6cbb1000af0dad3276da12c78"
 #. >
 #. {ph7}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:1011
+#: website/public/blog/touhou-reconstruction/index.html:1004
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1775,7 +1763,7 @@ msgstr ""
 #. factory/blob/717e1b8560783ed17a39fdf159d30aa16bb307a7/docs/semantic-
 #. reconstruction.md" >
 #. {ph5}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:1025
+#: website/public/blog/touhou-reconstruction/index.html:1018
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1791,7 +1779,7 @@ msgstr ""
 #. href="https://collection.sciencemuseumgroup.org.uk/objects/co51439/watts-
 #. steam-engine-indicator" >
 #. {ph3}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:1037
+#: website/public/blog/touhou-reconstruction/index.html:1030
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1812,7 +1800,7 @@ msgstr ""
 #. factory/blob/038b6bed51d273c8b3680553b6f43e1b97d19bd1/docs/knowledge-
 #. base.md" >
 #. {ph5}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:1046
+#: website/public/blog/touhou-reconstruction/index.html:1039
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid ""
@@ -1826,7 +1814,7 @@ msgstr ""
 #. {ph1}: </a>
 #. {ph2}: <a class="text-link" href="../../showcase/th04/" >
 #. {ph3}: </a >
-#: website/public/blog/touhou-reconstruction/index.html:1061
+#: website/public/blog/touhou-reconstruction/index.html:1054
 #, python-brace-format
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "{ph0}More articles{ph1} · {ph2}Explore a TH04 investigation{ph3}"
@@ -1847,22 +1835,22 @@ msgstr ""
 "N0zoM1z0, manuel tersine mühendislik, AI ajanlarıyla Touhou rekonstrüksiyonu"
 " ve bilginin TH08, TH095 ve PC-98 TH04'DA nasıl birleştiğini yansıtır."
 
-#: website/public/blog/touhou-reconstruction/index.html:355
+#: website/public/blog/touhou-reconstruction/index.html:348
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Experience carried between projects"
 msgstr "Projeler arasında taşınan deneyim"
 
-#: website/public/blog/touhou-reconstruction/index.html:369
+#: website/public/blog/touhou-reconstruction/index.html:362
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "On this page"
 msgstr "Bu sayfada"
 
-#: website/public/blog/touhou-reconstruction/index.html:384
+#: website/public/blog/touhou-reconstruction/index.html:377
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Touhou reconstruction essay"
 msgstr "Touhou yeniden yapılanma denemesi"
 
-#: website/public/blog/touhou-reconstruction/index.html:1086
+#: website/public/blog/touhou-reconstruction/index.html:1079
 msgctxt "page:blog/touhou-reconstruction/index.html"
 msgid "Back to top"
 msgstr "Başa dön"
@@ -10871,7 +10859,7 @@ msgstr "Rehberler"
 
 #: website/public/blog/index.html:242
 #: website/public/blog/reverse-engineering-models/index.html:881
-#: website/public/blog/touhou-reconstruction/index.html:1078
+#: website/public/blog/touhou-reconstruction/index.html:1071
 #: website/public/contributors/index.html:1129
 #: website/public/examples/dino-lab/index.html:473
 #: website/public/faq/index.html:571
@@ -10893,7 +10881,7 @@ msgstr "Kaynak kod"
 
 #: website/public/blog/index.html:243
 #: website/public/blog/reverse-engineering-models/index.html:882
-#: website/public/blog/touhou-reconstruction/index.html:1079
+#: website/public/blog/touhou-reconstruction/index.html:1072
 #: website/public/contributors/index.html:1130
 #: website/public/examples/dino-lab/index.html:474
 #: website/public/faq/index.html:572
@@ -10915,7 +10903,7 @@ msgstr "MIT lisansı"
 
 #: website/public/blog/index.html:244
 #: website/public/blog/reverse-engineering-models/index.html:883
-#: website/public/blog/touhou-reconstruction/index.html:1080
+#: website/public/blog/touhou-reconstruction/index.html:1073
 #: website/public/contributors/index.html:1131
 #: website/public/examples/dino-lab/index.html:475
 #: website/public/faq/index.html:573
@@ -10937,7 +10925,7 @@ msgstr "Topluluğa katıl"
 
 #: website/public/blog/index.html:245
 #: website/public/blog/reverse-engineering-models/index.html:884
-#: website/public/blog/touhou-reconstruction/index.html:1081
+#: website/public/blog/touhou-reconstruction/index.html:1074
 #: website/public/contributors/index.html:1132
 #: website/public/examples/dino-lab/index.html:476
 #: website/public/faq/index.html:574
@@ -15056,7 +15044,7 @@ msgstr ""
 #: website/public/blog/reverse-engineering-models/index.html:122
 #: website/public/blog/reverse-engineering-models/index.html:880
 #: website/public/blog/touhou-reconstruction/index.html:122
-#: website/public/blog/touhou-reconstruction/index.html:1077
+#: website/public/blog/touhou-reconstruction/index.html:1070
 #: website/public/contributors/index.html:123
 #: website/public/contributors/index.html:1128
 #: website/public/examples/dino-lab/index.html:123
@@ -15181,6 +15169,15 @@ msgstr "Başa dön"
 msgctxt "runtime"
 msgid "Contributors: {count}"
 msgstr "Katkıda bulunanlar: {count}"
+
+#, python-brace-format
+#~ msgctxt "page:blog/touhou-reconstruction/index.html"
+#~ msgid ""
+#~ "{ph0}We are in the early days of RE's industrial revolution.{ph1} The "
+#~ "methods are still taking shape. There is plenty left to explore."
+#~ msgstr ""
+#~ "{ph0}RE'NİN sanayi devriminin ilk günlerindeyiz.{ph1} Yöntemler hala "
+#~ "şekilleniyor. Keşfedilecek çok şey kaldı."
 
 #, python-brace-format
 #~ msgctxt "runtime"
