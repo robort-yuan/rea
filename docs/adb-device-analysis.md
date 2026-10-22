@@ -25,7 +25,10 @@ REA never installs the Android SDK, an emulator, or a system image.
 Readiness is `rea inspect-adb-client`: it runs `adb version` and reports the
 resolved binary, its version, and where it was selected from. A missing
 binary reports `capability_unavailable` with the `REA_ADB_PATH` remediation
-rather than attempting an installation.
+rather than attempting an installation. A selected path the host cannot
+execute, such as a directory or a file without execute permission, reports
+`capability_unavailable` naming that path and the spawn error (`EACCES` or
+`EPERM`).
 The `binary_session` inventory uses the same bounded client-version probe; it
 does not query devices, start the adb server, or establish that a requested
 serial is reachable. Device state is checked by each device operation.

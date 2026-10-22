@@ -51,6 +51,7 @@ export const resolveAdbBinary = (
 export type AdbConfigurationFailureCode =
   | "not_absolute"
   | "binary_missing"
+  | "binary_not_executable"
   | "version_unresolved";
 
 export class AdbConfigurationFailure extends Error {
@@ -173,11 +174,32 @@ export const inspectAdbClient = async (
         },
         { cause },
       );
+    // The OS refused to start the selected path, so no version probe ran.
+    // EACCES means a directory or missing execute permission; EPERM means a
+    // host security policy blocked it.
+    if (failure?.code === "EACCES" || failure?.code === "EPERM")
+      throw new AdbConfigurationFailure(
+        "binary_not_executable",
+        `The selected adb binary could not be executed (${failure.code}): ${selection.binary}`,
+        {
+          selected_binary: selection.binary,
+          path_source: selection.pathSource,
+          spawn_error: failure.code,
+          remediation:
+            failure.code === "EPERM"
+              ? `Allow the host security policy to run this adb binary, or set ${ADB_BINARY_ENV} to an absolute path to an adb binary the host permits`
+              : selection.pathSource === "environment"
+                ? `Set ${ADB_BINARY_ENV} to an absolute path to the adb executable file, not a directory, and check that it has execute permission`
+                : `Make sure the adb found on PATH is a file with execute permission, not a directory, or set ${ADB_BINARY_ENV} to an absolute path to an executable adb binary`,
+        },
+        { cause },
+      );
     throw new AdbConfigurationFailure(
       "version_unresolved",
-      "The selected adb binary did not report a usable version",
+      `The selected adb binary did not report a usable version: ${selection.binary}`,
       {
         selected_binary: selection.binary,
+        path_source: selection.pathSource,
         ...(failure === undefined
           ? {}
           : {
@@ -194,7 +216,7 @@ export const inspectAdbClient = async (
 const rejectionCodeOf = (
   code: AdbConfigurationFailureCode,
 ): ProviderRejectionCode =>
-  code === "binary_missing"
+  code === "binary_missing" || code === "binary_not_executable"
     ? "executable_missing"
     : code === "not_absolute"
       ? "not_configured"
