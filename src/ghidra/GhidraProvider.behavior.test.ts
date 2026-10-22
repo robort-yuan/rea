@@ -765,6 +765,7 @@ describe("Ghidra Windows platform support", () => {
     ).toMatchObject({
       status: "unsupported",
       code: "target_format_unsupported",
+      reason: expect.stringContaining("#elf-targets-on-windows"),
     });
     // ARM64 PE is admitted on Windows P0 (bounded; see docs/windows-ghidra-p0.md).
     expect(

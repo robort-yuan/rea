@@ -624,7 +624,7 @@ const inspectWindowsP0TargetSupport = (
       status: "unsupported",
       code: "target_format_unsupported",
       reason:
-        "Windows Ghidra P0 accepts native PE and explicitly selected raw 6502 targets only.",
+        "Windows Ghidra P0 accepts native PE and explicitly selected raw 6502 targets only. For ELF targets on a Windows host, use the WSL2 Ghidra fallback in docs/windows-ghidra-p0.md#elf-targets-on-windows.",
       diagnostics,
     };
   if (!WINDOWS_P0_NATIVE_PE_ARCHITECTURES.includes(target.architecture))

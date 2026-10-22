@@ -39,6 +39,41 @@ state, annotations, other target architectures and formats, and Hopper-only
 operations remain unavailable through this provider. Managed PE/CLI inspection
 uses its separate execution-free provider.
 
+## ELF targets on Windows
+
+Windows P0 does not admit ELF targets, including Android native libraries such
+as `libapp.so`, regardless of whether their architecture is ARM64, x86-64, or
+otherwise supported by Ghidra on another host. `open_binary` can still classify
+such a file, but a Ghidra-routed operation rejects it with
+`target_format_unsupported`. This is a target-format boundary, not a Ghidra,
+JDK, MCP-registration, or Windows-native-control prerequisite failure; rerunning
+`rea doctor` or `rea setup` will not change the result.
+
+| Target                                                                | Windows Ghidra P0                       |
+| --------------------------------------------------------------------- | --------------------------------------- |
+| Native x86, x86-64, ARMNT (Thumb-2), or ARM64 PE application/DLL      | Admitted within the P0 boundary         |
+| Explicit raw NMOS 6502 image                                          | Admitted with its caller-supplied entry |
+| ELF executable or shared library, including Android ARM64 `.so` files | Not admitted                            |
+
+For an ELF target from a Windows workstation, use REA and a separately
+installed Ghidra distribution inside a supported WSL2 Linux distribution. Keep
+the target's Linux path (for example, its read-only path beneath `/mnt/c/...`)
+and configure the Linux process with its own `GHIDRA_INSTALL_DIR` and `JAVA_HOME`:
+
+```bash
+export GHIDRA_INSTALL_DIR=/absolute/path/to/ghidra_12.1.4_PUBLIC
+export JAVA_HOME=/absolute/path/to/jdk-21
+rea doctor --json
+rea inspect /mnt/c/path/to/libapp.so --provider ghidra --json
+```
+
+This uses the Linux Ghidra provider, not Windows P0; do not point WSL REA at a
+Windows Ghidra or JDK installation. Follow the Linux Ghidra prerequisites in
+[installation](installation.md#ghidra), including a procps-compatible `ps` on
+REA's `PATH`. Evidence produced by a manual Ghidra headless invocation outside
+REA is not REA Evidence and must be labelled with its actual tool, command, and
+limitations.
+
 Raw 6502 imports retain the same native filesystem and process ownership
 requirements. The complete image must fit in the 16-bit address space; no
 console-specific cartridge loader, CPU variant, or bank-switching model is
