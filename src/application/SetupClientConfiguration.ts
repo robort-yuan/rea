@@ -755,6 +755,18 @@ const clientConfigurationDesired = async (
     "enabledTools" in previous
   )
     registration.enabledTools = previous.enabledTools;
+  // A FutureOS entry also carries a working-directory choice for the server
+  // process. Refreshing the launcher must not drop it. Its `enabled` toggle is
+  // not preserved: like ZCode's `enable: false`, a disabled REA entry is
+  // reported as stale and re-enabling it on the next setup is the repair.
+  if (
+    client.name === "future" &&
+    typeof previous === "object" &&
+    previous !== null
+  ) {
+    const cwd: unknown = Reflect.get(previous, "cwd");
+    if (typeof cwd === "string") registration.cwd = cwd;
+  }
   return {
     ...registration,
     ...(client.name === "codex" || client.name === "grok_build"

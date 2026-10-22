@@ -54,6 +54,7 @@ export interface SetupClient {
     | "zcode_fallback"
     | "zcode"
     | "dsh"
+    | "future"
     | "unsupported";
 }
 
@@ -219,6 +220,19 @@ const dshHomeDirectory = ({ home, env }: ClientPathContext): string =>
 
 const dshPatchDirectory = (context: ClientPathContext): string =>
   join(dshHomeDirectory(context), "cordis.patch.yml");
+
+/**
+ * FutureOS uses `~/.future/mcp.json` unless `FUTURE_HOME` names an absolute
+ * directory. A blank, relative or `~`-prefixed value is ignored rather than
+ * resolved against the setup process, so setup must agree or it would write a
+ * file FutureOS never reads.
+ */
+const futureDirectory = ({ home, env }: ClientPathContext): string => {
+  const override = env.FUTURE_HOME;
+  return override !== undefined && isAbsolute(override)
+    ? resolve(override)
+    : join(home, ".future");
+};
 
 const hermesDirectory = ({ home, platform, env }: ClientPathContext): string =>
   resolveHermesClientHome(home, platform, env);
@@ -690,6 +704,16 @@ export const SUPPORTED_CLIENT_DEFINITIONS = [
     configPath: dshPatchDirectory,
     markerPath: dshHomeDirectory,
     format: "dsh",
+  },
+  {
+    name: "future",
+    displayName: "FutureOS",
+    // No skillPath: FutureOS discovers the shared agents root, and reads its own
+    // `~/.future/agent/skills` first, where REA installs nothing.
+    configPath: (context: ClientPathContext) =>
+      join(futureDirectory(context), "mcp.json"),
+    markerPath: futureDirectory,
+    format: "future",
   },
   {
     name: "grok_bot",

@@ -94,6 +94,7 @@ export const clientConfigurationServersKey = (
     case "zcode":
       return "mcp";
     case "vscode":
+    case "future":
       return "servers";
     default:
       return "mcpServers";
@@ -145,8 +146,12 @@ const parseDocument = (
   // comments, trailing commas, a BOM, or an empty existing file must be
   // rejected instead of registering into a document the client cannot load.
   // Kimi also reads mcp.json with JSON.parse and an empty-file fallback.
-  if (format === "pi" || format === "kimi") {
-    if (format === "kimi" && text.trim().length === 0) return {};
+  // FutureOS `mcp list` reports a BOM or a comment as invalid and an empty file
+  // as "no servers are configured", so it parses with the same JSON.parse and
+  // the same empty-file fallback, and setting up a file its reader rejects
+  // would register a server the client never loads.
+  if (format === "pi" || format === "kimi" || format === "future") {
+    if (format !== "pi" && text.trim().length === 0) return {};
     return requireObject(JSON.parse(text), "The configuration root");
   }
   // An empty file, which some clients create before any server is added,
@@ -215,6 +220,47 @@ export const parseZcodeFallbackConfiguration = (
 /** Members of OpenCode V2's `mcp` object that are not server names. */
 const OPENCODE_V2_MCP_SETTINGS = new Set(["servers", "timeout"]);
 
+/** The fields FutureOS's `ServerSpec` accepts; every other key fails the load. */
+const FUTURE_SERVER_FIELDS = new Set([
+  "command",
+  "args",
+  "env",
+  "cwd",
+  "enabled",
+]);
+
+const quotedList = (values: readonly string[]): string =>
+  values.map((value) => JSON.stringify(value)).join(", ");
+
+/**
+ * FutureOS parses `mcp.json` with `deny_unknown_fields` on both `McpConfig` and
+ * `ServerSpec`, so one stray key — a `type: "stdio"` copied from another
+ * client, say — makes it refuse the whole file instead of skipping that entry.
+ * Reject it here so setup reports a repairable file instead of certifying a
+ * registration FutureOS will not load.
+ */
+const validateFutureConfiguration = (
+  document: Record<string, unknown>,
+  servers: Record<string, unknown>,
+): void => {
+  const unknownKeys = Object.keys(document).filter((key) => key !== "servers");
+  if (unknownKeys.length > 0)
+    throw new ClientConfigurationShapeError(
+      `FutureOS rejects unknown top-level fields, and this configuration has ${quotedList(unknownKeys)}; only "servers" is read. Repair the file before rerunning setup.`,
+    );
+  for (const [name, entry] of Object.entries(servers)) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry))
+      continue;
+    const unknownFields = Object.keys(entry).filter(
+      (field) => !FUTURE_SERVER_FIELDS.has(field),
+    );
+    if (unknownFields.length > 0)
+      throw new ClientConfigurationShapeError(
+        `FutureOS rejects unknown server fields, and ${JSON.stringify(name)} has ${quotedList(unknownFields)}; a server accepts only ${quotedList([...FUTURE_SERVER_FIELDS])}. Repair the file before rerunning setup.`,
+      );
+  }
+};
+
 /** Parse a client document and reject malformed roots or MCP server tables. */
 export const parseClientConfiguration = (
   text: string,
@@ -230,6 +276,7 @@ export const parseClientConfiguration = (
   const value = document[serversKey];
   const servers =
     value === undefined ? {} : requireObject(value, `"${serversKey}"`);
+  if (format === "future") validateFutureConfiguration(document, servers);
   // ZCode reads stdio servers from the nested `mcp.servers` table of
   // `~/.zcode/cli/config.json`; entries carry `command`, `args`, and `env`.
   if (format === "zcode") {
@@ -1690,6 +1737,16 @@ export const clientRegistrationEntry = (
         command: executable,
         args,
         ...(Object.keys(environment).length === 0 ? {} : { env: environment }),
+      };
+    case "future":
+      // FutureOS rejects any field outside command, args, env, cwd and enabled,
+      // so the entry carries no `type`. A missing `enabled` is enabled, and
+      // `enabled: true` matches what `future mcp add` writes.
+      return {
+        command: executable,
+        args,
+        ...(Object.keys(environment).length === 0 ? {} : { env: environment }),
+        enabled: true,
       };
     case "copilot_cli":
       return {
