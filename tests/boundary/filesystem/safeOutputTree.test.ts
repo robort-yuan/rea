@@ -188,6 +188,9 @@ describe("safe artifact output tree identity", () => {
         })
         .catch((cause: unknown) => cause);
       expect(writeFailure).toBeInstanceOf(ArtifactReaderFailure);
+      expect(writeFailure).toMatchObject({
+        message: `Extraction directory identity changed: ${output}`,
+      });
       await expect(access(join(outside, "escaped.txt"))).rejects.toThrow();
       await expect(tree.commit()).rejects.toBeInstanceOf(ArtifactReaderFailure);
       const cleanupFailure = await tree

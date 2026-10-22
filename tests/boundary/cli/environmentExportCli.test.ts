@@ -69,6 +69,43 @@ const BUNDLE_FILES = [
   "tasks/smoke.json",
 ];
 
+cliTest(
+  "refuses a file-occupied destination without reporting an identity change or modifying the file",
+  async ({ cli }) => {
+    const root = await createTestTempDirectory("rea-environment-export-file-");
+    const files = await writeEnvironmentServeFiles(root);
+    const directory = join(root, "occupied");
+    await writeFile(directory, "keep\n");
+    const before = await stat(directory);
+    const result = await cli.run({
+      arguments: [
+        "environment-export",
+        files.manifestPath,
+        "--evidence",
+        files.capturePath,
+        directory,
+        "--json",
+      ],
+      timeoutMs: 30_000,
+    });
+    const message = `Output path is not a directory: ${directory}`;
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toBe("");
+    expect(result.json).toMatchObject({
+      code: "invalid_request",
+      category: "invalid_input",
+      message,
+      details: {
+        operation: "environment-export",
+        issues: [{ path: ["directory"], reason: "invalid_value", message }],
+      },
+    });
+    expect(await readFile(directory, "utf8")).toBe("keep\n");
+    const after = await stat(directory);
+    expect([after.dev, after.ino]).toEqual([before.dev, before.ino]);
+  },
+);
+
 describe("rea environment-export", () => {
   cliTest(
     "writes the bundle folder from the fixture pair and prints the written files with sizes",
