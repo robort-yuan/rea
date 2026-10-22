@@ -1,11 +1,14 @@
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import { createTestTempDirectory } from "../../tests/fixtures/temporaryDirectory.js";
-import { resolveAppBundleExecutable } from "./AppBundleExecutable.js";
+import {
+  isAppBundlePath,
+  resolveAppBundleExecutable,
+} from "./AppBundleExecutable.js";
 
 it.each([
   ["macOS", ["Contents"], ["Contents", "MacOS"]],
@@ -100,5 +103,40 @@ describe("app bundle program directory containment", () => {
     } finally {
       await rm(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("isAppBundlePath", () => {
+  it("identifies a macOS app bundle and its symlink alias", async () => {
+    const root = await createTestTempDirectory("rea-is-app-bundle-");
+    const bundle = join(root, "Fixture.app");
+    await mkdir(join(bundle, "Contents"), { recursive: true });
+    await writeFile(
+      join(bundle, "Contents", "Info.plist"),
+      "<plist><dict><key>CFBundleExecutable</key><string>Fixture</string></dict></plist>",
+    );
+    const alias = join(root, "bundle-alias");
+    await symlink(bundle, alias, "dir");
+
+    expect(await isAppBundlePath(bundle)).toBe(true);
+    expect(await isAppBundlePath(alias)).toBe(true);
+  });
+
+  it("returns false for a non-bundle directory even if named with .app", async () => {
+    const root = await createTestTempDirectory("rea-non-bundle-app-");
+    const dir = join(root, "web.app");
+    await mkdir(dir, { recursive: true });
+    await writeFile(join(dir, "package.json"), "{}");
+
+    expect(await isAppBundlePath(dir)).toBe(false);
+  });
+
+  it("returns false for a missing path or regular file", async () => {
+    const root = await createTestTempDirectory("rea-missing-bundle-");
+    const file = join(root, "file.txt");
+    await writeFile(file, "hello");
+
+    expect(await isAppBundlePath(file)).toBe(false);
+    expect(await isAppBundlePath(join(root, "absent"))).toBe(false);
   });
 });

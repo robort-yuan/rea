@@ -1,6 +1,7 @@
 import { z } from "incur";
 import { stat } from "node:fs/promises";
 
+import { isAppBundlePath } from "../application/AppBundleExecutable.js";
 import { resolveCliAnalysisSelector } from "./analysisSelector.js";
 import type { DirectAnalysis } from "../composition/directAnalysis.js";
 import { CLI_COMMANDS } from "../cliCommandNames.js";
@@ -231,10 +232,10 @@ const routesToJavaScriptAnalysis = async (
 const isJavaScriptApplicationPath = async (path: string): Promise<boolean> => {
   const lower = path.toLowerCase();
   if (lower.endsWith(".asar")) return true;
-  // `A.app/` and `A.app/.` name the same bundle as `A.app`.
-  if (lower.replace(/(?:\/\.?)+$/u, "").endsWith(".app")) return false;
   try {
-    return (await stat(path)).isDirectory();
+    if (!(await stat(path)).isDirectory()) return false;
+    if (await isAppBundlePath(path)) return false;
+    return true;
   } catch (cause: unknown) {
     // A missing or unreadable path is not a JavaScript application directory;
     // the caller falls through to direct binary analysis instead.

@@ -148,6 +148,14 @@ export const resolveAppBundleResourceRoot = async (
   }
 };
 
+/**
+ * Whether a directory path appears to be a macOS or iOS application bundle.
+ */
+export const isAppBundlePath = async (
+  path: string,
+  options: { readonly cwd?: string } = {},
+): Promise<boolean> => (await resolveAppBundleResourceRoot(path, options)).ok;
+
 const presentLayout = async (
   bundle: string,
 ): Promise<BundleLayout | undefined> => {

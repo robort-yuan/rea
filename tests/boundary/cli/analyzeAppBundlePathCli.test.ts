@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { describe, expect } from "vitest";
@@ -45,6 +45,55 @@ describe("analyze app bundle path spellings", () => {
           operation: "open_binary",
           selection_reason: "unknown_provider",
           requested_provider_id: "missing-provider",
+        },
+      });
+    },
+  );
+
+  cliTest(
+    "routes an app bundle symlink alias to native provider selection",
+    async ({ cli }) => {
+      const cwd = await fixtureApp();
+      await symlink("Sample.app", join(cwd, "bundle-alias"), "dir");
+      const result = await cli.run({
+        arguments: ["analyze", "bundle-alias", "--json"],
+        cwd,
+        environment,
+      });
+      expect(result.exitCode).toBe(1);
+      expect(result.json).toMatchObject({
+        code: "capability_unavailable",
+        details: {
+          operation: "open_binary",
+          selection_reason: "unknown_provider",
+          requested_provider_id: "missing-provider",
+        },
+      });
+    },
+  );
+
+  cliTest(
+    "routes a JavaScript directory ending in .app to JavaScript analysis",
+    async ({ cli }) => {
+      const cwd = await createTestTempDirectory("rea-analyze-js-app-");
+      const jsDir = join(cwd, "web.app");
+      await mkdir(jsDir, { recursive: true });
+      await writeFile(
+        join(jsDir, "package.json"),
+        JSON.stringify({ name: "demo-js", version: "1.0.0", main: "index.js" }),
+      );
+      await writeFile(join(jsDir, "index.js"), "module.exports = 42;");
+      const result = await cli.run({
+        arguments: ["analyze", "web.app", "--json"],
+        cwd,
+      });
+      expect(result.exitCode).toBe(0);
+      expect(result.json).toMatchObject({
+        normalized_result: {
+          format: "directory",
+          statistics: {
+            relevant_files: 2,
+          },
         },
       });
     },
