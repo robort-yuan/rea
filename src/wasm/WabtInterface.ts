@@ -112,6 +112,17 @@ const integer = (text: string): string | null => {
   return BigInt(text).toString();
 };
 
+/** WABT can normalize distinct debug names to the same label. */
+const recordName = (
+  names: Map<string, number>,
+  label: string | undefined,
+  index: number,
+): void => {
+  // -1 remains ambiguous even if further definitions share this label.
+  if (label?.startsWith("$") === true)
+    names.set(label, names.has(label) ? -1 : index);
+};
+
 /** Resolve index spaces at the producer, not from retained raw WAT in consumers. */
 const decodeWabtInterface = (
   forms: readonly string[],
@@ -122,13 +133,16 @@ const decodeWabtInterface = (
   const typeNames = new Map<string, number>();
   const definitions = new Map<
     string,
-    { signature: WasmInterfaceSignature | null; label: string | undefined }[]
+    {
+      signatures: (WasmInterfaceSignature | null)[];
+      names: Map<string, number>;
+    }
   >();
   const typeSpaceUnknown = forms.some((f) => head(f) === "rec");
   for (const form of forms) {
     const p = parts(form);
     if (p[0] !== "type") continue;
-    if (p[1]?.startsWith("$") === true) typeNames.set(p[1], types.length);
+    recordName(typeNames, p[1], types.length);
     const body = p.find((item) => item.startsWith("("));
     budget.reserve(256 + (body?.length ?? 0) * 6);
     types.push(
@@ -231,16 +245,17 @@ const decodeWabtInterface = (
     const kind = ["func", "table", "memory", "global", "tag"].includes(rawKind)
       ? (rawKind as WasmInterfaceEntry["kind"])
       : "unknown";
-    const space = definitions.get(kind) ?? [];
-    const item = {
-      signature: signature(form),
-      label: p[1]?.startsWith("$") === true ? p[1] : undefined,
+    const space = definitions.get(kind) ?? {
+      signatures: [],
+      names: new Map<string, number>(),
     };
+    const observed = signature(form);
     budget.reserve(256);
-    const index = space.length;
-    space.push(item);
+    const index = space.signatures.length;
+    recordName(space.names, p[1], index);
+    space.signatures.push(observed);
     definitions.set(kind, space);
-    return { index, kind, signature: item.signature };
+    return { index, kind, signature: observed };
   };
   for (const form of forms) {
     const p = parts(form);
@@ -256,7 +271,7 @@ const decodeWabtInterface = (
       wat_form: form,
       issue:
         observed.signature === null
-          ? "Import type is outside admitted core signature semantics"
+          ? "Import type is ambiguous or outside admitted core signature semantics"
           : null,
     };
     budget.reserve(wasmInterfaceEntryRepresentationBytes(entry));
@@ -281,26 +296,28 @@ const decodeWabtInterface = (
       ? (rawKind as WasmInterfaceEntry["kind"])
       : "unknown";
     const reference = descriptor[1];
-    const space = definitions.get(kind) ?? [];
+    const space = definitions.get(kind);
     const index =
       reference === undefined
         ? -1
         : reference.startsWith("$")
-          ? space.findIndex((d) => d.label === reference)
+          ? (space?.names.get(reference) ?? -1)
           : Number(reference);
     const observed =
-      Number.isSafeInteger(index) && index >= 0 ? space[index] : undefined;
+      Number.isSafeInteger(index) && index >= 0
+        ? space?.signatures[index]
+        : undefined;
     const entry: WasmInterfaceEntry = {
       direction: "export",
       module: null,
       name: name(p[1]),
       kind,
       index: observed === undefined ? null : index,
-      signature: observed?.signature ?? null,
+      signature: observed ?? null,
       wat_form: form,
       issue:
-        observed?.signature == null
-          ? "Export type/index is outside admitted core signature semantics"
+        observed == null
+          ? "Export type/index is ambiguous or outside admitted core signature semantics"
           : null,
     };
     budget.reserve(wasmInterfaceEntryRepresentationBytes(entry));

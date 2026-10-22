@@ -1,6 +1,83 @@
 import { expect, it } from "vitest";
 import { parseWabtWat } from "./WabtWat.js";
 
+it.each([
+  ["func", "(param i32)", "(param i64)", { params: ["i64"], results: [] }],
+  ["table", "1 funcref", "2 externref", { minimum: "2", element: "externref" }],
+  ["memory", "1", "2", { minimum: "2" }],
+  ["global", "i32", "i64 (i64.const 0)", { value_type: "i64", mutable: false }],
+  ["tag", "(param i32)", "(param i64)", { params: ["i64"], results: [] }],
+])(
+  "keeps colliding %s labels unknown across imported and defined entries",
+  (kind, imported, defined, expected) => {
+    // WABT 1.0.42 renders debug names "a b" and "a_b" as $a_b.
+    const report = parseWabtWat(`(module
+    (import "env" "original" (${kind} $a_b ${imported}))
+    (${kind} $a_b ${defined})
+    (export "first" (${kind} $a_b))
+    (export "second" (${kind} $a_b))
+    (export "numeric" (${kind} 1)))`).interface;
+    expect(report.state).toBe("complete");
+    expect(report.issues).toEqual([]);
+    expect(report.entries).toHaveLength(4);
+    expect(report.entries[0]).toMatchObject({
+      index: 0,
+      signature: { kind },
+      issue: null,
+    });
+    for (const entry of report.entries.slice(1, 3))
+      expect(entry).toMatchObject({
+        index: null,
+        signature: null,
+        issue: expect.any(String),
+        wat_form: `(export "${entry.name}" (${kind} $a_b))`,
+      });
+    expect(report.entries[3]).toMatchObject({
+      index: 1,
+      signature: { kind, ...expected },
+      issue: null,
+    });
+  },
+);
+
+it.each(["func", "tag"])(
+  "does not choose the last colliding named type for a %s",
+  (kind) => {
+    // Captured WABT type labels for distinct debug names "t x" and "t_x".
+    const report = parseWabtWat(`(module
+    (type $t_x (func (param i32)))
+    (type $t_x (func (param i64)))
+    (type $unique (func (param f32)))
+    (import "env" "ambiguous" (${kind} $imported (type $t_x)))
+    (${kind} $defined (type $t_x) (param i64))
+    (${kind} $numeric (type 0))
+    (${kind} $unique (type $unique))
+    (export "defined" (${kind} $defined))
+    (export "numeric" (${kind} $numeric))
+    (export "unique" (${kind} $unique)))`).interface;
+    expect(report.state).toBe("complete");
+    expect(report.entries).toHaveLength(4);
+    for (const [index, entry] of report.entries.slice(0, 2).entries())
+      expect(entry).toMatchObject({
+        index,
+        signature: null,
+        issue: expect.any(String),
+      });
+    expect(report.entries.slice(2)).toMatchObject([
+      {
+        index: 2,
+        signature: { kind, params: ["i32"], results: [] },
+        issue: null,
+      },
+      {
+        index: 3,
+        signature: { kind, params: ["f32"], results: [] },
+        issue: null,
+      },
+    ]);
+  },
+);
+
 it("resolves imported index spaces and decoded escaped names without depending on body/type numbering", () => {
   const report = parseWabtWat(`(module
     (type (;0;) (func (param i32) (result i64)))

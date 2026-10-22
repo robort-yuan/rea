@@ -36,11 +36,12 @@ const transport = new StdioClientTransport({
 });
 const source = (parameter) =>
   `(module (type (func (param ${parameter}) (result i64))) (import "env" "f" (func (type 0))) (table 1 3 funcref) (memory 1 2) (global (mut i64) (i64.const 0)) (tag (param i32)) (export "run\\22\\ef\\bb\\bf" (func 0)) (export "table" (table 0)) (export "memory" (memory 0)) (export "global" (global 0)) (export "tag" (tag 0)))`;
-const assemble = async (name, wat) => {
+const assemble = async (name, wat, debugNames = false) => {
   await writeFile(join(root, `${name}.wat`), wat);
   const path = join(root, `${name}.wasm`);
   await command(join(bin, "wat2wasm"), [
     "--enable-all",
+    ...(debugNames ? ["--debug-names"] : []),
     `${name}.wat`,
     "-o",
     path,
@@ -173,6 +174,120 @@ try {
     ),
   );
   assert.equal((await compare(unsupported, unsupported)).summary.unknown, 1);
+  for (const scenario of [
+    "labels",
+    "imported-labels",
+    "type-labels",
+    "control",
+  ]) {
+    const evidence = [];
+    for (const parameter of ["i64", "f32"]) {
+      const first = scenario === "control" ? "$a" : '$"a b"';
+      const declarations =
+        scenario === "type-labels"
+          ? `(type $"t x" (func (param i32)))
+           (type $t_x (func (param ${parameter})))
+           (import "env" "f" (func $a (type $"t x")))
+           (func $a_b (type $t_x))`
+          : `${
+              scenario === "imported-labels"
+                ? `(import "env" "f" (func ${first} (param i32)))`
+                : `(func ${first} (param i32))`
+            }
+           (func $a_b (param ${parameter}))`;
+      const selected = scenario === "type-labels" ? "$a" : first;
+      const observation = await inspect(
+        await assemble(
+          `${scenario}-${parameter}`,
+          `(module ${declarations}
+          (export "first" (func ${selected}))
+          (export "second" (func $a_b)))`,
+          true,
+        ),
+      );
+      assert.equal(observation.normalized_result.interface.state, "complete");
+      const entries = observation.normalized_result.interface.entries;
+      if (scenario === "control") {
+        assert.deepEqual(
+          entries.map((entry) => entry.index),
+          [0, 1],
+        );
+        assert.deepEqual(entries[1].signature.params, [parameter]);
+      } else {
+        for (const entry of entries.filter(
+          (entry) => entry.direction === "export",
+        )) {
+          assert.equal(
+            entry.index,
+            scenario === "type-labels"
+              ? entry.name === "first"
+                ? 0
+                : 1
+              : null,
+          );
+          assert.equal(entry.signature, null);
+          assert.ok(entry.issue);
+          assert.ok(entry.wat_form.includes(`(export "${entry.name}"`));
+          assert.ok(
+            observation.normalized_result.wat.text.includes(entry.wat_form),
+          );
+        }
+        if (scenario === "type-labels") {
+          assert.equal(entries[0].signature, null);
+          assert.ok(entries[0].issue);
+        }
+      }
+      evidence.push(observation);
+    }
+    const comparison = await compare(evidence[0], evidence[1], "exports");
+    assert.deepEqual(
+      comparison.summary,
+      scenario === "control"
+        ? { added: 0, removed: 0, changed: 1, unchanged: 1, unknown: 0 }
+        : { added: 0, removed: 0, changed: 0, unchanged: 0, unknown: 2 },
+    );
+    assert.equal(
+      comparison.coverage,
+      scenario === "control" ? "complete-within-inputs" : "partial",
+    );
+  }
+  const spaces = [
+    ["table", "1 funcref", "2 externref"],
+    ["memory", "1", "2"],
+    ["global", "i32", "i64 (i64.const 0)"],
+    ["tag", "(param i32)", "(param i64)"],
+  ];
+  const collidingSpaces = await inspect(
+    await assemble(
+      "other-index-spaces",
+      `(module
+    ${spaces.map(([kind, imported]) => `(import "env" "${kind}" (${kind} $"a b" ${imported}))`).join("\n")}
+    ${spaces.map(([kind, , defined]) => `(${kind} $a_b ${defined})`).join("\n")}
+    ${spaces.map(([kind]) => `(export "${kind}-first" (${kind} $"a b")) (export "${kind}-second" (${kind} $a_b))`).join("\n")})`,
+      true,
+    ),
+  );
+  const spaceFacts = collidingSpaces.normalized_result.interface;
+  assert.equal(spaceFacts.state, "complete");
+  assert.equal(spaceFacts.entries.length, 12);
+  for (const entry of spaceFacts.entries) {
+    if (entry.direction === "import") {
+      assert.equal(entry.index, 0);
+      assert.ok(entry.signature);
+      assert.equal(entry.issue, null);
+    } else {
+      assert.equal(entry.index, null);
+      assert.equal(entry.signature, null);
+      assert.ok(entry.issue);
+    }
+  }
+  const spaceComparison = await compare(
+    collidingSpaces,
+    collidingSpaces,
+    "exports",
+  );
+  assert.equal(spaceComparison.summary.unknown, 8);
+  assert.equal(spaceComparison.coverage, "partial");
   console.log(
     JSON.stringify(
       {
@@ -195,6 +310,11 @@ try {
           "scope",
           "duplicate imports",
           "unsupported exception reference",
+          "colliding debug function labels",
+          "colliding imported/defined labels",
+          "colliding debug type labels",
+          "distinct debug label control",
+          "colliding table/memory/global/tag index spaces",
         ],
         runtime_execution: "not-performed",
       },
