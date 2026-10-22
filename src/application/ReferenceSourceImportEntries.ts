@@ -320,6 +320,56 @@ const resolveInternalSpecifier = (
     : { to: match, resolution: "internal" };
 };
 
+/**
+ * Interpret an ESM specifier's URL components once, as Node's file URL
+ * resolution does: a raw `?` or `#` ends the pathname, and percent-escapes in
+ * the pathname decode to literal filename bytes (`%3F` names a `?`). Returns
+ * undefined where Node rejects the pathname: an encoded separator (`%2F`,
+ * `%5C`) or a malformed escape.
+ */
+const esmSpecifierPathname = (specifier: string): string | undefined => {
+  const componentStart = specifier.search(/[?#]/u);
+  const pathname =
+    componentStart === -1 ? specifier : specifier.slice(0, componentStart);
+  if (!pathname.includes("%")) return pathname;
+  if (/%2f|%5c/iu.test(pathname)) return undefined;
+  try {
+    return decodeURIComponent(pathname);
+  } catch {
+    return undefined;
+  }
+};
+
+/**
+ * Source imports are ESM URL requests, so the inventory lookup uses the URL
+ * pathname only; an inventoried filename that spells the raw query or
+ * fragment never overrides it. Require modes resolve the literal specifier.
+ * An unresolved request keeps its source spelling as provenance.
+ */
+const resolveImportSpecifier = (
+  fromPath: string,
+  specifier: string,
+  context: SpecifierContext,
+  mode: InternalSpecifierResolutionMode,
+): { to: string; resolution: "internal" | "unresolved" } => {
+  if (mode !== "source-import")
+    return resolveInternalSpecifier(fromPath, specifier, context, mode);
+  const pathname = esmSpecifierPathname(specifier);
+  if (pathname === specifier)
+    return resolveInternalSpecifier(fromPath, specifier, context, mode);
+  const resolved =
+    pathname === undefined
+      ? undefined
+      : resolveInternalSpecifier(fromPath, pathname, context, mode);
+  if (resolved?.resolution === "internal") return resolved;
+  return {
+    to: posix.isAbsolute(specifier)
+      ? specifier
+      : posix.normalize(posix.join(posix.dirname(fromPath), specifier)),
+    resolution: "unresolved",
+  };
+};
+
 type ReadFile = Extract<ReferenceSourceEntry, { status: "read"; kind: "file" }>;
 
 const appendFile = (
@@ -356,7 +406,7 @@ const appendFile = (
         : graphRelationship.kind === "requires"
           ? "source-require"
           : "source-import";
-    const resolved = resolveInternalSpecifier(
+    const resolved = resolveImportSpecifier(
       graphRelationship.from_path,
       graphRelationship.to,
       context,
