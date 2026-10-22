@@ -216,6 +216,13 @@ import {
   il2cppMetadataViewContextSchema,
   il2cppMetadataViewItemsSchema,
 } from "./il2cppMetadataView.js";
+import {
+  projectUnrealPakView,
+  unrealPakSummarySchema,
+  unrealPakViewRequestSchema,
+  unrealPakViewContextSchema,
+  unrealPakViewItemsSchema,
+} from "./unrealPakView.js";
 
 const summaryViewSchema = z.strictObject({ kind: z.literal("summary") });
 const facetViewSchema = z.strictObject({
@@ -328,6 +335,7 @@ export const analysisViewRequestSchema = z.discriminatedUnion("kind", [
   dartAotViewRequestSchema,
   il2cppMetadataViewRequestSchema,
   modelArtifactViewRequestSchema,
+  unrealPakViewRequestSchema,
   gpuCodeObjectsViewRequestSchema,
 ]);
 
@@ -438,6 +446,7 @@ const viewResultBase = {
     "inspect_dart_aot",
     "inspect_il2cpp_metadata",
     "inspect_model_artifact",
+    "inspect_unreal_pak",
     "inspect_gpu_code_objects",
     ...NATIVE_INVENTORY_OPERATIONS,
     "match_native_functions",
@@ -661,6 +670,13 @@ export const il2cppMetadataSummaryViewResultSchema = z.strictObject({
   summary: il2cppMetadataSummarySchema,
 });
 
+/** Footer, index facts and entry counts for selected Unreal pak delivery. */
+export const unrealPakSummaryViewResultSchema = z.strictObject({
+  ...summaryViewResultBase,
+  parent_operation: z.literal("inspect_unreal_pak"),
+  summary: unrealPakSummarySchema,
+});
+
 /** Exact inventory summary with the original observation's provider and query. */
 export const nativeInventorySummaryViewResultSchema = z.strictObject({
   ...summaryViewResultBase,
@@ -759,6 +775,7 @@ export const analysisViewResultSchema = z.discriminatedUnion("kind", [
     dartAotSummaryViewResultSchema,
     il2cppMetadataSummaryViewResultSchema,
     modelArtifactSummaryViewResultSchema,
+    unrealPakSummaryViewResultSchema,
     gpuCodeObjectsSummaryViewResultSchema,
     nativeInventorySummaryViewResultSchema,
     nativeFunctionMatchingSummaryViewResultSchema,
@@ -920,6 +937,14 @@ export const analysisViewResultSchema = z.discriminatedUnion("kind", [
     parent_operation: z.literal("inspect_il2cpp_metadata"),
   }),
   z.strictObject({
+    kind: z.literal("unreal-pak"),
+    view: unrealPakViewRequestSchema,
+    items: unrealPakViewItemsSchema,
+    ...viewResultBase,
+    ...unrealPakViewContextSchema.shape,
+    parent_operation: z.literal("inspect_unreal_pak"),
+  }),
+  z.strictObject({
     kind: z.literal("inventory"),
     view: artifactInventoryViewRequestSchema,
     source_coverage: artifactInventoryCoverageSchema.exactOptional(),
@@ -1006,7 +1031,7 @@ const unsupportedParent = (
     parentArtifactPath(parent),
     parent.operation === "capture_browser_scenario"
       ? `Parent Evidence operation "capture_browser_scenario" supports only the environment-manifest and environment-state views.`
-      : `Parent Evidence operation ${JSON.stringify(parent.operation)} does not support analysis views. Use completed binary layout, JavaScript application, native function/inventory, artifact inventory/inspection, WASM, Mach-O, Interface Builder, EVM, managed artifact or member, Android package, Dart AOT, IL2CPP metadata, or web network capture Evidence.`,
+      : `Parent Evidence operation ${JSON.stringify(parent.operation)} does not support analysis views. Use completed binary layout, JavaScript application, native function/inventory, artifact inventory/inspection, WASM, Mach-O, Interface Builder, EVM, managed artifact or member, Android package, Dart AOT, IL2CPP metadata, Unreal pak, or web network capture Evidence.`,
   );
 
 const parentArtifactPath = (parent: AnalysisViewParent): string => {
@@ -1051,6 +1076,7 @@ const retainedViewProjectors = new Map<string, typeof projectWasmArtifactView>([
   ["inspect_dart_aot", projectDartAotView],
   ["inspect_il2cpp_metadata", projectIl2cppMetadataView],
   ["inspect_model_artifact", projectModelArtifactView],
+  ["inspect_unreal_pak", projectUnrealPakView],
   ["inspect_gpu_code_objects", projectGpuCodeObjectsView],
   ["match_native_functions", projectNativeFunctionMatchingView],
   ["compare_source_to_bundle", projectSourceToBundleView],

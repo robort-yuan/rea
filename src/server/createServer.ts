@@ -41,6 +41,9 @@ import { registerIl2cppTools } from "./registerIl2cppTools.js";
 import { createRustBinaryService } from "../composition/rust.js";
 import type { RustBinaryService } from "../application/rust/RustBinaryService.js";
 import { registerRustTools } from "./registerRustTools.js";
+import { createUnrealPakService } from "../composition/unreal.js";
+import type { UnrealPakService } from "../application/unreal/UnrealPakService.js";
+import { registerUnrealTools } from "./registerUnrealTools.js";
 import type { RecordedCrashService } from "../application/binaryDiagnostics/RecordedCrashService.js";
 import { registerAnalysisViewTool } from "./registerAnalysisViewTool.js";
 import { registerBinaryDiagnosticsTools } from "./registerBinaryDiagnosticsTools.js";
@@ -174,6 +177,7 @@ export interface CreateServerOptions {
   readonly goBinary?: GoBinaryService;
   readonly il2cppMetadata?: Il2cppMetadataService;
   readonly rustBinary?: RustBinaryService;
+  readonly unrealPak?: UnrealPakService;
   readonly electronFuses?: ElectronFuseService;
   readonly recordedCrash?: RecordedCrashService;
   readonly firmwareAnalysis?: FirmwareAnalysisPort;
@@ -337,6 +341,7 @@ export const createServer = (
   const gpuCodeObjects = createGpuCodeObjectsService();
   const il2cppMetadata =
     options.il2cppMetadata ?? createIl2cppMetadataService();
+  const unrealPak = options.unrealPak ?? createUnrealPakService();
   const peResources = createPeResourcesService();
   const electronFuses = options.electronFuses ?? createElectronFuseService();
   const webNetworkCapture =
@@ -423,6 +428,7 @@ export const createServer = (
       rustBinary.close(),
       il2cppMetadata.close(),
       modelArtifact.close(),
+      unrealPak.close(),
       gpuCodeObjects.close(),
       peResources.close(),
       electronFuses.close(),
@@ -487,6 +493,7 @@ export const createServer = (
     goBinary,
     rustBinary,
     il2cppMetadata,
+    unrealPak,
     peResources,
     electronFuses,
     webNetworkCapture,
@@ -718,6 +725,7 @@ const registerConfiguredAnalysisTools = (
     goBinary,
     rustBinary,
     il2cppMetadata,
+    unrealPak,
     peResources,
     webNetworkCapture,
     artifactResources,
@@ -778,6 +786,14 @@ const registerConfiguredAnalysisTools = (
   registerIl2cppTools(
     server,
     il2cppMetadata,
+    toolLogger,
+    recordEvidence,
+    withAdmittedAnalysis,
+    evidenceById,
+  );
+  registerUnrealTools(
+    server,
+    unrealPak,
     toolLogger,
     recordEvidence,
     withAdmittedAnalysis,
@@ -899,6 +915,7 @@ interface ServerToolContext extends ReturnType<typeof createSessionRecorders> {
   readonly goBinary: GoBinaryService;
   readonly rustBinary: RustBinaryService;
   readonly il2cppMetadata: Il2cppMetadataService;
+  readonly unrealPak: UnrealPakService;
   readonly peResources: PeResourcesService;
   readonly electronFuses: ElectronFuseService;
   readonly webNetworkCapture: WebNetworkCaptureService;

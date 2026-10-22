@@ -77,6 +77,8 @@ const SOURCE_PATHS = {
   il2cppProvider: "dist/il2cpp/Il2cppMetadataProvider.js",
   rustContracts: "dist/contracts/rust/rustToolContracts.js",
   rustProvider: "dist/rust/RustBinaryProvider.js",
+  unrealContracts: "dist/contracts/unreal/unrealToolContracts.js",
+  unrealProvider: "dist/unreal/UnrealPakProvider.js",
   artifactContracts: "dist/contracts/artifactToolContracts.js",
   desktopContracts: "dist/contracts/desktopApplicationToolContracts.js",
   managedContracts: "dist/contracts/managed/managedToolContracts.js",

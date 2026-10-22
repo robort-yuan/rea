@@ -38,6 +38,7 @@ export const toolFamilyCatalog = (sources) => {
         ...sources.il2cppContracts.IL2CPP_TOOL_CONTRACTS,
         ...sources.modelContracts.MODEL_TOOL_CONTRACTS,
         ...sources.rustContracts.RUST_TOOL_CONTRACTS,
+        ...sources.unrealContracts.UNREAL_TOOL_CONTRACTS,
         ...sources.wasmContracts.WASM_TOOL_CONTRACTS,
         ...sources.sqliteContracts.SQLITE_TOOL_CONTRACTS,
         ...sources.captureContracts.CAPTURE_TOOL_CONTRACTS,
@@ -285,6 +286,10 @@ export const providerCatalog = (sources) => {
     {
       identity: sources.rustProvider.RUST_BINARY_PROVIDER_IDENTITY,
       contracts: sources.rustContracts.RUST_TOOL_CONTRACTS,
+    },
+    {
+      identity: sources.unrealProvider.UNREAL_PAK_PROVIDER_IDENTITY,
+      contracts: sources.unrealContracts.UNREAL_TOOL_CONTRACTS,
     },
     {
       identity: sources.electronFuseProvider.ELECTRON_FUSE_PROVIDER_IDENTITY,

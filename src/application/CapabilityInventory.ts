@@ -417,6 +417,7 @@ const workflowAvailabilityFor = ({
     name === "inspect_model_artifact" ||
     name === "inspect_gpu_code_objects" ||
     name === "inspect_rust_binary" ||
+    name === "inspect_unreal_pak" ||
     name === "inspect_electron_fuses"
   )
     return { reason: "available", remediation: null };

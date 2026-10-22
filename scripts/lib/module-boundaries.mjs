@@ -12,6 +12,7 @@ const MIGRATED_PROVIDER_ROOTS = new Set([
   "model",
   "gpu",
   "rust",
+  "unreal",
   "wasm",
   "captures",
   "signals",

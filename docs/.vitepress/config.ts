@@ -32,6 +32,7 @@ export default defineConfig({
           { text: "IL2CPP metadata", link: "/il2cpp-metadata" },
           { text: "Model artifacts", link: "/model-artifacts" },
           { text: "Rust dependencies", link: "/rust-binaries" },
+          { text: "Unreal pak indexes", link: "/unreal-pak" },
           {
             text: "JavaScript and Electron",
             link: "/javascript-artifact-reconstruction",
