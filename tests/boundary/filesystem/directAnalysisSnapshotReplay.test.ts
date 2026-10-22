@@ -117,6 +117,8 @@ const expectWorkflowQuestionsRetained = (
   )
     throw new Error("Fixture workflow did not return residual questions");
   expect(result.residual_unknowns.length).toBeGreaterThan(0);
+  const escapeRegex = (value: string): string =>
+    value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   expect(snapshot.evidence_bundle.unknowns).toEqual(
     expect.arrayContaining(
       result.residual_unknowns.map((question) =>
