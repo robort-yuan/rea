@@ -13,9 +13,11 @@ import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 
 import { spawn } from "@lydell/node-pty";
+import { decode as decodeToon } from "@toon-format/toon";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { CLIENT_LOCATION_ENVIRONMENT } from "../../fixtures/clientEnvironment.js";
 import { createTestTempDirectory } from "../../fixtures/temporaryDirectory.js";
 
 const execute = promisify(execFile);
@@ -391,6 +393,241 @@ describe("interactive setup completion", () => {
   );
 });
 
+describe("non-interactive setup output", () => {
+  it.each([["--format", "json"], ["--json"]])(
+    "keeps explicitly structured terminal output free of human summaries: %s",
+    async (...format) => {
+      await withTerminalSetup(
+        ["--dry-run", "--client", "codex", "--skill=false", ...format],
+        ({ output, stderr, exitCode }) => {
+          expect(exitCode).toBe(0);
+          expect(stderr).toBe("");
+          expect(JSON.parse(output)).toMatchObject({
+            status: "planned",
+            appliedActions: [],
+          });
+        },
+        { captureStderr: true },
+      );
+    },
+    60_000,
+  );
+
+  it("returns a structured result when setup output is piped", async () => {
+    const home = await createTestTempDirectory("rea-setup-piped-");
+    const { stdout, stderr } = await execute(
+      process.execPath,
+      [
+        "scripts/rea.mjs",
+        "setup",
+        "--dry-run",
+        "--client",
+        "codex",
+        "--skill=false",
+      ],
+      {
+        cwd: process.cwd(),
+        env: {
+          ...isolatedClientEnvironment(),
+          HOME: home,
+          USERPROFILE: home,
+          XDG_CONFIG_HOME: join(home, ".config"),
+          NO_COLOR: "1",
+        },
+      },
+    );
+    expect(stderr).toBe("");
+    expect(decodeToon(stdout)).toMatchObject({
+      status: "planned",
+      appliedActions: [],
+    });
+    await expect(
+      access(join(home, ".codex", "config.toml")),
+    ).rejects.toMatchObject({ code: "ENOENT" });
+  }, 60_000);
+});
+
+describe("non-interactive setup in a terminal", () => {
+  it("summarizes an approved setup", async () => {
+    await withTerminalSetup(
+      ["--yes", "--client", "codex", "--skill=false"],
+      async ({ output, exitCode, home }) => {
+        expect(exitCode).toBe(0);
+        expect(output).toContain("Restart Codex to load REA.");
+        await expect(
+          access(join(home, ".codex", "config.toml")),
+        ).resolves.toBeUndefined();
+      },
+    );
+  }, 60_000);
+
+  it("shows the pending plan when stdin is not a terminal", async () => {
+    await withTerminalSetup(
+      ["--client", "codex", "--skill=false"],
+      async ({ output, exitCode, home }) => {
+        const config = join(home, ".codex", "config.toml");
+        expect(exitCode).toBe(1);
+        expect(output).toContain("Ready to review");
+        expect(output).toContain(config);
+        expect(output).toContain(
+          "Review the setup plan, then rerun interactively or with --yes.",
+        );
+        await expect(access(config)).rejects.toThrow();
+      },
+      { redirectStdin: true },
+    );
+  }, 60_000);
+
+  // A later client's write fails after an earlier client was configured.
+  // /proc rejects file creation even for root, so this needs Linux.
+  it.runIf(process.platform === "linux")(
+    "names changes already applied and the client that failed",
+    async () => {
+      await withTerminalSetup(
+        ["--yes", "--client", "codex", "--client", "opencode", "--skill=false"],
+        async ({ output, exitCode, home }) => {
+          const config = join(home, ".codex", "config.toml");
+          expect(exitCode).toBe(1);
+          expect(output).toContain("Already applied");
+          expect(output).toContain(config);
+          expect(output).toContain("Failed configuration");
+          expect(output).toContain("FAILED  OpenCode");
+          expect(output).toContain(
+            "Agent configuration could not be updated. Check file permissions",
+          );
+          expect(output.indexOf("Already applied")).toBeLessThan(
+            output.indexOf("Failed configuration"),
+          );
+          expect(output).not.toContain("Planned changes not completed");
+          await expect(access(config)).resolves.toBeUndefined();
+        },
+        {
+          prepare: async (home) => {
+            await mkdir(join(home, ".config"), { recursive: true });
+            await symlink(
+              "/proc/self/fdinfo",
+              join(home, ".config", "opencode"),
+            );
+          },
+        },
+      );
+    },
+    60_000,
+  );
+});
+
+interface TerminalSetupRun {
+  readonly output: string;
+  readonly exitCode: number;
+  readonly home: string;
+  readonly stderr: string | undefined;
+}
+
+/** Drop the developer's client locations so setup resolves only the temporary home. */
+const isolatedClientEnvironment = (): NodeJS.ProcessEnv => {
+  const environment = { ...process.env };
+  for (const name of CLIENT_LOCATION_ENVIRONMENT) delete environment[name];
+  return environment;
+};
+
+interface TerminalSetupOptions {
+  readonly prepare?: (home: string) => Promise<void>;
+  /** Give setup a terminal stdout while leaving stdin redirected. */
+  readonly redirectStdin?: boolean;
+  readonly captureStderr?: boolean;
+}
+
+/**
+ * Launch setup with the parent's terminal stdout and a non-terminal stdin.
+ * A direct pseudo-terminal would make stdin a terminal and start the
+ * interactive journey instead.
+ */
+const redirectedStdinLauncher = (
+  args: readonly string[],
+  stderrPath?: string,
+): string =>
+  [
+    'import { spawn } from "node:child_process";',
+    'import { openSync, closeSync } from "node:fs";',
+    `const stderr = ${stderrPath === undefined ? '"inherit"' : `openSync(${JSON.stringify(stderrPath)}, "wx")`};`,
+    `const child = spawn(process.execPath, ${JSON.stringify(["scripts/rea.mjs", "setup", ...args])}, {`,
+    "  cwd: process.cwd(),",
+    "  env: process.env,",
+    '  stdio: ["ignore", "inherit", stderr],',
+    "});",
+    'if (typeof stderr === "number") closeSync(stderr);',
+    'for (const signal of ["SIGHUP", "SIGINT", "SIGTERM"]) {',
+    "  process.on(signal, () => child.kill(signal));",
+    "}",
+    'child.on("exit", (code) => process.exit(code ?? 1));',
+  ].join("\n");
+
+/** Run the public setup command under a real pseudo-terminal in an isolated home. */
+const withTerminalSetup = async (
+  args: readonly string[],
+  assert: (run: TerminalSetupRun) => void | Promise<void>,
+  options?: TerminalSetupOptions,
+): Promise<void> => {
+  const home = await createTestTempDirectory("rea-cli-setup-terminal-");
+  const stderrPath =
+    options?.captureStderr === true ? join(home, "setup.stderr") : undefined;
+  try {
+    await options?.prepare?.(home);
+    const { output, exitCode } = await new Promise<{
+      output: string;
+      exitCode: number;
+    }>((resolvePromise, reject) => {
+      let output = "";
+      const terminal = spawn(
+        process.execPath,
+        options?.redirectStdin === true || options?.captureStderr === true
+          ? [
+              "--input-type=module",
+              "--eval",
+              redirectedStdinLauncher(args, stderrPath),
+            ]
+          : ["scripts/rea.mjs", "setup", ...args],
+        {
+          cwd: process.cwd(),
+          env: {
+            ...isolatedClientEnvironment(),
+            HOME: home,
+            USERPROFILE: home,
+            XDG_CONFIG_HOME: join(home, ".config"),
+            NO_COLOR: "1",
+            TERM: "xterm-256color",
+          },
+          name: "xterm-256color",
+          cols: 400,
+          rows: 60,
+        },
+      );
+      const timeout = setTimeout(() => {
+        terminal.kill();
+        reject(new Error(`Timed out after output:\n${output}`));
+      }, 50_000);
+      terminal.onData((data) => {
+        output += data;
+      });
+      terminal.onExit(({ exitCode }) => {
+        clearTimeout(timeout);
+        resolvePromise({ output, exitCode });
+      });
+    });
+    await assert({
+      output,
+      exitCode,
+      home,
+      stderr:
+        stderrPath === undefined
+          ? undefined
+          : await readFile(stderrPath, "utf8"),
+    });
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+};
+
 interface JourneyStep {
   readonly prompt: string;
   readonly input: string;
@@ -509,4 +746,127 @@ const runJourney = async (
       });
     }
   });
+};
+
+it("names every failed client with its own recovery reason in terminal remediation", async () => {
+  const opencode = {
+    ...actions[0],
+    id: "configure_client:opencode",
+    label: "OpenCode",
+    target: "/isolated/.config/opencode/opencode.json",
+  };
+  const result = {
+    status: "needs_human",
+    plannedActions: [actions[0], opencode],
+    appliedActions: [],
+    clients: {
+      codex: { status: "failed", reason: "write" },
+      opencode: {
+        status: "failed",
+        reason: "rollback",
+        backupPath: "/isolated/opencode.json.rea.backup",
+        failure: {
+          kind: "restore",
+          path: "/isolated/.config/opencode/opencode.json",
+          detail: "restore denied",
+        },
+      },
+    },
+    doctor: {},
+    clientStates: [],
+    remediation: "Agent configuration could not be updated.",
+  };
+  const stderr = await renderSummary(result);
+  expect(stderr).toContain("FAILED  Codex");
+  expect(stderr).toContain("/isolated/.codex/config.toml");
+  expect(stderr).toContain("FAILED  OpenCode");
+  // Setup's remediation names only the first failure; the second keeps its own.
+  expect(stderr).toContain("restore denied");
+  expect(stderr).toContain("/isolated/opencode.json.rea.backup");
+  expect(stderr.indexOf("FAILED  OpenCode")).toBeLessThan(
+    stderr.indexOf("restore denied"),
+  );
+});
+
+it("shows the backup setup actually wrote for a client kept after a later failure", async () => {
+  const updatedCodex = {
+    ...actions[0],
+    operation: "update",
+    backupPath: "/isolated/.codex/config.toml.rea.planned",
+  };
+  const opencode = {
+    ...actions[0],
+    id: "configure_client:opencode",
+    label: "OpenCode",
+    target: "/isolated/.config/opencode/opencode.json",
+  };
+  const result = {
+    status: "needs_human",
+    plannedActions: [updatedCodex, opencode],
+    appliedActions: ["configured_codex"],
+    clients: {
+      codex: {
+        status: "configured",
+        backupPath: "/isolated/.codex/config.toml.rea.3f9a",
+      },
+      opencode: { status: "failed", reason: "write" },
+    },
+    doctor: {},
+    clientStates: [],
+    remediation: "Agent configuration could not be updated.",
+  };
+  const stderr = await renderSummary(result);
+  expect(stderr).toContain("UPDATE  Codex");
+  expect(stderr).toContain("backup: /isolated/.codex/config.toml.rea.3f9a");
+  expect(stderr).not.toContain("config.toml.rea.planned");
+  expect(stderr.indexOf("backup: /isolated/.codex")).toBeLessThan(
+    stderr.indexOf("Failed configuration"),
+  );
+});
+
+it("shows planned actions with their full disclosures when setup stops before reporting any outcomes", async () => {
+  const hopper = {
+    ...actions[2],
+    networkOrigins: ["https://www.hopperapp.com"],
+    integrity: "sha256:0000",
+    commands: ["/usr/bin/installer -pkg Hopper.pkg"],
+  };
+  const result = {
+    status: "needs_human",
+    plannedActions: [actions[0], hopper],
+    appliedActions: [],
+    clients: {},
+    doctor: {},
+    clientStates: [],
+    remediation: "Setup host cleanup failed",
+  };
+  const stderr = await renderSummary(result);
+  expect(stderr).toContain("Planned changes not completed");
+  expect(stderr).toContain("CREATE  Codex");
+  expect(stderr).toContain("/isolated/.codex/config.toml");
+  expect(stderr).toContain("Add the REA MCP registration for Codex.");
+  expect(stderr).toContain("network: https://www.hopperapp.com");
+  expect(stderr).toContain("integrity: sha256:0000");
+  expect(stderr).toContain("command: /usr/bin/installer -pkg Hopper.pkg");
+  expect(stderr).toContain("external software");
+  expect(stderr.indexOf("Planned changes not completed")).toBeLessThan(
+    stderr.indexOf("Setup host cleanup failed"),
+  );
+});
+
+/** Render a terminal summary through the built CLI module. */
+const renderSummary = async (result: unknown): Promise<string> => {
+  const { stderr } = await execute(
+    process.execPath,
+    [
+      "--input-type=module",
+      "--eval",
+      [
+        'import { renderTerminalSetupSummary } from "./dist/cli/interactiveSetup.js";',
+        `renderTerminalSetupSummary(${JSON.stringify(result)});`,
+      ].join("\n"),
+    ],
+    { cwd: process.cwd(), env: { ...process.env, NO_COLOR: "1" } },
+  );
+  return stderr;
 };

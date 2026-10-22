@@ -23,7 +23,7 @@ import { ok } from "../../../src/domain/result.js";
 import type { DoctorHost } from "../../../src/application/Doctor.js";
 import { ConfigurationError } from "../../../src/domain/configurationErrors.js";
 import {
-  filterClientsNeedingConfigure,
+  revalidateSetupClients,
   systemSetupHost,
 } from "../../../src/application/SetupHost.js";
 import { RegularFileCleanupFailure } from "../../../src/application/RegularFileRead.js";
@@ -236,16 +236,14 @@ describe("setup client configuration cleanup ownership", () => {
       const configure = vi.spyOn(host, "configureClient");
 
       try {
-        const failure = await filterClientsNeedingConfigure(
-          host,
-          [client],
-          {},
-          ["rea", "mcp"],
-        )
-          .then((detectedClients) =>
+        const failure = await revalidateSetupClients(host, [client], {}, [
+          "rea",
+          "mcp",
+        ])
+          .then(({ clientsToConfigure }) =>
             configureDetectedClients({
               host,
-              detectedClients,
+              detectedClients: clientsToConfigure,
               providerEnvironment: {},
               command: ["rea", "mcp"],
               clients: {},

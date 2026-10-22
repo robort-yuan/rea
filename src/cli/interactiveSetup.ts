@@ -8,6 +8,7 @@ import {
 } from "@clack/prompts";
 
 import type {
+  ClientConfigurationResult,
   SetupAction,
   SetupConfirmationDecision,
   SetupConfirmationContext,
@@ -15,6 +16,7 @@ import type {
   SetupProgressEvent,
   SetupResult,
 } from "../application/SetupTypes.js";
+import { failedConfigurationMessage } from "../application/SetupClients.js";
 import { SUPPORTED_CLIENT_DEFINITIONS } from "../application/SupportedClients.js";
 import { invokingPackageRunner } from "../application/ClientRegistrationIdentity.js";
 
@@ -87,6 +89,141 @@ export const renderSetupDryRun = (actions: readonly SetupAction[]): void => {
   intro("REA setup plan", promptStreams);
   renderPreflight(actions);
   outro("Dry run complete. No changes were made.", promptStreams);
+};
+
+/**
+ * Summarize a non-interactive apply for a terminal. The `setup` command's
+ * agent-only output policy hides the structured result there, so `--yes`
+ * would otherwise finish without any human-visible outcome.
+ */
+export const renderTerminalSetupSummary = (
+  result: SetupResult,
+  environment: Readonly<NodeJS.ProcessEnv> = process.env,
+): void => {
+  switch (result.status) {
+    case "planned":
+      renderSetupDryRun(result.plannedActions);
+      return;
+    case "needs_confirmation":
+      // Redirected stdin skips the interactive journey, so show the plan here.
+      if (result.plannedActions.length > 0)
+        renderPreflight(result.plannedActions);
+      outro(
+        result.remediation ??
+          "Review the setup plan, then rerun interactively or with --yes.",
+        promptStreams,
+      );
+      return;
+    case "needs_human":
+      // No progress events on this path, so name changes that already landed.
+      renderRetainedSetupOutcomes(result);
+      renderPendingSetupActions(result);
+      renderInteractiveSetupResult(result, environment);
+      return;
+    case "ready":
+    case "cancelled":
+      renderInteractiveSetupResult(result, environment);
+      return;
+    default: {
+      const exhaustive: never = result.status;
+      throw new TypeError(
+        `Unhandled setup result status: ${String(exhaustive)}`,
+      );
+    }
+  }
+};
+
+/** Keep planned changes visible when setup stops before reporting outcomes. */
+const renderPendingSetupActions = (result: SetupResult): void => {
+  const applied = new Set(result.appliedActions);
+  const reportedClients = new Set(Object.keys(result.clients));
+  const pending = result.plannedActions.filter((action) => {
+    if (applied.has(appliedActionKey(action))) return false;
+    const clientName = configuredClientName(action);
+    return clientName === undefined || !reportedClients.has(clientName);
+  });
+  if (pending.length === 0) return;
+  writeLine("◇  Planned changes not completed");
+  for (const action of pending) renderActionDisclosure(action);
+};
+
+/** Show mutations kept after a later setup step failed. */
+const renderRetainedSetupOutcomes = (result: SetupResult): void => {
+  const applied = new Set(result.appliedActions);
+  const actions = result.plannedActions.filter((action) =>
+    applied.has(appliedActionKey(action)),
+  );
+  const failedActions = result.plannedActions.flatMap((action) => {
+    const name = configuredClientName(action);
+    const client = name === undefined ? undefined : result.clients[name];
+    return client?.status === "failed" ? [{ action, client }] : [];
+  });
+  const represented = new Set(
+    actions.flatMap((action) => {
+      const name = configuredClientName(action);
+      return name === undefined ? [] : [name];
+    }),
+  );
+  const extraClients = Object.entries(result.clients).flatMap(
+    ([name, client]) =>
+      client.status === "configured" && !represented.has(name)
+        ? [{ label: clientDisplayNames.get(name) ?? name, client }]
+        : [],
+  );
+  if (
+    actions.length === 0 &&
+    extraClients.length === 0 &&
+    failedActions.length === 0
+  )
+    return;
+  if (actions.length > 0 || extraClients.length > 0)
+    writeLine("◆  Already applied");
+  for (const action of actions) {
+    writeLine(`│  ${action.operation.toUpperCase()}  ${action.label}`);
+    writeLine(`│          ${action.target}`);
+    const name = configuredClientName(action);
+    renderRetainedBackup(name === undefined ? undefined : result.clients[name]);
+  }
+  for (const { label, client } of extraClients) {
+    writeLine(`│  CONFIGURED  ${label}`);
+    renderRetainedBackup(client);
+  }
+  if (failedActions.length > 0) writeLine("◆  Failed configuration");
+  for (const { action, client } of failedActions) {
+    writeLine(`│  FAILED  ${action.label}`);
+    writeLine(`│          ${action.target}`);
+    // Setup reports only the first failure's remediation; name each one here.
+    writeLine(`│          ${failedConfigurationMessage(client)}`);
+  }
+};
+
+/** The backup setup actually wrote, which can differ from the planned path. */
+const renderRetainedBackup = (
+  client: ClientConfigurationResult | undefined,
+): void => {
+  if (client?.status === "configured" && client.backupPath !== undefined)
+    writeLine(`│          backup: ${client.backupPath}`);
+};
+
+const configuredClientName = (action: SetupAction): string | undefined =>
+  action.kind === "configure_client" &&
+  action.id.startsWith("configure_client:")
+    ? action.id.slice("configure_client:".length)
+    : undefined;
+
+const appliedActionKey = (action: SetupAction): string => {
+  switch (action.kind) {
+    case "configure_client":
+      return `configured_${configuredClientName(action) ?? action.label}`;
+    case "install_skill":
+      return "installed_skill";
+    case "install_hopper":
+      return "installed_hopper";
+    default: {
+      const exhaustive: never = action.kind;
+      return exhaustive;
+    }
+  }
 };
 
 /** Finish an interactive setup journey without exposing the full doctor catalog. */
@@ -287,23 +424,28 @@ const renderPreflight = (actions: readonly SetupAction[]): void => {
   writeLine("◆  Ready to review");
   for (const action of actions) {
     writeLine("│");
-    writeLine(`│  ${action.operation.toUpperCase()}  ${action.label}`);
-    writeLine(`│          ${action.target}`);
-    if (action.backupPath !== undefined)
-      writeLine(`│          backup: ${action.backupPath}`);
-    for (const origin of action.networkOrigins ?? [])
-      writeLine(`│          network: ${origin}`);
-    if (action.integrity !== undefined)
-      writeLine(`│          integrity: ${action.integrity}`);
-    for (const command of action.commands ?? [])
-      writeLine(`│          command: ${command}`);
-    writeLine(`│          ${action.detail}`);
-    if (action.external) writeLine("│          external software");
+    renderActionDisclosure(action);
   }
   writeLine("│");
   writeLine(
     "│  REA will preserve unrelated configuration and will not install or upgrade Node.js, npm, Homebrew, Java, or Ghidra.",
   );
+};
+
+/** Every disclosure the approval view shows for one planned action. */
+const renderActionDisclosure = (action: SetupAction): void => {
+  writeLine(`│  ${action.operation.toUpperCase()}  ${action.label}`);
+  writeLine(`│          ${action.target}`);
+  if (action.backupPath !== undefined)
+    writeLine(`│          backup: ${action.backupPath}`);
+  for (const origin of action.networkOrigins ?? [])
+    writeLine(`│          network: ${origin}`);
+  if (action.integrity !== undefined)
+    writeLine(`│          integrity: ${action.integrity}`);
+  for (const command of action.commands ?? [])
+    writeLine(`│          command: ${command}`);
+  writeLine(`│          ${action.detail}`);
+  if (action.external) writeLine("│          external software");
 };
 
 const cancelledDecision = (): SetupConfirmationDecision => {

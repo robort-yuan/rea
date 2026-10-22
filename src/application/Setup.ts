@@ -19,8 +19,8 @@ import type { DoctorReport, DoctorScope } from "./Doctor.js";
 import { configureDetectedClients } from "./SetupClients.js";
 import { discoverSetupState, planSetupActions } from "./SetupPlan.js";
 import {
-  filterClientsNeedingConfigure,
   hostRemediation,
+  revalidateSetupClients,
   systemSetupHost,
 } from "./SetupHost.js";
 import { AnalysisError } from "../domain/analysisErrorBase.js";
@@ -384,7 +384,7 @@ const installHopperAction = async (input: {
   readonly options: SetupOptions;
   readonly plannedActions: readonly SetupAction[];
   readonly appliedActions: string[];
-  readonly clients: Readonly<Record<string, ClientConfigurationResult>>;
+  readonly clients: Record<string, ClientConfigurationResult>;
   readonly selectedClients: readonly SetupClient[];
   readonly providerEnvironment: SetupProviderEnvironment;
   readonly doctorScope: DoctorScope | undefined;
@@ -434,16 +434,19 @@ const installHopperAction = async (input: {
     ...input.providerEnvironment,
     HOPPER_LAUNCHER_PATH: installed.launcherPath,
   };
+  const revalidation = await revalidateSetupClients(
+    input.host,
+    input.selectedClients,
+    providerEnvironment,
+    input.host.registrationCommand,
+  );
+  for (const client of revalidation.alreadyCurrent)
+    input.clients[client.name] = { status: "unchanged" };
   return {
     hopperPath: installed.launcherPath,
     providerEnvironment,
     ...(warning === "" ? {} : { warning }),
-    selectedClients: await filterClientsNeedingConfigure(
-      input.host,
-      input.selectedClients,
-      providerEnvironment,
-      input.host.registrationCommand,
-    ),
+    selectedClients: revalidation.clientsToConfigure,
   };
 };
 
