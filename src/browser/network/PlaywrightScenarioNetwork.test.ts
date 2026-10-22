@@ -880,3 +880,58 @@ it("does not read content when phase metadata was omitted", async () => {
   );
   expect(collector.limitations().join(" ")).toContain("incomplete");
 });
+
+it("does not charge credential header value length against the header allocation budget", async () => {
+  // A large Cookie value must not exhaust the budget for ordinary headers.
+  // Credential values are retained as null, so only their name counts.
+  const { collector, events } = harness(selection, undefined, "fixture", {
+    max_network_header_allocation_bytes: 4096,
+  });
+  const request = new RequestFixture("body");
+  // Override headersArray to inject a 2000-char Cookie alongside an ordinary header.
+  request.headersArray = async () => {
+    request.headerReads += 1;
+    return [
+      { name: "Cookie", value: "c".repeat(2000) },
+      { name: "X-Ordinary", value: "keep-me" },
+    ];
+  };
+  collector.request(request);
+  await collector.finish();
+  const content = events.find(
+    (event) => event.kind === "network-content" && event.phase === "request",
+  );
+  expect(content?.kind).toBe("network-content");
+  if (content?.kind !== "network-content")
+    throw new Error("Expected network-content event");
+  expect(content.headers).toEqual({
+    state: "captured",
+    items: [
+      { name: "Cookie", value: null, redacted: true },
+      { name: "X-Ordinary", value: "keep-me", redacted: false },
+    ],
+  });
+});
+
+it("still rejects a header set where ordinary retained values alone exceed the budget", async () => {
+  const { collector, events } = harness(selection, undefined, "fixture", {
+    max_network_header_allocation_bytes: 256,
+  });
+  const request = new RequestFixture("body");
+  request.headersArray = async () => {
+    request.headerReads += 1;
+    return [{ name: "X-Large", value: "x".repeat(2000) }];
+  };
+  collector.request(request);
+  await collector.finish();
+  const content = events.find(
+    (event) => event.kind === "network-content" && event.phase === "request",
+  );
+  expect(content?.kind).toBe("network-content");
+  if (content?.kind !== "network-content")
+    throw new Error("Expected network-content event");
+  expect(content.headers).toMatchObject({
+    state: "unavailable",
+    message: expect.stringContaining("allocation budget"),
+  });
+});

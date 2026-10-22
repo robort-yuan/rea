@@ -80,7 +80,15 @@ export const captureNetworkHeaders = async (
     );
     let cost = 0;
     for (const { name, value } of headers) {
-      cost += secrets.redactionAllocationCost(name.length + value.length) + 128;
+      // Credential header values are replaced with null in retained output, so
+      // they contribute 0 retained bytes. Charging the original raw length
+      // against the budget would make an otherwise-fitting header set
+      // unavailable solely because of a discarded credential value.
+      const isCredential = credentialHeaders.has(name.toLowerCase());
+      const retainedValueLength = isCredential ? 0 : value.length;
+      cost +=
+        secrets.redactionAllocationCost(name.length + retainedValueLength) +
+        128;
       if (cost > options.maxHeaderAllocationBytes)
         return {
           state: "unavailable",
