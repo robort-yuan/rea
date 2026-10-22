@@ -412,6 +412,79 @@ describe.skipIf(process.platform === "win32")(
 );
 
 describe.skipIf(process.platform === "win32")(
+  "Ghidra LaunchSupport JDK_JAVA_OPTIONS argument files",
+  () => {
+    it("rejects argument-file platform overrides before starting analysis", async () => {
+      const root = await createTestTempDirectory("rea-ghidra-jdk-argfile-");
+      const optionsFile = join(root, "platform.options");
+      await writeFile(optionsFile, "-Dos.arch=rea_argfile_probe\n");
+      const { session, launcher, analysisArguments } = await fixture(
+        `env-injection:JDK_JAVA_OPTIONS=@${optionsFile}`,
+      );
+      const launched = await launcher.launch(session);
+      expect(launched.ok).toBe(false);
+      expect(analysisArguments).toEqual([]);
+      if (launched.ok)
+        throw new Error("Expected a JVM platform override failure");
+      expect(launched.error.cause).toMatchObject({
+        message: expect.stringContaining("may not override os.arch or os.name"),
+      });
+    });
+
+    it("admits an argument file that does not override the platform", async () => {
+      const root = await createTestTempDirectory("rea-ghidra-jdk-argfile-ok-");
+      const optionsFile = join(root, "platform.options");
+      await writeFile(optionsFile, "-Dfile.encoding=UTF8\n");
+      const { session, launcher, analysisArguments } = await fixture(
+        `env-injection:JDK_JAVA_OPTIONS=@${optionsFile}`,
+      );
+      const launched = await launcher.launch(session);
+      if (!launched.ok) throw launched.error;
+      expect(analysisArguments).toHaveLength(1);
+    });
+
+    it("rejects an unreadable argument file before starting analysis", async () => {
+      const root = await createTestTempDirectory(
+        "rea-ghidra-jdk-argfile-missing-",
+      );
+      const optionsFile = join(root, "missing.options");
+      const { session, launcher, analysisArguments } = await fixture(
+        `env-injection:JDK_JAVA_OPTIONS=@${optionsFile}`,
+      );
+      const launched = await launcher.launch(session);
+      expect(launched.ok).toBe(false);
+      expect(analysisArguments).toEqual([]);
+      if (launched.ok)
+        throw new Error("Expected an unreadable argument-file failure");
+      expect(launched.error.cause).toMatchObject({
+        message: expect.stringContaining("argument file is unreadable"),
+      });
+    });
+
+    it("rejects nested argument-file references before starting analysis", async () => {
+      const root = await createTestTempDirectory(
+        "rea-ghidra-jdk-argfile-nested-",
+      );
+      const nested = join(root, "nested.options");
+      const optionsFile = join(root, "platform.options");
+      await writeFile(nested, "-Dfile.encoding=UTF8\n");
+      await writeFile(optionsFile, `@${nested}\n`);
+      const { session, launcher, analysisArguments } = await fixture(
+        `env-injection:JDK_JAVA_OPTIONS=@${optionsFile}`,
+      );
+      const launched = await launcher.launch(session);
+      expect(launched.ok).toBe(false);
+      expect(analysisArguments).toEqual([]);
+      if (launched.ok)
+        throw new Error("Expected a nested argument-file failure");
+      expect(launched.error.cause).toMatchObject({
+        message: expect.stringContaining("may not nest @ references"),
+      });
+    });
+  },
+);
+
+describe.skipIf(process.platform === "win32")(
   "Ghidra startup interruption diagnostics",
   () => {
     it.each(["cancelled", "timeout"] as const)(

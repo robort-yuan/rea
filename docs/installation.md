@@ -923,7 +923,11 @@ It also checks that the reported JVM `os.arch` and `os.name` map to the same nat
 directory validated for the host; unrecognized reported architectures or a
 non-host operating system are refused. LaunchSupport overrides of either
 property, including through helper-environment JVM option variables, are
-rejected at launch.
+rejected at launch. `JDK_JAVA_OPTIONS` argument files (`@file`) are expanded
+and inspected with that same check; unreadable files and nested `@`
+references are refused before the analysis JVM starts. `JAVA_TOOL_OPTIONS`
+and `_JAVA_OPTIONS` do not expand `@file` tokens, so they remain
+literal-token checks.
 When Java is found through `PATH`, setup records its observed JDK home so GUI
 MCP clients do not depend on an incidental shell path. Setup shows every exact
 environment entry in its plan, writes only after approval, and never downloads,
