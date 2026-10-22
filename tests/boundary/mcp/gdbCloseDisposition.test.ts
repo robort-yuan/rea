@@ -12,6 +12,30 @@ import { GdbSessionManager } from "../../../src/gdb/GdbSessionManager.js";
 import { silentLogger } from "../../../src/logger.js";
 import { registerGdbTools } from "../../../src/server/registerGdbTools.js";
 import { createToolResultDelivery } from "../../../src/server/toolResult.js";
+import {
+  createBinarySessionTargets,
+  createCacheProvider,
+  createTestBinarySession,
+} from "../../fixtures/binarySession.js";
+
+const settlesWithin = async <Value>(
+  operation: Promise<Value>,
+  timeoutMs: number,
+): Promise<
+  | { readonly settled: true; readonly value: Value }
+  | { readonly settled: false }
+> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<{ readonly settled: false }>((resolve) => {
+    timer = setTimeout(() => resolve({ settled: false }), timeoutMs);
+  });
+  const result = await Promise.race([
+    operation.then((value) => ({ settled: true as const, value })),
+    timeout,
+  ]);
+  if (timer !== undefined) clearTimeout(timer);
+  return result;
+};
 
 it.skipIf(process.platform === "win32").each(["kill", "detach"])(
   "retains a valid GDB session through disposition refusal and explicit %s recovery",
@@ -37,9 +61,11 @@ createInterface({ input: process.stdin }).on('line', line => {
   if (disposition) live = false;
   const result = command === '-list-thread-groups --recurse 1'
     ? (live ? 'done,groups=[{id="i1",type="process",pid="4242"}]' : 'done,groups=[]')
+    : command === '-thread-info'
+      ? 'done,threads=[{id="1",state="running"}]'
     : disposition || command === '-gdb-set auto-load off' || command === '-gdb-exit'
       ? 'done' : 'error,msg="Unmodeled fixture command"';
-  process.stdout.write(token + '^' + result + '\\n(gdb)\\n', () => {
+  process.stdout.write(token + '^' + result + '\\n' + (disposition ? '*stopped,reason="exited-normally",stopped-threads="all"\\n' : '') + '(gdb)\\n', () => {
     if (line.includes('-gdb-exit')) process.exit(0);
   });
 });
@@ -50,6 +76,9 @@ createInterface({ input: process.stdin }).on('line', line => {
       platform: "linux",
       environment: { REA_GDB_COMMAND: provider },
     });
+    const [target, replacement] = await createBinarySessionTargets();
+    const binarySession = createTestBinarySession(createCacheProvider([]));
+    expect((await binarySession.open(target)).ok).toBe(true);
     const server = new McpServer({
       name: "gdb-disposition-test",
       version: "1",
@@ -59,10 +88,14 @@ createInterface({ input: process.stdin }).on('line', line => {
       manager,
       silentLogger,
       createToolResultDelivery(undefined),
+      undefined,
+      binarySession,
     );
     const client = new Client({ name: "gdb-disposition-test", version: "1" });
     const [clientTransport, serverTransport] =
       InMemoryTransport.createLinkedPair();
+    const openingController = new AbortController();
+    let opening: ReturnType<typeof binarySession.open> | undefined;
     let sessionId: string | undefined;
     try {
       await server.connect(serverTransport);
@@ -79,11 +112,25 @@ createInterface({ input: process.stdin }).on('line', line => {
         arguments: { session_id: sessionId, command: "run" },
       });
       expect(running.isError).not.toBe(true);
+      opening = binarySession.open(replacement, {
+        signal: openingController.signal,
+      });
+      let closeProgressedBeforeAbort = true;
       for (let attempt = 0; attempt < 2; attempt += 1) {
-        const refusal = await client.callTool({
+        const closeRequest = client.callTool({
           name: "close_gdb_session",
           arguments: { session_id: sessionId },
         });
+        const withinDeadline =
+          attempt === 0 ? await settlesWithin(closeRequest, 1_000) : undefined;
+        if (withinDeadline?.settled === false) {
+          closeProgressedBeforeAbort = false;
+          openingController.abort();
+        }
+        const refusal =
+          withinDeadline?.settled === true
+            ? withinDeadline.value
+            : await closeRequest;
         expect(refusal.isError).toBe(true);
         expect(refusal.structuredContent).toMatchObject({
           error: {
@@ -108,6 +155,9 @@ createInterface({ input: process.stdin }).on('line', line => {
         arguments: { session_id: sessionId, command: disposition },
       });
       expect(disposed.isError).not.toBe(true);
+      await expect(opening).resolves.toMatchObject({ ok: true });
+      expect(binarySession.activeTarget()?.path).toBe(replacement);
+      expect(closeProgressedBeforeAbort).toBe(true);
       const closed = await client.callTool({
         name: "close_gdb_session",
         arguments: { session_id: sessionId },
@@ -131,6 +181,7 @@ createInterface({ input: process.stdin }).on('line', line => {
         const closed = await manager.close(sessionId);
         if (!closed.ok) throw closed.error;
       }
+      await binarySession.close();
       await client.close();
       await server.close();
       await manager.closeAll();

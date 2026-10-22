@@ -856,6 +856,12 @@ const hopperImageCopyFailure = (options: {
           userMessage: `${options.failureContext}: ${primaryFailure instanceof Error ? primaryFailure.message : String(primaryFailure ?? "caller cancellation")}`,
           ...(cleanup === undefined ? {} : { cleanup }),
         });
+  if (cleanupErrors.length > 0) {
+    // The aggregate cleanup observation is owned by the retained leases below.
+    // Clear its synthetic own status before binding those live dependencies so
+    // their release can clear the caller-facing error after a successful retry.
+    resultError.resolveCleanup();
+  }
   for (const closeFailure of finalization.closeFailures) {
     if (
       !operation.operationFailure.failed &&
@@ -872,7 +878,5 @@ const hopperImageCopyFailure = (options: {
   }
   for (const cleanupError of cleanupErrors)
     resultError.retainSecondaryFailure(cleanupError);
-  if (cleanupErrors.length > 0)
-    resultError.bindCleanupDependencies(cleanupErrors);
   return err(resultError);
 };
