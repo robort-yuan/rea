@@ -14,8 +14,11 @@ export interface NpmInstallation {
 /** Bun global installation that owns the running package and its entry point. */
 export interface BunInstallation {
   readonly manager: "bun";
-  /** Bun's global project directory, which owns `node_modules/rea-agents`. */
-  readonly globalDirectory: string;
+  /**
+   * Project that owns `node_modules/rea-agents`: Bun's global directory, or
+   * the nearest ancestor with a package.json when that directory has none.
+   */
+  readonly projectDirectory: string;
   readonly packageRoot: string;
 }
 
@@ -34,6 +37,8 @@ export type ReleaseLookupFailure =
 /** Effects used to update and verify one identified REA installation. */
 export interface UpdateHost {
   installation(): Promise<UpdateInstallation | undefined>;
+  /** Project Bun would choose when it contains the running package but ownership is unproved. */
+  unverifiedBunAncestor?(): Promise<string | undefined>;
   latestVersion(
     installation: UpdateInstallation | undefined,
   ): Promise<Result<string, ReleaseLookupFailure>>;
@@ -177,6 +182,21 @@ const runUpdateWorkflow = async (
   output: UpdateOutput,
 ): Promise<UpdateResult> => {
   const installation = await host.installation();
+  // A verified manager owns the package even when its path also sits inside an
+  // ancestor project Bun could use. Only refuse the unverified ancestor when
+  // no package-manager boundary proved ownership.
+  const unverifiedBunAncestor =
+    installation === undefined
+      ? await host.unverifiedBunAncestor?.()
+      : undefined;
+  if (unverifiedBunAncestor !== undefined)
+    return {
+      status: "failed",
+      currentVersion,
+      latestVersion: null,
+      reason: "unknown-install-method",
+      remediation: `REA found its running package in Bun's ancestor project ${unverifiedBunAncestor}, but cannot prove Bun installed it. It left that project unchanged. Update it with the package manager that owns the installation, or resolve the package-manager ownership manually before retrying.`,
+    };
   const release = await host.latestVersion(installation);
   const latestVersion = release.ok ? release.value : null;
   const targetVersion = release.ok ? valid(release.value) : null;
@@ -215,7 +235,7 @@ const runUpdateWorkflow = async (
       currentVersion,
       latestVersion: targetVersion,
       reason: "install",
-      remediation: `REA could not install ${targetVersion} in ${installation.manager === "npm" ? installation.prefix : installation.globalDirectory}: ${installed.error}. Repair this ${installation.manager} installation, then rerun rea update.`,
+      remediation: `REA could not install ${targetVersion} in ${installation.manager === "npm" ? installation.prefix : installation.projectDirectory}: ${installed.error}. Repair this ${installation.manager} installation, then rerun rea update.`,
     };
   const verified = await host.installedVersion(installation);
   if (!verified.ok || verified.value !== targetVersion)

@@ -405,7 +405,7 @@ REA's managed shared and Claude Code personal skill locations. See the
 ### Update the owning installation
 
 `rea update` installs the exact resolved
-release into the npm prefix or Bun global directory that owns the running
+release into the npm prefix or Bun global project that owns the running
 package, then checks the new executable's version before reporting success. It
 does not reopen onboarding. For npm installations, release lookup and
 installation both use npm's configured registry. Bun global updates require
@@ -414,12 +414,16 @@ first and stops with an instruction to upgrade Bun manually if the version is
 older or cannot be parsed; it does not upgrade Bun itself.
 For supported Bun global installations, `bun info` and
 `bun add --global --ignore-scripts` use Bun's configured registry
-and run inside the owning Bun global directory (`BUN_INSTALL_GLOBAL_DIR`, else
-`$BUN_INSTALL/install/global`, else `$XDG_CACHE_HOME/.bun/install/global`,
-else `~/.bun/install/global`), never in the caller's current project. A Bun
-global directory without its `package.json` is not treated as an owned
-installation, because Bun would install into the nearest ancestor project
-instead.
+and run inside the owning Bun global project, never in the caller's current
+project. The updater starts at the configured Bun global directory
+(`BUN_INSTALL_GLOBAL_DIR`, else `$BUN_INSTALL/install/global`, else
+`$XDG_CACHE_HOME/.bun/install/global`, else `~/.bun/install/global`). It
+updates a Bun installation only when that directory itself has a
+`package.json` and contains the running package. If Bun instead places the
+package in an ancestor project, a Bun lockfile cannot prove which package
+manager installed it. REA reports the installation as unknown and leaves the
+ancestor project unchanged; resolve package-manager ownership manually before
+retrying.
 Its maintenance plan selects only existing REA registrations and an already
 installed REA skill. Run the returned scoped setup command to review and approve
 those changes, then restart affected agents. The plan is returned in terminal,

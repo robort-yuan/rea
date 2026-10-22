@@ -1,4 +1,12 @@
-import { mkdir, readFile, rm, writeFile, access } from "node:fs/promises";
+import {
+  mkdir,
+  realpath,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+  access,
+} from "node:fs/promises";
 import { delimiter, dirname, join, relative, resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -450,23 +458,44 @@ describe("update subprocess boundaries", () => {
 
 const createBunUpdateFixture = async (
   root: string,
-  bunVersion: string,
-  installOutputBytes: number,
-  installExitCode: number,
+  {
+    bunVersion,
+    installOutputBytes,
+    installExitCode,
+    project,
+  }: {
+    readonly bunVersion: string;
+    readonly installOutputBytes: number;
+    readonly installExitCode: number;
+    readonly project: "global" | "ancestor";
+  },
 ) => {
-  const globalDirectory = join(root, "bun", "install", "global");
+  const bunInstall = join(root, "home", ".bun");
+  const globalDirectory = join(bunInstall, "install", "global");
+  // Without a global manifest, Bun installs into the nearest ancestor project.
+  const projectDirectory =
+    project === "global" ? globalDirectory : join(root, "home");
   const packageRoot = join(
-    globalDirectory,
+    projectDirectory,
     "node_modules",
     PRODUCT_IDENTITY.packageName,
   );
   const versionPath = join(root, "installed-version");
   const logPath = join(root, "bun-invocations.jsonl");
+  await mkdir(globalDirectory, { recursive: true });
   await mkdir(join(packageRoot, "scripts"), { recursive: true });
   await writeFile(
-    join(globalDirectory, "package.json"),
+    join(projectDirectory, "package.json"),
     '{"dependencies":{"rea-agents":"3.2.1"}}\n',
   );
+  if (project === "ancestor") {
+    await writeFile(join(projectDirectory, "bun.lock"), "{}\n");
+    // Bun leaves a migrated npm lockfile in place; this one records nothing.
+    await writeFile(
+      join(projectDirectory, "package-lock.json"),
+      '{"lockfileVersion":3,"requires":true,"packages":{}}\n',
+    );
+  }
   await writeFile(versionPath, "3.2.1");
   await writeFile(
     join(packageRoot, "scripts", "rea.mjs"),
@@ -500,8 +529,231 @@ const createBunUpdateFixture = async (
       { mode: 0o755 },
     );
   }
-  return { globalDirectory, packageRoot, versionPath, logPath, binDirectory };
+  return {
+    bunInstall,
+    globalDirectory,
+    projectDirectory,
+    packageRoot,
+    versionPath,
+    logPath,
+    binDirectory,
+  };
 };
+
+const readCommandInvocations = async (logPath: string): Promise<unknown[]> => {
+  try {
+    return (await readFile(logPath, "utf8"))
+      .trim()
+      .split("\n")
+      .filter(Boolean)
+      .map((line): unknown => JSON.parse(line));
+  } catch (cause: unknown) {
+    if (cause instanceof Error && "code" in cause && cause.code === "ENOENT")
+      return [];
+    throw cause;
+  }
+};
+
+const linuxUserPrefixFixture = async (
+  root: string,
+  npmReportsUserPrefix = false,
+) => {
+  const selectedHome = join(root, "home");
+  const prefix = join(selectedHome, ".local");
+  const packageRoot = join(
+    prefix,
+    "lib",
+    "node_modules",
+    PRODUCT_IDENTITY.packageName,
+  );
+  const packageEntry = join(packageRoot, "scripts", "rea.mjs");
+  const versionPath = join(root, "installed-version");
+  const npmRoot = npmReportsUserPrefix
+    ? join(prefix, "lib", "node_modules")
+    : join(root, "npm-default", "lib", "node_modules");
+  const npmPrefix = npmReportsUserPrefix ? prefix : join(root, "npm-default");
+  const npmLog = join(root, "npm-invocations.jsonl");
+  const binDirectory = join(root, "bin");
+  const npmRecorder = join(binDirectory, "record-npm.mjs");
+  await mkdir(dirname(packageEntry), { recursive: true });
+  await mkdir(join(prefix, "bin"), { recursive: true });
+  await mkdir(binDirectory);
+  await writeFile(versionPath, "3.2.1");
+  await writeFile(
+    join(packageRoot, "package.json"),
+    JSON.stringify({
+      name: PRODUCT_IDENTITY.packageName,
+      bin: { rea: "scripts/rea.mjs" },
+    }),
+  );
+  await writeFile(
+    packageEntry,
+    `import { readFileSync } from "node:fs";\nprocess.stdout.write(readFileSync(${JSON.stringify(versionPath)}, "utf8") + "\\n");\n`,
+  );
+  await symlink(
+    relative(join(prefix, "bin"), packageEntry),
+    join(prefix, "bin", "rea"),
+  );
+  await writeFile(
+    npmRecorder,
+    [
+      'import { appendFileSync, writeFileSync } from "node:fs";',
+      "const args = process.argv.slice(2);",
+      `appendFileSync(${JSON.stringify(npmLog)}, JSON.stringify(args) + "\\n");`,
+      `if (JSON.stringify(args) === '["root","--global"]') console.log(${JSON.stringify(npmRoot)});`,
+      `else if (JSON.stringify(args) === '["prefix","--global"]') console.log(${JSON.stringify(npmPrefix)});`,
+      `else if (args[0] === "view") process.stdout.write('"3.3.0"\\n');`,
+      `else if (args[0] === "install") writeFileSync(${JSON.stringify(versionPath)}, "3.3.0");`,
+      "else process.exitCode = 2;",
+      "",
+    ].join("\n"),
+  );
+  const executable = join(binDirectory, "npm");
+  await writeFile(
+    executable,
+    `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(npmRecorder)} "$@"\n`,
+    { mode: 0o755 },
+  );
+  const pathKey =
+    Object.keys(process.env).find((key) => key.toUpperCase() === "PATH") ??
+    "PATH";
+  const environment: NodeJS.ProcessEnv = {
+    ...process.env,
+    HOME: selectedHome,
+    XDG_CACHE_HOME: join(root, "cache"),
+    [pathKey]: `${binDirectory}${delimiter}${process.env[pathKey] ?? ""}`,
+  };
+  delete environment.BUN_INSTALL;
+  delete environment.BUN_INSTALL_GLOBAL_DIR;
+  return {
+    environment,
+    npmLog,
+    packageEntry,
+    packageRoot,
+    prefix,
+    selectedHome,
+    versionPath,
+  };
+};
+
+describe.skipIf(process.platform === "win32")(
+  "legacy Linux installer npm ownership with ambiguous scope",
+  () => {
+    it("honors an exact npm root despite a leftover Bun lockfile", async () => {
+      const root = await createTestTempDirectory(
+        "rea-linux-user-prefix-npm-proof-",
+      );
+      try {
+        const fixture = await linuxUserPrefixFixture(root, true);
+        await writeFile(join(fixture.prefix, "lib", "bun.lock"), "{}\n");
+        const result = await systemUpdateHost(
+          fixture.packageRoot,
+          fixture.selectedHome,
+          fixture.environment,
+        ).installation();
+        expect(result).toEqual({
+          manager: "npm",
+          prefix: fixture.prefix,
+          packageRoot: await realpath(fixture.packageRoot),
+        });
+        expect(await readCommandInvocations(fixture.npmLog)).toEqual([
+          ["root", "--global"],
+          ["prefix", "--global"],
+        ]);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    });
+  },
+);
+
+describe.skipIf(process.platform === "win32")(
+  "unproven custom-prefix package ownership",
+  () => {
+    it.each(["lockless", "bun-lock"] as const)(
+      "refuses a markerless custom-prefix package (%s) without npm root proof",
+      async (lockType) => {
+        const root = await createTestTempDirectory(
+          "rea-linux-user-prefix-bun-lock-",
+        );
+        try {
+          const fixture = await linuxUserPrefixFixture(root);
+          if (lockType === "bun-lock")
+            await writeFile(join(fixture.prefix, "lib", "bun.lock"), "{}\n");
+          const result = await runUpdate(
+            "3.2.1",
+            systemUpdateHost(
+              fixture.packageRoot,
+              fixture.selectedHome,
+              fixture.environment,
+            ),
+            "structured",
+          );
+          expect(result).toMatchObject({
+            status: "failed",
+            reason: "unknown-install-method",
+          });
+          expect(await readFile(fixture.versionPath, "utf8")).toBe("3.2.1");
+          expect(
+            (await readCommandInvocations(fixture.npmLog)).some(
+              (call) => Array.isArray(call) && call[0] === "install",
+            ),
+          ).toBe(false);
+        } finally {
+          await rm(root, { recursive: true, force: true });
+        }
+      },
+    );
+
+    it("refuses a .local link that is also exposed through an unresolved Bun ancestor", async () => {
+      const root = await createTestTempDirectory(
+        "rea-linux-user-prefix-bun-ancestor-",
+      );
+      try {
+        const fixture = await linuxUserPrefixFixture(root);
+        const ancestorPackage = join(
+          fixture.selectedHome,
+          "node_modules",
+          PRODUCT_IDENTITY.packageName,
+        );
+        const bunGlobal = join(
+          fixture.selectedHome,
+          ".bun",
+          "install",
+          "global",
+        );
+        await mkdir(dirname(ancestorPackage), { recursive: true });
+        await mkdir(bunGlobal, { recursive: true });
+        await writeFile(join(fixture.selectedHome, "package.json"), "{}\n");
+        await symlink(
+          relative(dirname(ancestorPackage), fixture.packageRoot),
+          ancestorPackage,
+        );
+        fixture.environment.BUN_INSTALL_GLOBAL_DIR = bunGlobal;
+        const result = await runUpdate(
+          "3.2.1",
+          systemUpdateHost(
+            ancestorPackage,
+            fixture.selectedHome,
+            fixture.environment,
+          ),
+          "structured",
+        );
+        expect(result).toMatchObject({
+          status: "failed",
+          reason: "unknown-install-method",
+          latestVersion: null,
+          remediation: expect.stringContaining("cannot prove Bun installed it"),
+        });
+        expect(await readCommandInvocations(fixture.npmLog)).toEqual([
+          ["root", "--global"],
+        ]);
+      } finally {
+        await rm(root, { recursive: true, force: true });
+      }
+    });
+  },
+);
 
 describe("Bun global installation update", () => {
   it.each([
@@ -509,42 +761,45 @@ describe("Bun global installation update", () => {
     ["1.4.2", "install-failed", "absolute", UPDATE_COMMAND_OUTPUT_BYTES + 1, 2],
     ["1.2.17", "updated", "absolute", 0, 0],
     ["1.2.17", "updated", "relative", 0, 0],
+    ["1.2.17", "unknown", "ancestor", 0, 0],
     ["1.2.14", "failed", "absolute", 0, 0],
     ["1.2.17-canary.1", "failed", "absolute", 0, 0],
     ["unknown", "failed", "absolute", 0, 0],
   ] as const)(
-    "handles Bun %s with outcome %s using %s global-directory configuration",
+    "handles Bun %s with outcome %s using %s global project",
     async (
       bunVersion,
       status,
-      directoryMode,
+      projectMode,
       installOutputBytes,
       installExitCode,
     ) => {
       // A recording `bun` on PATH crosses the real subprocess boundary without registry access.
       const root = await createTestTempDirectory("rea-update-bun-");
       const {
+        bunInstall,
         globalDirectory,
+        projectDirectory,
         packageRoot,
         versionPath,
         logPath,
         binDirectory,
-      } = await createBunUpdateFixture(
-        root,
+      } = await createBunUpdateFixture(root, {
         bunVersion,
         installOutputBytes,
         installExitCode,
-      );
+        project: projectMode === "ancestor" ? "ancestor" : "global",
+      });
       const pathKey =
         Object.keys(process.env).find((key) => key.toUpperCase() === "PATH") ??
         "PATH";
       const environment: NodeJS.ProcessEnv = {
         ...process.env,
         [pathKey]: `${binDirectory}${delimiter}${process.env[pathKey] ?? ""}`,
-        BUN_INSTALL: join(root, "bun"),
+        BUN_INSTALL: bunInstall,
       };
       delete environment.BUN_INSTALL_GLOBAL_DIR;
-      if (directoryMode === "relative")
+      if (projectMode === "relative")
         environment.BUN_INSTALL_GLOBAL_DIR = relative(root, globalDirectory);
 
       const callerDirectory = process.cwd();
@@ -560,14 +815,11 @@ describe("Bun global installation update", () => {
         process.chdir(callerDirectory);
       }
 
-      const invocations = (await readFile(logPath, "utf8"))
-        .trim()
-        .split("\n")
-        .map((line): unknown => JSON.parse(line));
+      const invocations = await readCommandInvocations(logPath);
       const versionInvocation = {
         args: ["--version"],
-        cwd: globalDirectory,
-        globalDirectory,
+        cwd: projectDirectory,
+        globalDirectory: projectDirectory,
       };
       if (status === "failed") {
         expect(result).toEqual({
@@ -578,6 +830,21 @@ describe("Bun global installation update", () => {
           remediation: `REA updates for Bun global installations require Bun 1.2.17 or later; bun --version returned ${JSON.stringify(bunVersion)}. Upgrade Bun manually, then rerun rea update.`,
         });
         expect(invocations).toEqual([versionInvocation]);
+        expect(await readFile(versionPath, "utf8")).toBe("3.2.1");
+        return;
+      }
+
+      if (status === "unknown") {
+        expect(result).toMatchObject({
+          status: "failed",
+          currentVersion: "3.2.1",
+          latestVersion: null,
+          reason: "unknown-install-method",
+          remediation: expect.stringContaining(
+            "cannot prove Bun installed it. It left that project unchanged",
+          ),
+        });
+        expect(invocations).toEqual([]);
         expect(await readFile(versionPath, "utf8")).toBe("3.2.1");
         return;
       }
@@ -602,8 +869,9 @@ describe("Bun global installation update", () => {
             `${PRODUCT_IDENTITY.packageName}@3.3.0`,
           ],
         });
-      // `bun info` needs a project in its working directory, and the caller's
-      // directory must never be selected, so all commands run in the owner.
+      // `bun info` needs a project in its working directory, and neither the
+      // caller's directory nor a later ancestor search may select another
+      // project, so all commands run in the owner pinned as the global directory.
       expect(invocations).toEqual([
         versionInvocation,
         {
@@ -613,8 +881,8 @@ describe("Bun global installation update", () => {
             "dist-tags.latest",
             "--json",
           ],
-          cwd: globalDirectory,
-          globalDirectory,
+          cwd: projectDirectory,
+          globalDirectory: projectDirectory,
         },
         {
           args: [
@@ -623,10 +891,214 @@ describe("Bun global installation update", () => {
             "--ignore-scripts",
             `${PRODUCT_IDENTITY.packageName}@3.3.0`,
           ],
-          cwd: globalDirectory,
-          globalDirectory,
+          cwd: projectDirectory,
+          globalDirectory: projectDirectory,
         },
       ]);
     },
   );
+});
+
+describe("verified npm ownership in a Bun ancestor project", () => {
+  it("updates the npm-owned package without invoking Bun", async () => {
+    const root = await createTestTempDirectory("rea-update-npm-bun-ancestor-");
+    const projectDirectory = join(root, "home");
+    const bunInstall = join(projectDirectory, ".bun");
+    const packageRoot = join(
+      projectDirectory,
+      "node_modules",
+      PRODUCT_IDENTITY.packageName,
+    );
+    const versionPath = join(root, "installed-version");
+    const npmLog = join(root, "npm-invocations.jsonl");
+    const bunLog = join(root, "bun-invocations.jsonl");
+    const binDirectory = join(root, "bin");
+    const npmRecorder = join(binDirectory, "record-npm.mjs");
+    const bunRecorder = join(binDirectory, "record-bun.mjs");
+    await mkdir(join(packageRoot, "scripts"), { recursive: true });
+    await mkdir(join(bunInstall, "install", "global"), { recursive: true });
+    await mkdir(binDirectory);
+    await writeFile(join(projectDirectory, "package.json"), "{}\n");
+    await writeFile(versionPath, "3.2.1");
+    await writeFile(
+      join(packageRoot, "scripts", "rea.mjs"),
+      `import { readFileSync } from "node:fs";\nprocess.stdout.write(readFileSync(${JSON.stringify(versionPath)}, "utf8") + "\\n");\n`,
+    );
+    await writeFile(
+      npmRecorder,
+      [
+        'import { appendFileSync, writeFileSync } from "node:fs";',
+        "const args = process.argv.slice(2);",
+        `appendFileSync(${JSON.stringify(npmLog)}, JSON.stringify(args) + "\\n");`,
+        `if (JSON.stringify(args) === '["root","--global"]') console.log(${JSON.stringify(join(projectDirectory, "node_modules"))});`,
+        `else if (JSON.stringify(args) === '["prefix","--global"]') console.log(${JSON.stringify(projectDirectory)});`,
+        `else if (args[0] === "view") process.stdout.write('"3.3.0"\\n');`,
+        `else if (args[0] === "install") writeFileSync(${JSON.stringify(versionPath)}, "3.3.0");`,
+        "else process.exitCode = 2;",
+        "",
+      ].join("\n"),
+    );
+    await writeFile(
+      bunRecorder,
+      `import { appendFileSync } from "node:fs";\nappendFileSync(${JSON.stringify(bunLog)}, JSON.stringify(process.argv.slice(2)) + "\\n");\nprocess.exitCode = 2;\n`,
+    );
+    if (process.platform === "win32") {
+      await writeFile(
+        join(binDirectory, "npm.cmd"),
+        `@"${process.execPath}" "${npmRecorder}" %*\r\n`,
+      );
+      await writeFile(
+        join(binDirectory, "bun.cmd"),
+        `@"${process.execPath}" "${bunRecorder}" %*\r\n`,
+      );
+    } else {
+      await writeFile(
+        join(binDirectory, "npm"),
+        `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(npmRecorder)} "$@"\n`,
+        { mode: 0o755 },
+      );
+      await writeFile(
+        join(binDirectory, "bun"),
+        `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(bunRecorder)} "$@"\n`,
+        { mode: 0o755 },
+      );
+    }
+    const pathKey =
+      Object.keys(process.env).find((key) => key.toUpperCase() === "PATH") ??
+      "PATH";
+    const environment: NodeJS.ProcessEnv = {
+      ...process.env,
+      [pathKey]: `${binDirectory}${delimiter}${process.env[pathKey] ?? ""}`,
+      BUN_INSTALL: bunInstall,
+    };
+    delete environment.BUN_INSTALL_GLOBAL_DIR;
+
+    const callerDirectory = process.cwd();
+    try {
+      process.chdir(root);
+      await symlink(".local", join(projectDirectory, ".local"));
+      const result = await runUpdate(
+        "3.2.1",
+        systemUpdateHost(packageRoot, projectDirectory, environment),
+        "structured",
+      );
+      expect(result).toMatchObject({
+        status: "updated",
+        installMethod: "npm",
+        installedVersion: "3.3.0",
+      });
+      expect(await readFile(versionPath, "utf8")).toBe("3.3.0");
+      const npmCalls = await readCommandInvocations(npmLog);
+      expect(npmCalls).toContainEqual(["root", "--global"]);
+      expect(npmCalls).toContainEqual(["prefix", "--global"]);
+      expect(npmCalls).toContainEqual(
+        expect.arrayContaining(["install", "--global", "--ignore-scripts"]),
+      );
+      await expect(readFile(bunLog, "utf8")).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    } finally {
+      process.chdir(callerDirectory);
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("unverified npm path shapes in a Bun ancestor project", () => {
+  it("refuses a lib/node_modules path when npm reports another global root", async () => {
+    const root = await createTestTempDirectory(
+      "rea-update-unverified-npm-shape-",
+    );
+    const projectDirectory = join(root, "tools", "lib");
+    const globalDirectory = join(projectDirectory, "bun-global");
+    const packageRoot = join(
+      projectDirectory,
+      "node_modules",
+      PRODUCT_IDENTITY.packageName,
+    );
+    const npmRoot = join(root, "unrelated-npm-root", "node_modules");
+    const npmLog = join(root, "npm-invocations.jsonl");
+    const bunLog = join(root, "bun-invocations.jsonl");
+    const binDirectory = join(root, "bin");
+    const npmRecorder = join(binDirectory, "record-npm.mjs");
+    const bunRecorder = join(binDirectory, "record-bun.mjs");
+    await mkdir(packageRoot, { recursive: true });
+    await mkdir(globalDirectory, { recursive: true });
+    await mkdir(binDirectory);
+    await writeFile(join(projectDirectory, "package.json"), "{}\n");
+    await writeFile(
+      npmRecorder,
+      [
+        'import { appendFileSync } from "node:fs";',
+        "const args = process.argv.slice(2);",
+        `appendFileSync(${JSON.stringify(npmLog)}, JSON.stringify(args) + "\\n");`,
+        `if (JSON.stringify(args) === '["root","--global"]') console.log(${JSON.stringify(npmRoot)});`,
+        `else if (JSON.stringify(args) === '["prefix","--global"]') console.log(${JSON.stringify(root)});`,
+        `else if (args[0] === "view") process.stdout.write('"3.3.0"\\n');`,
+        "else process.exitCode = 2;",
+        "",
+      ].join("\n"),
+    );
+    await writeFile(
+      bunRecorder,
+      `import { appendFileSync } from "node:fs";\nappendFileSync(${JSON.stringify(bunLog)}, JSON.stringify(process.argv.slice(2)) + "\\n");\nprocess.exitCode = 2;\n`,
+    );
+    if (process.platform === "win32") {
+      await writeFile(
+        join(binDirectory, "npm.cmd"),
+        `@"${process.execPath}" "${npmRecorder}" %*\r\n`,
+      );
+      await writeFile(
+        join(binDirectory, "bun.cmd"),
+        `@"${process.execPath}" "${bunRecorder}" %*\r\n`,
+      );
+    } else {
+      await writeFile(
+        join(binDirectory, "npm"),
+        `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(npmRecorder)} "$@"\n`,
+        { mode: 0o755 },
+      );
+      await writeFile(
+        join(binDirectory, "bun"),
+        `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(bunRecorder)} "$@"\n`,
+        { mode: 0o755 },
+      );
+    }
+    const pathKey =
+      Object.keys(process.env).find((key) => key.toUpperCase() === "PATH") ??
+      "PATH";
+    const environment: NodeJS.ProcessEnv = {
+      ...process.env,
+      [pathKey]: `${binDirectory}${delimiter}${process.env[pathKey] ?? ""}`,
+      BUN_INSTALL_GLOBAL_DIR: globalDirectory,
+    };
+    delete environment.BUN_INSTALL;
+
+    const callerDirectory = process.cwd();
+    try {
+      process.chdir(root);
+      const result = await runUpdate(
+        "3.2.1",
+        systemUpdateHost(packageRoot, projectDirectory, environment),
+        "structured",
+      );
+      expect(result).toMatchObject({
+        status: "failed",
+        reason: "unknown-install-method",
+        latestVersion: null,
+        remediation: expect.stringContaining(
+          "cannot prove Bun installed it. It left that project unchanged",
+        ),
+      });
+      expect(await readCommandInvocations(npmLog)).toEqual([
+        ["root", "--global"],
+      ]);
+      await expect(readFile(bunLog, "utf8")).rejects.toMatchObject({
+        code: "ENOENT",
+      });
+    } finally {
+      process.chdir(callerDirectory);
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

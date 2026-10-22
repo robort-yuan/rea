@@ -1,6 +1,6 @@
 import { realpath, stat } from "node:fs/promises";
 import { homeDirectoryFromEnvironment } from "../config/homeDirectory.js";
-import { basename, dirname, join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import spawn from "cross-spawn";
 import { ProviderProcessSupervisor } from "../process/ProviderProcess.js";
@@ -153,41 +153,36 @@ export const detectNpmInstallation = async (
     void cause;
     return undefined;
   }
+  let npmRoot: string;
   try {
-    const npmRoot = await host.globalRoot();
-    const globalPackageRoot = await host.canonicalPath(
+    npmRoot = await host.globalRoot();
+  } catch {
+    return undefined;
+  }
+  let globalPackageRoot: string;
+  try {
+    globalPackageRoot = await host.canonicalPath(
       resolve(npmRoot, PRODUCT_IDENTITY.packageName),
     );
-    if (canonicalPackageRoot === globalPackageRoot) {
-      const prefix = await host.globalPrefix();
-      return prefix.length === 0
-        ? undefined
-        : { manager: "npm", prefix, packageRoot: canonicalPackageRoot };
-    }
-  } catch (cause: unknown) {
-    // The curl installer uses a Unix prefix that may differ from npm's current default.
-    void cause;
-  }
-  const nodeModules = dirname(canonicalPackageRoot);
-  const library = dirname(nodeModules);
-  if (
-    basename(canonicalPackageRoot) !== PRODUCT_IDENTITY.packageName ||
-    basename(nodeModules) !== "node_modules" ||
-    basename(library) !== "lib"
-  )
+  } catch {
     return undefined;
-  return {
-    manager: "npm",
-    prefix: dirname(library),
-    packageRoot: canonicalPackageRoot,
-  };
+  }
+  if (canonicalPackageRoot !== globalPackageRoot) return undefined;
+  try {
+    const prefix = await host.globalPrefix();
+    return prefix.length === 0
+      ? undefined
+      : { manager: "npm", prefix, packageRoot: canonicalPackageRoot };
+  } catch {
+    return undefined;
+  }
 };
 
 const nonemptyEnvironment = (value: string | undefined): string | undefined =>
   value === undefined || value.length === 0 ? undefined : value;
 
 /**
- * Bun's global project directory for the selected environment, in Bun's precedence:
+ * Bun's configured global directory for the selected environment, in Bun's precedence:
  * BUN_INSTALL_GLOBAL_DIR, then $BUN_INSTALL/install/global, then
  * $XDG_CACHE_HOME/.bun/install/global, then ~/.bun/install/global.
  * Resolve against the caller's cwd before reusing the path as a subprocess cwd.
@@ -208,10 +203,27 @@ export const bunGlobalDirectory = (
 };
 
 /**
- * Identify the running package as Bun's global installation.
- * Bun walks up to an ancestor project when its global directory has no
- * package.json, so the global manifest must exist before `bun add --global`
- * can be trusted to update this package root.
+ * Bun installs global packages into the nearest directory, starting at its
+ * global directory, that has a package.json. Without a global manifest that is
+ * an ancestor project, such as the home directory.
+ */
+const bunGlobalProject = async (
+  globalDirectory: string,
+  host: BunInstallationHost,
+): Promise<string | undefined> => {
+  let directory = globalDirectory;
+  while (!(await host.isFile(join(directory, "package.json")))) {
+    const parent = dirname(directory);
+    if (parent === directory) return undefined;
+    directory = parent;
+  }
+  return directory;
+};
+
+/**
+ * Identify only a manifest in Bun's configured global directory as an owned
+ * installation. An ancestor project does not prove which package manager
+ * installed the running package.
  */
 export const detectBunInstallation = async (
   packageRoot: string,
@@ -219,23 +231,44 @@ export const detectBunInstallation = async (
   host: BunInstallationHost,
 ): Promise<BunInstallation | undefined> => {
   try {
+    const projectDirectory = await bunGlobalProject(globalDirectory, host);
+    if (projectDirectory !== globalDirectory) return undefined;
     const canonicalPackageRoot = await host.canonicalPath(packageRoot);
-    const globalPackageRoot = await host.canonicalPath(
-      join(globalDirectory, "node_modules", PRODUCT_IDENTITY.packageName),
+    const projectPackageRoot = await host.canonicalPath(
+      join(projectDirectory, "node_modules", PRODUCT_IDENTITY.packageName),
     );
-    if (
-      canonicalPackageRoot !== globalPackageRoot ||
-      !(await host.isFile(join(globalDirectory, "package.json")))
-    )
-      return undefined;
-    return {
-      manager: "bun",
-      globalDirectory,
-      packageRoot: canonicalPackageRoot,
-    };
+    return canonicalPackageRoot === projectPackageRoot
+      ? {
+          manager: "bun",
+          projectDirectory,
+          packageRoot: canonicalPackageRoot,
+        }
+      : undefined;
   } catch (cause: unknown) {
     // best-effort cleanup: optional install-location probing; unknown means not Bun-managed.
     void cause;
+    return undefined;
+  }
+};
+
+/** Return an ancestor location for a fail-closed manual-recovery result. */
+const unverifiedBunAncestor = async (
+  packageRoot: string,
+  globalDirectory: string,
+  host: BunInstallationHost,
+): Promise<string | undefined> => {
+  try {
+    const projectDirectory = await bunGlobalProject(globalDirectory, host);
+    if (projectDirectory === undefined || projectDirectory === globalDirectory)
+      return undefined;
+    const canonicalPackageRoot = await host.canonicalPath(packageRoot);
+    const projectPackageRoot = await host.canonicalPath(
+      join(projectDirectory, "node_modules", PRODUCT_IDENTITY.packageName),
+    );
+    return canonicalPackageRoot === projectPackageRoot
+      ? projectDirectory
+      : undefined;
+  } catch {
     return undefined;
   }
 };
@@ -303,21 +336,23 @@ export const npmReleaseLookup = (
     : err({ kind: "invalid-metadata", detail: parsed.error });
 };
 
+/** A missing path is absent; any other failure leaves Bun ownership unknown. */
 const isFile = async (path: string): Promise<boolean> => {
   try {
     return (await stat(path)).isFile();
   } catch (cause: unknown) {
-    // best-effort cleanup: a missing or unreadable manifest is not an owned Bun global project.
-    void cause;
-    return false;
+    if (cause instanceof Error && "code" in cause && cause.code === "ENOENT")
+      return false;
+    throw cause;
   }
 };
 
 /**
  * Environment and working directory for package-manager subprocesses.
- * Bun commands run inside the identified global project with that directory
- * pinned, so the caller's current project and Bun's ancestor search are never
- * selected. npm keeps the caller's working directory; its prefix is explicit.
+ * Bun commands run inside the identified project, which is also pinned as
+ * Bun's global directory, so neither the caller's current project nor another
+ * ancestor search can select a different project. npm keeps the caller's
+ * working directory; its prefix is explicit.
  */
 const packageManagerContext = (
   installation: UpdateInstallation | undefined,
@@ -330,9 +365,9 @@ const packageManagerContext = (
     ? {
         environment: {
           ...environment,
-          BUN_INSTALL_GLOBAL_DIR: installation.globalDirectory,
+          BUN_INSTALL_GLOBAL_DIR: installation.projectDirectory,
         },
-        workingDirectory: installation.globalDirectory,
+        workingDirectory: installation.projectDirectory,
       }
     : { environment, workingDirectory: undefined };
 
@@ -343,20 +378,41 @@ export const systemUpdateHost = (
   environment: Readonly<NodeJS.ProcessEnv> = process.env,
 ): UpdateHost => {
   const resources = new ArtifactResourceScope();
+  const bunHost = { canonicalPath: realpath, isFile };
+  const selectedHome =
+    home ?? homeDirectoryFromEnvironment(environment, process.platform);
   return {
-    installation: async () =>
-      (await detectBunInstallation(
+    installation: async () => {
+      const bunInstallation = await detectBunInstallation(
         packageRoot,
         bunGlobalDirectory(environment, process.platform),
-        { canonicalPath: realpath, isFile },
-      )) ??
-      detectNpmInstallation(packageRoot, {
+        bunHost,
+      );
+      if (bunInstallation !== undefined) return bunInstallation;
+      const npmInstallation = await detectNpmInstallation(packageRoot, {
         canonicalPath: realpath,
         globalRoot: () =>
           requireCommandOutput(["npm", "root", "--global"], environment),
         globalPrefix: () =>
           requireCommandOutput(["npm", "prefix", "--global"], environment),
-      }),
+      });
+      if (npmInstallation !== undefined) return npmInstallation;
+      if (
+        (await unverifiedBunAncestor(
+          packageRoot,
+          bunGlobalDirectory(environment, process.platform),
+          bunHost,
+        )) !== undefined
+      )
+        return undefined;
+      return undefined;
+    },
+    unverifiedBunAncestor: () =>
+      unverifiedBunAncestor(
+        packageRoot,
+        bunGlobalDirectory(environment, process.platform),
+        bunHost,
+      ),
     latestVersion: async (installation) => {
       const context = packageManagerContext(installation, environment);
       if (installation?.manager === "bun") {
@@ -409,7 +465,7 @@ export const systemUpdateHost = (
       ),
     planMaintenance: (installation) =>
       planIntegrationMaintenance(
-        home ?? homeDirectoryFromEnvironment(environment, process.platform),
+        selectedHome,
         join(installation.packageRoot, "scripts", "rea.mjs"),
         environment,
         (command) => runUpdateCommand(command, environment),
