@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 
 import { z } from "zod";
+import { joinPosixPath } from "./PosixPath.js";
 
 /** Standard executable names and locations used to discover Homebrew. */
 const HOMEBREW_COMMANDS = [
@@ -50,7 +50,7 @@ export const installedCaskAppdir = async (
   let text: string;
   try {
     text = await readFile(
-      join(caskroom, token, ".metadata", "config.json"),
+      joinPosixPath(caskroom, token, ".metadata", "config.json"),
       "utf8",
     );
   } catch (cause: unknown) {
@@ -73,5 +73,7 @@ export const installedCaskAppdir = async (
     config.data.env?.appdir ??
     config.data.default?.appdir;
   if (appdir === undefined) return undefined;
-  return appdir.startsWith("~/") ? join(home, appdir.slice(2)) : appdir;
+  return appdir.startsWith("~/")
+    ? joinPosixPath(home, appdir.slice(2))
+    : appdir;
 };

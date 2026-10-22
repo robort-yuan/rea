@@ -22,6 +22,7 @@ import {
   downloadHopperPackage,
   HOPPER_DOWNLOAD_BYTES,
 } from "./HopperDownload.js";
+import { joinPosixPath } from "./PosixPath.js";
 import type { HopperInstallFailureReason } from "./SetupInstallFailure.js";
 
 const execFileAsync = promisify(execFile);
@@ -191,7 +192,7 @@ export const installMacHopper = async (
             : { cleanupFailure: installation.cleanupFailure }),
         };
       bundleCleanupFailure = installation.cleanupFailure;
-      const launcherPath = join(destination, "Contents/MacOS/hopper");
+      const launcherPath = joinPosixPath(destination, "Contents/MacOS/hopper");
       let openFailure: string | undefined;
       try {
         await host.openApplication(destination);

@@ -8,6 +8,7 @@ import {
   macHopperLauncherCandidates,
   macHopperRenamedLauncherCandidates,
 } from "./MacHopperPaths.js";
+import { joinPosixPath } from "./PosixPath.js";
 
 describe("macOS Hopper launcher paths", () => {
   const home = "/fixture/home";
@@ -35,6 +36,15 @@ describe("macOS Hopper launcher paths", () => {
     ]);
   });
 
+  it("preserves literal backslashes in discovered bundle names", () => {
+    expect(
+      macHopperRenamedLauncherCandidates(
+        home,
+        new Map([["/Applications", ["Hopper\\Preview.app"]]]),
+      ),
+    ).toEqual(["/Applications/Hopper\\Preview.app/Contents/MacOS/hopper"]);
+  });
+
   it("always includes the installer's canonical user destination", () => {
     expect(macHopperLauncherCandidates(home)).toContain(
       "/fixture/home/Applications/Hopper Disassembler.app/Contents/MacOS/hopper",
@@ -47,7 +57,12 @@ describe("macOS Hopper launcher paths", () => {
     try {
       await mkdir(appDirectory, { recursive: true });
       expect([...macHopperLauncherCandidates(temporary)]).toContain(
-        join(appDirectory, "Contents/MacOS/hopper"),
+        joinPosixPath(
+          temporary,
+          "Applications",
+          "Hopper Preview.app",
+          "Contents/MacOS/hopper",
+        ),
       );
     } finally {
       await rm(temporary, { recursive: true, force: true });
