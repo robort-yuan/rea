@@ -149,7 +149,7 @@ export const parseCArchiveToc = (
       return err(
         pyInstallerFailure(
           "format",
-          "CArchive table of contents entry is truncated",
+          `CArchive table of contents entry is truncated at table index ${String(entries.length)}`,
         ),
       );
     const entryLength = bytes.readUInt32BE(offset);
@@ -157,21 +157,21 @@ export const parseCArchiveToc = (
       return err(
         pyInstallerFailure(
           "format",
-          "CArchive table of contents entry extends outside the table",
+          `CArchive table of contents entry extends outside the table at table index ${String(entries.length)}`,
         ),
       );
     const nameBytes = bytes.subarray(
       offset + TOC_HEADER_BYTES,
       offset + entryLength,
     );
-    const name = tocName(nameBytes);
+    const name = tocName(nameBytes, entries.length);
     if (!name.ok) return name;
     const compressionFlag = bytes[offset + 16] ?? 0;
     if (compressionFlag !== 0 && compressionFlag !== 1)
       return err(
         pyInstallerFailure(
           "format",
-          `CArchive compression flag ${String(compressionFlag)} is not stored or zlib`,
+          `CArchive compression flag ${String(compressionFlag)} is not stored or zlib at table index ${String(entries.length)}`,
         ),
       );
     const typeCode = bytes[offset + 17] ?? 0;
@@ -179,7 +179,7 @@ export const parseCArchiveToc = (
       return err(
         pyInstallerFailure(
           "format",
-          "CArchive type code is not a printable character",
+          `CArchive type code is not a printable character at table index ${String(entries.length)}`,
         ),
       );
     entries.push({
@@ -290,18 +290,29 @@ const libraryName = (
   }
 };
 
-const tocName = (bytes: Buffer): Result<string, PyInstallerFailure> => {
+const tocName = (
+  bytes: Buffer,
+  index: number,
+): Result<string, PyInstallerFailure> => {
   const end = bytes.indexOf(0);
   const text = end < 0 ? bytes : bytes.subarray(0, end);
   if (text.length === 0)
-    return err(pyInstallerFailure("format", "CArchive entry name is empty"));
+    return err(
+      pyInstallerFailure(
+        "format",
+        `CArchive entry name is empty at table index ${String(index)}`,
+      ),
+    );
   try {
     return ok(
       new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(text),
     );
   } catch {
     return err(
-      pyInstallerFailure("format", "CArchive entry name is not valid UTF-8"),
+      pyInstallerFailure(
+        "format",
+        `CArchive entry name is not valid UTF-8 at table index ${String(index)}`,
+      ),
     );
   }
 };
