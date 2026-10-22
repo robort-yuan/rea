@@ -166,7 +166,10 @@ const classifyWabtFailure = (
         { operation: "inspect_wasm_artifact", cause },
       );
     if (cause.reason === "cancelled")
-      return new AnalysisCancelledError("inspect_wasm_artifact", options);
+      return new AnalysisCancelledError("inspect_wasm_artifact", {
+        ...options,
+        cause: cause.cancellation?.reason,
+      });
     if (timeout !== undefined) return timeout;
     if (phase !== "configuration" && cause.reason === "output-limit")
       return new AnalysisResourceConstraintError(

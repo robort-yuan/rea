@@ -128,12 +128,36 @@ it.each([
     expect(failure._tag).toBe(original._tag);
     expect(failure.cleanupIncomplete).toBe(original.cleanupIncomplete);
     expect(failure.cause).toBe(original.cause);
+    if (reason === "cancelled") {
+      expect(failure.cause).toBeUndefined();
+    } else if (cleanup === null) {
+      expect(failure.cause).toBe(cause);
+    }
     expect(projectAnalysisError(failure)).toMatchObject({
       code,
       details: { diagnostics: probe },
     });
   },
 );
+
+it("preserves the caller cancellation reason when an active WABT command is cancelled", () => {
+  const callerReason = { requested: "stop WABT" };
+  const cause = new OwnedCommandFailure(
+    "cancelled",
+    "Command cancelled.",
+    null,
+    null,
+    { cancellation: { reason: callerReason } },
+    ["pid:owned-fixture"],
+  );
+  const failure = wabtFailure(cause, "producer", "/selected.wasm");
+  expect(failure._tag).toBe("AnalysisCancelledError");
+  expect(failure.cause).toBe(callerReason);
+  expect(projectAnalysisError(failure)).toMatchObject({
+    code: "cancelled",
+    retryable: true,
+  });
+});
 
 it.each([
   { code: "EACCES", action: "read and execute access" },
