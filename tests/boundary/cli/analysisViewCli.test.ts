@@ -20,6 +20,7 @@ import { cliTest } from "../../support/cli/cliFixture.js";
 
 import {
   analysisViewLayoutEvidence,
+  analysisViewLayoutFixture,
   analysisViewCaptureFixture,
   analysisViewCaptureEvidence,
   analysisViewObjectDenseCapture,
@@ -485,6 +486,57 @@ cliTest(
         { kind: "address", address: "0x401000" },
       ],
     });
+  },
+);
+
+cliTest(
+  "preserves malformed layout parent field diagnostics through the CLI",
+  async ({ cli }) => {
+    const layout = analysisViewLayoutFixture();
+    const parent = createEvidence(
+      { ...layout.artifact, format: "elf" },
+      { id: "fixture", name: "Fixture", version: "1" },
+      {
+        operation: "inspect_binary_layout",
+        parameters: {},
+        result: {
+          ...layout,
+          artifact: { ...layout.artifact, bytes: "invalid-byte-count" },
+        },
+      },
+    );
+    const response = await cli.run({
+      arguments: [
+        "inspect-analysis-view",
+        JSON.stringify({
+          source: { kind: "inline", evidence: parent },
+          view: { kind: "summary" },
+        }),
+        "--json",
+      ],
+    });
+    expect(response.exitCode).toBe(1);
+    expect(response.stderr).toBe("");
+    expect(analysisCliErrorEnvelopeSchema.parse(response.json)).toMatchObject({
+      code: "invalid_request",
+      category: "invalid_input",
+      retryable: false,
+      details: {
+        operation: "inspect_analysis_view",
+        issues: [
+          {
+            path: ["source", "normalized_result", "artifact", "bytes"],
+            reason: "invalid_type",
+            expected: "number",
+          },
+        ],
+      },
+      recovery: {
+        kind: "inspect_input_contract",
+        operation: "inspect_analysis_view",
+      },
+    });
+    expect(JSON.stringify(response.json)).not.toContain("invalid-byte-count");
   },
 );
 

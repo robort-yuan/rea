@@ -1210,14 +1210,15 @@ export const projectAnalysisView = (
     const layout = safeParseOwnedBinaryLayout(parent.normalizedResult);
     if (!layout.success)
       return err(
-        analysisViewInputError([
-          {
-            path: ["source"],
-            reason: "invalid_value",
-            message:
-              "Parent Evidence result does not match inspect_binary_layout.",
-          },
-        ]),
+        analysisInputErrorFromIssues(
+          INSPECT_ANALYSIS_VIEW_OPERATION,
+          layout.error.issues.map((issue) => ({
+            ...issue,
+            path: ["source", "normalized_result", ...issue.path],
+          })),
+          { source: { normalized_result: parent.normalizedResult } },
+          { cause: layout.error },
+        ),
       );
     const projected = projectBinaryLayoutView(parent, layout.data, view);
     return projected.ok ? ok(sealAnalysisView(projected.value)) : projected;

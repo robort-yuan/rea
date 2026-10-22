@@ -501,6 +501,68 @@ it("points omitted inline messages to the caller's parent without promising sess
   expect(session.evidenceById(view.evidence_id)).toEqual(parseEvidence(view));
 });
 
+it("preserves malformed layout field diagnostics for inline and retained MCP parents", async () => {
+  const { client, session } = await connect();
+  const layout = analysisViewLayoutFixture();
+  const parent = createEvidence(
+    { ...layout.artifact, format: "elf" },
+    { id: "fixture", name: "Fixture", version: "1" },
+    {
+      operation: "inspect_binary_layout",
+      parameters: {},
+      result: {
+        ...layout,
+        artifact: { ...layout.artifact, bytes: "invalid-byte-count" },
+      },
+    },
+  );
+  const recorded = session.recordEvidence(parent);
+  if (!recorded.ok) throw recorded.error;
+  for (const source of [
+    { kind: "inline", evidence: parent },
+    { kind: "retained-evidence", evidence_id: parent.evidence_id },
+  ]) {
+    const response = await client.callTool({
+      name: "inspect_analysis_view",
+      arguments: { source, view: { kind: "summary" } },
+    });
+    expect(parseMcpToolError(response).error).toMatchObject({
+      code: "invalid_request",
+      category: "invalid_input",
+      retryable: false,
+      details: {
+        operation: "inspect_analysis_view",
+        issues: [
+          {
+            path: ["source", "normalized_result", "artifact", "bytes"],
+            reason: "invalid_type",
+            expected: "number",
+          },
+        ],
+      },
+      recovery: {
+        kind: "inspect_input_contract",
+        operation: "inspect_analysis_view",
+      },
+    });
+    expect(JSON.stringify(response)).not.toContain("invalid-byte-count");
+  }
+  const validParent = analysisViewLayoutEvidence(layout);
+  const recovered = await client.callTool({
+    name: "inspect_analysis_view",
+    arguments: {
+      source: { kind: "inline", evidence: validParent },
+      view: { kind: "summary" },
+    },
+  });
+  expect(recovered.isError).not.toBe(true);
+  expect(parseEvidence(recovered.structuredContent)).toMatchObject({
+    operation: "inspect_analysis_view",
+    evidence_links: [validParent.evidence_id],
+    normalized_result: { kind: "summary" },
+  });
+});
+
 it("reports a tampered inline Evidence ID at its full MCP source path", async () => {
   const { client } = await connect();
   const parent = analysisViewLayoutEvidence();

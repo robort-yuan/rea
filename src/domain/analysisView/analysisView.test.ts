@@ -1,5 +1,6 @@
 import { boundedViewMessages } from "./analysisViewCoverage.js";
 import { expect, it } from "vitest";
+import { z } from "zod";
 
 import { functionDossierSchema } from "../hopperValues.js";
 import { ghidraFunctionDossier } from "../ghidraValues.fixture.js";
@@ -407,6 +408,41 @@ it("projects layout summary, facet, item, and stable pages", () => {
     coverage: pageViewCoverage(3, 0, 3),
   });
 });
+
+it.each([
+  { bytes: "invalid-byte-count", reason: "invalid_type" },
+  { bytes: undefined, reason: "missing_argument" },
+])(
+  "preserves $reason layout field diagnostics and schema cause",
+  ({ bytes, reason }) => {
+    const layout = analysisViewLayoutFixture();
+    const result = projectAnalysisView(
+      {
+        ...layoutParent(),
+        normalizedResult: {
+          ...layout,
+          artifact: { ...layout.artifact, bytes },
+        },
+      },
+      { kind: "summary" },
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        _tag: "AnalysisInputError",
+        operation: "inspect_analysis_view",
+        issues: [
+          {
+            path: ["source", "normalized_result", "artifact", "bytes"],
+            reason,
+            expected: "number",
+          },
+        ],
+        cause: expect.any(z.ZodError),
+      },
+    });
+  },
+);
 
 it("rejects ambiguous layout names with candidate indexes", () => {
   const parent = layoutParent();
