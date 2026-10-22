@@ -1,5 +1,6 @@
 import { realpathSync } from "node:fs";
 import { isAbsolute } from "node:path";
+import { aubeShimRunsEntrypoint } from "../process/AubeBinShim.js";
 import { normalizeEntrypointPath } from "../process/CurrentEntrypointPath.js";
 import { valid } from "semver";
 
@@ -139,6 +140,9 @@ const directEntrypointIdentity = (
   current: string,
 ): ClientRegistrationCommandIdentity => {
   const nativeIdentity = entrypointIdentity(candidate, current);
+  // An aube bin shim is a shell script that names the exact script it runs.
+  if (nativeIdentity !== "owned" && aubeShimRunsEntrypoint(candidate, current))
+    return "owned";
   const scriptPath = normalizeEntrypointPath(candidate);
   if (scriptPath === candidate) return nativeIdentity;
   // A shebang can pass the original spelling to Node, which selects its script

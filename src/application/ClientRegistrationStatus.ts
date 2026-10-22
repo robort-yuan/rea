@@ -15,6 +15,10 @@ import { valid } from "semver";
 
 import { RegularFileCleanupFailure } from "./RegularFileRead.js";
 import { PRODUCT_IDENTITY } from "../identity.js";
+import {
+  aubeShimLauncher,
+  aubeShimRunsEntrypoint,
+} from "../process/AubeBinShim.js";
 import { snapshotEnvironment } from "../process/snapshotEnvironment.js";
 import { CURRENT_ENTRYPOINT_PATH } from "../process/CurrentEntrypointPath.js";
 import {
@@ -446,6 +450,16 @@ const registrationAligned = ({
     return "aligned";
   // Other owned package references remain stale until pinned to this version.
   if (clientRegistrationPackageReference(command) !== undefined) return "stale";
+  // Under aube the running script sits in one version's store, which the next
+  // upgrade removes; setup registers the stable bin shim instead.
+  if (
+    platform !== "win32" &&
+    currentCommandPath !== undefined &&
+    aubeShimLauncher(currentCommandPath, PRODUCT_IDENTITY.cliBinary) !==
+      undefined &&
+    !aubeShimRunsEntrypoint(command[0] ?? "", currentCommandPath)
+  )
+    return "stale";
   // The identity owner already established an exact direct launcher match.
   // A bare command still depends on the client's PATH, so cannot prove alignment.
   return isAbsolute(command[0] ?? "") ? "aligned" : "stale";

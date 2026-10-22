@@ -62,6 +62,7 @@ import type {
   SetupProviderEnvironment,
 } from "./SetupTypes.js";
 import type { DoctorScope } from "./Doctor.js";
+import { aubeShimLauncher } from "../process/AubeBinShim.js";
 import { CURRENT_ENTRYPOINT_PATH } from "../process/CurrentEntrypointPath.js";
 import { analysisProviderSelectorSchema } from "../contracts/providerSelection.js";
 
@@ -74,9 +75,13 @@ export const setupRegistrationCommand = (
   if (packageRunner !== undefined)
     return packageRunnerRegistrationCommand(packageRunner, platform);
   if (entrypointPath === undefined || entrypointPath.length === 0) return [];
-  return platform === "win32"
-    ? [process.execPath, entrypointPath, "mcp"]
-    : [entrypointPath, "mcp"];
+  if (platform === "win32") return [process.execPath, entrypointPath, "mcp"];
+  // An aube install launches the script inside one version's store directory;
+  // its bin shim keeps the same path across upgrades.
+  const launcher =
+    aubeShimLauncher(entrypointPath, PRODUCT_IDENTITY.cliBinary) ??
+    entrypointPath;
+  return [launcher, "mcp"];
 };
 
 /**

@@ -1324,8 +1324,11 @@ Review the plan, approve the selected client changes, then restart those clients
 This registers the installed entrypoint directly; installing the global package
 alone does not replace existing `npx` registrations. Each client still has its own
 REA process and analysis state. Direct registrations follow the installed CLI;
-use `rea update` to update it. Running setup through `npx` again selects the pinned
-package-runner command. Do not register paths inside npm's temporary package cache.
+use `rea update` to update it. An install through aube, such as mise's npm
+backend, registers its `node_modules/.bin/rea` shim rather than the script inside
+one version's store, so the registration follows upgrades there too. Running
+setup through `npx` again selects the pinned package-runner command. Do not
+register paths inside npm's temporary package cache.
 
 The optional curl wrapper installs only the global npm package:
 
