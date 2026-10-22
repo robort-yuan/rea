@@ -15,6 +15,7 @@ import { parseBinaryTarget } from "../../../../src/application/BinaryTargetResol
 import { managedMemberComparisonResultSchema } from "../../../../src/domain/managed/managedMemberComparison.js";
 import { parseManagedMemberEvidence } from "../../../../src/domain/managed/managedMemberComparisonMatch.js";
 import { createEvidence } from "../../../../src/domain/evidence.js";
+import { AnalysisInputError } from "../../../../src/domain/analysisErrorCore.js";
 import { projectAnalysisError } from "../../../../src/domain/analysisErrorProjection.js";
 import { jsonValueSchema } from "../../../../src/domain/jsonValue.js";
 import { compareManagedMembersInputSchema } from "../../../../src/domain/managed/managedMemberComparison.js";
@@ -627,6 +628,61 @@ describe("managed comparison post-admission read failures", () => {
         expect(projectAnalysisError(result.error)).toMatchObject({
           code: "access_denied",
         });
+    },
+  );
+});
+
+describe("managed comparison malformed PE layout inputs", () => {
+  it.each([
+    ["left", "leftPath"],
+    ["right", "rightPath"],
+  ])(
+    "classifies a malformed %s PE input as invalid input and preserves partial evidence when available",
+    async (side, argumentPath) => {
+      const directory = await createTestTempDirectory("rea-managed-malformed-");
+      const leftPath = join(directory, "left.dll");
+      const rightPath = join(directory, "right.dll");
+      const valid = buildManagedPeFixture();
+      const malformed = Buffer.from(valid);
+      const peOffset = malformed.readUInt32LE(0x3c);
+      malformed.writeUInt16LE(0, peOffset + 6);
+      await writeFile(leftPath, side === "left" ? malformed : valid);
+      await writeFile(rightPath, side === "right" ? malformed : valid);
+
+      const result = await compareManagedMemberPaths({ leftPath, rightPath });
+
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect(result.error._tag).toBe("AnalysisInputError");
+      if (!(result.error instanceof AnalysisInputError)) return;
+      const projected = projectAnalysisError(result.error);
+      expect(projected).toMatchObject({
+        code: "invalid_request",
+        category: "invalid_input",
+        details: {
+          operation: "compare_managed_members",
+          issues: [
+            {
+              path: [argumentPath],
+              reason: "invalid_format",
+              message: expect.stringContaining(
+                "PE section count must be positive",
+              ),
+            },
+          ],
+        },
+      });
+      const failingPath = side === "left" ? leftPath : rightPath;
+      expect(result.error.issues[0]?.message).toContain(failingPath);
+      if (side === "right")
+        expect(result.error.partialObservation).toMatchObject({
+          operation: "inspect_managed_members",
+          subject: {
+            local_path: leftPath,
+            digest: { sha256: expect.stringMatching(/^[0-9a-f]{64}$/u) },
+          },
+        });
+      else expect(result.error.partialObservation).toBeUndefined();
     },
   );
 });
