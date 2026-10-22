@@ -48,16 +48,37 @@ export const resolveJavaScriptSemanticQuerySeeds = (
           .map(({ function_node_id }) => function_node_id)
       : [],
   );
+  // Object projection anchors an object-flow unknown on the access itself
+  // only when it retained no property slot for that access.
+  const slotlessAccesses = new Set(
+    input.seed.kind === "property"
+      ? graph.unknowns.flatMap(({ family, node_id }) =>
+          family === "object-flow" && node_id !== null ? [node_id] : [],
+        )
+      : [],
+  );
   return graph.nodes
-    .filter((node) => seedMatches(node, input, fingerprintFunctions))
+    .filter((node) =>
+      seedMatches(node, input, fingerprintFunctions, slotlessAccesses),
+    )
     .map(({ node_id }) => node_id)
     .sort(compareUnicodeCodePoints);
+};
+
+const accessedPropertyName = (
+  node: JavaScriptSemanticGraphNode,
+): string | undefined => {
+  const path = node.properties.property_path;
+  if (!Array.isArray(path)) return undefined;
+  const name = path.at(-1);
+  return typeof name === "string" ? name : undefined;
 };
 
 const seedMatches = (
   node: JavaScriptSemanticGraphNode,
   input: JavaScriptSemanticQueryInput,
   fingerprintFunctions: ReadonlySet<string>,
+  slotlessAccesses: ReadonlySet<string>,
 ): boolean => {
   const seed = input.seed;
   if (seed.kind === "semantic-node") return node.node_id === seed.node_id;
@@ -67,7 +88,11 @@ const seedMatches = (
   if (seed.kind === "literal")
     return node.kind === "literal" && node.properties.value === seed.value;
   if (seed.kind === "property")
-    return node.kind === "property-slot" && node.properties.name === seed.name;
+    return node.kind === "property-slot"
+      ? node.properties.name === seed.name
+      : node.kind === "expression" &&
+          slotlessAccesses.has(node.node_id) &&
+          accessedPropertyName(node) === seed.name;
   if (seed.kind === "endpoint")
     return (
       (node.kind === "request" || node.kind === "response") &&
