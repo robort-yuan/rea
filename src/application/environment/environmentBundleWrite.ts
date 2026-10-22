@@ -15,6 +15,7 @@ import { streamChunkToBuffer } from "../../artifacts/StreamBytes.js";
 import { ArtifactReaderFailure } from "../../artifacts/ArtifactReader.js";
 import { ArtifactResourceScope } from "../../artifacts/ArtifactResourceScope.js";
 import { SafeOutputTree } from "../../artifacts/SafeOutputTree.js";
+import { outputDirectoryAdmissionRefusal } from "../../artifacts/SafeOutputTreeAdmission.js";
 import { SafeOutputTreeCreationFailure } from "../../artifacts/SafeOutputTreeCreationFailure.js";
 import { RegularFileChangedError } from "../../filesystem/RegularFile.js";
 import { withRegularFile } from "../RegularFileRead.js";
@@ -125,27 +126,6 @@ const writeTarball = async (
   return { path: written.relativePath, bytes: written.bytesWritten };
 };
 
-/**
- * Only destination admission can blame the selected directory. Path failures
- * after admission are host write failures on bundle files, not argument refusals.
- */
-const directoryRefusal = (cause: unknown): unknown =>
-  cause instanceof ArtifactReaderFailure &&
-  cause.reason === "path" &&
-  cause.cleanup === undefined
-    ? new AnalysisInputError(
-        ENVIRONMENT_EXPORT_OPERATION,
-        { cause, userMessage: cause.message },
-        [
-          {
-            path: ["directory"],
-            reason: "invalid_value",
-            message: cause.message,
-          },
-        ],
-      )
-    : cause;
-
 /** The output owner anchors every create and verifies the complete tree before publication. */
 const writeBundleFiles = async (
   input: EnvironmentExportInput,
@@ -220,7 +200,14 @@ const writeBundleFiles = async (
   }
   if (outcome.kind === "failed") {
     if (owner?.published === true && written !== undefined) return written;
-    throw admitted ? outcome.cause : directoryRefusal(outcome.cause);
+    // Only destination admission can blame the selected directory.
+    throw admitted
+      ? outcome.cause
+      : outputDirectoryAdmissionRefusal(
+          ENVIRONMENT_EXPORT_OPERATION,
+          "directory",
+          outcome.cause,
+        );
   }
   return outcome.files;
 };

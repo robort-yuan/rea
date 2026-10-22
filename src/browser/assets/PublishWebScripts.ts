@@ -6,6 +6,7 @@ import { ArtifactReaderFailure } from "../../artifacts/ArtifactReader.js";
 import { ArtifactResourceScope } from "../../artifacts/ArtifactResourceScope.js";
 import { DESTINATION_CASE_COLLISION_PREFIX } from "../../artifacts/ArtifactPaths.js";
 import { SafeOutputTree } from "../../artifacts/SafeOutputTree.js";
+import { outputDirectoryAdmissionRefusal } from "../../artifacts/SafeOutputTreeAdmission.js";
 import { SafeOutputTreeCreationFailure } from "../../artifacts/SafeOutputTreeCreationFailure.js";
 import { PLAYWRIGHT_RESPONSE_BODY_PROVENANCE_LIMITATION } from "../../domain/browserNetworkEvidence.js";
 import { AnalysisCancelledError } from "../../domain/analysisErrorCore.js";
@@ -65,8 +66,10 @@ export const publishWebScripts = async (
         : [];
     let tree: SafeOutputTree | undefined;
     let result: WebScriptExportResult | undefined;
+    let admitted = false;
     try {
       tree = await SafeOutputTree.create(input.output_directory);
+      admitted = true;
       options.signal?.throwIfAborted();
       const records: ExportedWebScript[] = [];
       for (const [index, item] of planned.entries()) {
@@ -160,7 +163,10 @@ export const publishWebScripts = async (
 
         if (tree.published && result !== undefined) return result;
       }
-      throw cause;
+      // Only destination admission can blame the selected output directory.
+      throw admitted
+        ? cause
+        : outputDirectoryAdmissionRefusal(OPERATION, "output_directory", cause);
     }
   });
 
