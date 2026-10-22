@@ -423,9 +423,12 @@ export const inspectNativeDispatchMetadata = (
   const examinedNames = names.slice(0, maxRecords);
   for (const entry of examinedNames) {
     const address = entry.address === "" ? null : entry.address;
-    const classMatch = /(?:OBJC_CLASS_|OBJC_METACLASS_)\$_([^\s]+)/u.exec(
-      entry.name,
-    );
+    // Anchored: Ghidra pointer and string labels such as
+    // `PTR__OBJC_CLASS_$_NSAlert_100028668` embed the symbol but are not classes.
+    const classMatch =
+      /^(?:.*::)?_?(?:OBJC_CLASS_|OBJC_METACLASS_)\$_([^\s]+)$/u.exec(
+        entry.name,
+      );
     if (classMatch?.[1] !== undefined) classNames.add(classMatch[1]);
 
     const methodMatch = /^([+-])\[([^\s\]]+)\s+([^\]]+)\]$/u.exec(entry.name);

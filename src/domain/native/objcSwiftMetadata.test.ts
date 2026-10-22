@@ -113,4 +113,35 @@ describe("ObjC/Swift metadata", () => {
       }),
     );
   });
+
+  it("derives classes only from class symbols, not provider labels that embed them", () => {
+    const names = [
+      "_OBJC_CLASS_$_NSAlert",
+      "OBJC_METACLASS_$_StoreController",
+      "/System/Library/Frameworks/AppKit.framework/Versions/C/AppKit::_OBJC_CLASS_$_NSWindow",
+      // Ghidra labels for class-reference pointers and symbol-name strings.
+      "PTR__OBJC_CLASS_$_NSAlert_100028668",
+      "s__OBJC_CLASS_$_NSAlert_10002ed0d",
+      "s__OBJC_CLASS_$_NSAppleEventManage_10002ed23",
+    ];
+    const result = inspectNativeDispatchMetadata(
+      names.map((name, index) => ({
+        address: `ram:0x${(0x1000 + index * 0x100).toString(16)}`,
+        name,
+      })),
+    );
+
+    expect(result.objc_classes.map((entry) => entry.name)).toEqual([
+      "NSAlert",
+      "NSWindow",
+      "StoreController",
+    ]);
+    expect(result.coverage).toContainEqual(
+      expect.objectContaining({
+        facet: "objc_class_symbols",
+        examined: 6,
+        decoded: 3,
+      }),
+    );
+  });
 });
