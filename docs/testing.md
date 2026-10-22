@@ -46,7 +46,37 @@ without executing tests or building. A missing Git base reports how to fetch
 it or select another revision.
 
 Source typechecking needs no compiled runtime or generated test metadata.
+Typecheck, runtime compilation, and Frida binding verification share
+`scripts/run-typescript.mjs`. The pinned tsrs package supplies Linux x64/arm64
+(GNU and musl) and macOS arm64 compilers. Windows and other unsupported hosts
+retain the existing stable official TypeScript compiler. Its upstream version
+can differ from tsrs, so both compiler tasks hash the selected package and version
+through `scripts/run-turbo.mjs` before cache lookup. Outputs from different
+compilers occupy different cache entries. Repository npm scripts and focused-test
+preparation use that entrypoint; a raw Turbo compiler task without matching
+identity fails instead of publishing an ambiguous successful cache entry.
+A missing binary on a supported host also fails without silently falling back.
+
+The Rust compiler defaults to at most two checker threads. For `--noEmit` checks,
+`--maxMemory 3G` also sets a soft memory target; emit builds do not use that target.
+Explicit compiler arguments can override the defaults. These controls do not
+impose a process-family memory limit. Termux's explicit build, Stryker's compiler
+API dependency, and independent fixture compiler oracles keep their existing
+TypeScript versions.
+
 `npm run build:cached` compiles the CLI/MCP runtime and its packaged skill.
+The build also records `dist/mcp-catalog.json` (compact inputs) and
+`dist/mcp-catalog-full.json` from the canonical SDK registrations and binds
+each to the runtime with its own SHA-256 digest. These are
+runtime artifacts, separate from the test catalog below. Default target-free
+MCP startup serves its schemas without constructing analysis validators;
+the first tool or guided-workflow request materializes the canonical runtime
+on that same SDK server. Explicit compact/full input selections preserve
+their advertised schemas throughout materialization. Initial-target,
+HTTP and output-schema-off startup keep the eager path; source runs without
+recorded artifacts also use eager composition. Compare memory both after discovery and after a completed
+request; report diagnostic GC separately from normal resident memory.
+
 Turbo's strict task environment preserves caller-selected `GOMAXPROCS`,
 `GOMEMLIMIT`, and `UV_THREADPOOL_SIZE` for resource-constrained builds and
 checks. These execution controls do not change artifact content, so changing
@@ -232,6 +262,27 @@ Stateless source-analysis matrices may share a file-owned stdio MCP connection
 and retain representative compiled CLI parity checks. Every distinct source
 scenario still runs through the public workflow; session-lifecycle scenarios
 need their own sessions and cleanup assertions.
+
+When a matrix already holds a named tool definition from live `tools/list`,
+pass that definition through the SDK's `toolDefinition` call option. This keeps
+the selected output-schema validation without eagerly compiling unrelated
+catalog schemas. Re-read definitions if the server advertises a changed list.
+
+Artifact verification uses `artifactMcpCall` for both lifecycle and analysis
+calls. A fresh SDK client has no held tool listing, so a bare `callTool` can
+skip output-schema validation. The helper discovers actual advertised
+definitions, rejects missing or ambiguous schemas, and validates the requested
+tool without compiling unrelated catalog schemas. REA registers process-static
+tool contracts; bindings share one discovery per negotiated connection and are
+discarded on reconnect or failed discovery. Keep raw artifact calls on this
+shared path and retain explicit request options such as timeouts.
+Caller-supplied tool definitions are rejected: the helper owns selection from
+the advertised catalog so a stale or permissive schema cannot bypass it.
+
+The regression fixture changes only `canonical_path` in a real stdio response
+to a number. The old helper accepts that response; the named schema must reject
+it. This client-boundary fault injection does not establish native Apple
+behavior, which remains covered by the macOS verification lane.
 
 Report unavailable authority as a named skip. Await owned cleanup before a
 verifier reports success. Native process inspectors are released at Vitest
@@ -648,10 +699,26 @@ missing entries are omitted as whole entries, and consumers rebuild cache misses
 including when every entry is unavailable. Malformed plans, non-file entries,
 and I/O errors other than disappearance still fail publication. After a trusted
 static run, superseded cross-run Turbo snapshots for that OS and architecture
-are deleted down to the two newest generations. The Windows lane relies on the Linux static job for typechecking. They retain the normal build and prepack
-commands, which restore matching outputs or rebuild on a cache miss. Native
+are deleted down to the two newest generations. The Windows lane also runs the
+official compiler's complete source typecheck with two checker threads,
+independently of the accelerated Linux checker. Both lanes retain the normal
+build and prepack commands, which restore matching outputs or rebuild on a cache
+miss. Native
 artifacts, dependency installs, package archives, and runtime verification remain
 host-local. Keep platform-dependent outputs out of this shared cache.
+
+The Windows native verifier's private-runtime ACL observer reads the owner and
+access rules only in SID form, checks that every identity it compares is a
+`SecurityIdentifier`, and never uses `Get-Acl` or the convenience `Access`
+property, which resolves account names. Its Windows PowerShell observers call
+.NET members directly and build their JSON without cmdlets, pipelines, module
+autoloading, or type-table updates. The `private-runtime-acl` stderr markers
+report the powershell.exe process uptime and each completed phase; inspect them
+on a timeout before attributing it to startup, ACL reads, or identity lookup.
+The 60-second observer deadline bounds a hung observer while covering a cold
+powershell.exe start on a starved hosted runner. All ownership, DACL, and
+readonly assertions remain in force. A passing retry alone does not explain a
+previous timeout.
 
 Record cold and warm preparation separately from fresh test execution when
 benchmarking the optional `npm run check:pr` gate. Compare multiple runs on the
@@ -1181,7 +1248,9 @@ host behavior or native process-supervision controls.
 real `.nib` with Xcode `ibtool`, wraps it in a temporary app bundle, and runs
 the compiled CLI and stdio MCP server with production providers. It compares
 their decoded results and checks the view hierarchy, outlet, action, evidence coverage, and truncation
-status. Storyboard compilation additionally requires an installed iOS platform.
+status. It also recompiles the XIB with toggled control booleans and requires
+both decodes to match `ibtool --export` for each source. Storyboard compilation
+additionally requires an installed iOS platform.
 
 Keep the provider-specific acceptance path independent from optional
 cross-compilers. Cross-format failures belong to the cross-format lane and must
@@ -1754,9 +1823,11 @@ projects the `environment-manifest` view with all three template rules through
 the built CLI, packs the checkout with `npm pack`, exports the bundle with
 `--package-tarball` so the image installs this checkout rather than the
 registry package, and runs `agent-env run` on the bundle. It checks that the
-export reports the planned file set with the inputs copied byte-exact, that
-the runner exits `0` with `tasks/smoke.json` reported as passed and the
-verifier's description naming the tool count, and that no container exists
+export reports the planned file set with the inputs copied byte-exact and a
+bundle served from the derived state, which serves fewer tools than the
+manifest because write tools the capture did not confirm are not served, that the runner exits `0` with
+`tasks/smoke.json` reported as passed and the verifier's description naming
+that served tool count, and that no container exists
 after the run that did not exist before; the container inventory runs even when
 the run fails or times out, so a failed receipt still lists what it left. The one exception is the framework's
 own image-store helper, `agentenv-registry` (or `agentenv-registry-<port>`),

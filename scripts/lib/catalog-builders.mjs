@@ -34,6 +34,7 @@ export const toolFamilyCatalog = (sources) => {
         ...sources.desktopContracts.DESKTOP_APPLICATION_TOOL_CONTRACTS,
         ...sources.evmContracts.EVM_TOOL_CONTRACTS,
         ...sources.goContracts.GO_TOOL_CONTRACTS,
+        ...sources.gpuContracts.GPU_TOOL_CONTRACTS,
         ...sources.il2cppContracts.IL2CPP_TOOL_CONTRACTS,
         ...sources.modelContracts.MODEL_TOOL_CONTRACTS,
         ...sources.rustContracts.RUST_TOOL_CONTRACTS,
@@ -142,7 +143,8 @@ export const toolFamilyCatalog = (sources) => {
   );
   if (
     familyTotal !== sources.toolContracts.TOOL_CONTRACTS.length ||
-    familyTotal !== sources.catalogIdentity.CATALOG_IDENTITY.counts.mcp_tools
+    familyTotal !==
+      sources.catalogIdentity.FULL_CATALOG_IDENTITY.counts.mcp_tools
   )
     throw new Error("Tool family inventory does not match TOOL_CONTRACTS");
   return { total: familyTotal, families };
@@ -236,7 +238,9 @@ export const providerCatalog = (sources) => {
       identity: sources.pwntoolsProvider.PWNTOOLS_PROVIDER_IDENTITY,
       contracts:
         sources.binaryDiagnosticsContracts.BINARY_DIAGNOSTICS_TOOL_CONTRACTS.filter(
-          ({ name }) => name !== "inspect_pe_resources",
+          ({ name }) =>
+            name === "inspect_binary_layout" ||
+            name === "inspect_recorded_crash",
         ),
     },
     {
@@ -244,6 +248,20 @@ export const providerCatalog = (sources) => {
       contracts:
         sources.binaryDiagnosticsContracts.BINARY_DIAGNOSTICS_TOOL_CONTRACTS.filter(
           ({ name }) => name === "inspect_pe_resources",
+        ),
+    },
+    {
+      identity: sources.artifactProviders.ELF_NOTES_PROVIDER,
+      contracts:
+        sources.binaryDiagnosticsContracts.BINARY_DIAGNOSTICS_TOOL_CONTRACTS.filter(
+          ({ name }) => name === "inspect_elf_notes",
+        ),
+    },
+    {
+      identity: sources.artifactProviders.BYTE_ENTROPY_PROVIDER,
+      contracts:
+        sources.binaryDiagnosticsContracts.BINARY_DIAGNOSTICS_TOOL_CONTRACTS.filter(
+          ({ name }) => name === "inspect_byte_entropy",
         ),
     },
     {
@@ -267,6 +285,10 @@ export const providerCatalog = (sources) => {
     {
       identity: sources.goProvider.GO_BINARY_PROVIDER_IDENTITY,
       contracts: sources.goContracts.GO_TOOL_CONTRACTS,
+    },
+    {
+      identity: sources.gpuProvider.GPU_CODE_OBJECTS_PROVIDER_IDENTITY,
+      contracts: sources.gpuContracts.GPU_TOOL_CONTRACTS,
     },
     {
       identity: sources.il2cppProvider.IL2CPP_METADATA_PROVIDER_IDENTITY,

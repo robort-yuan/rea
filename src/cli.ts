@@ -1,3 +1,4 @@
+import { registerGpuCommands } from "./cli/gpuCommands.js";
 import { registerNativeFunctionMatchingCommands } from "./cli/nativeFunctionMatchingCommands.js";
 import { registerCaptureCommands } from "./cli/captureCommands.js";
 import { registerSignalCommands } from "./cli/signalCommands.js";
@@ -57,6 +58,9 @@ import {
 } from "./cli/cliResultOutput.js";
 import { registerReverseEngineeringCommands } from "./cli/reverseEngineeringCommands.js";
 import { registerCutterCommands } from "./cli/cutterCommands.js";
+import { excludeDeclaredSensitiveArguments } from "./cli/explicitSensitiveArguments.js";
+
+export { closeCliJavaScriptResources } from "./cli/javascriptApplicationAnalysis.js";
 
 /**
  * Describe CLI settings that are invalid before any command runs, as MCP does.
@@ -118,7 +122,12 @@ export const createCli = (
   registerSetupCommands(cli, logger, environment);
   registerReverseEngineeringCommands(cli, logger, environment);
   registerCutterCommands(cli, logger, environment);
-  registerCoreAnalysisCommands(cli, logger, analysis.runDirectAnalysis);
+  registerCoreAnalysisCommands(
+    cli,
+    logger,
+    analysis.runDirectAnalysis,
+    environment,
+  );
   registerUtilityCommands(cli, logger, environment, analysis);
   registerWasmCommands(cli, logger, environment);
   registerCaptureCommands(cli, logger, environment);
@@ -128,6 +137,7 @@ export const createCli = (
   registerGoCommands(cli, logger);
   registerIl2cppCommands(cli, logger);
   registerModelCommands(cli, logger);
+  registerGpuCommands(cli, logger);
   registerRustCommands(cli, logger);
   registerSqliteCommands(cli, logger, environment);
   registerArtifactCommands(cli, logger, analysis.runProviderAnalysis);
@@ -156,12 +166,13 @@ export const createCli = (
   registerAdvancedBrowserCommands(cli, logger);
   registerBrowserScenarioCommands(cli, logger, environment);
   registerElectronCommands(cli, logger, environment);
-  registerJavaScriptRuntimeObservationCommands(cli, logger);
+  registerJavaScriptRuntimeObservationCommands(cli, logger, environment);
   registerApplicationCommands(cli, logger);
   presentOmittableDefaults(cli);
   if (resultOutput !== undefined) streamCliCommandResults(cli, resultOutput);
+  const serveDeclared = excludeDeclaredSensitiveArguments(cli);
   const serve = cli.serve.bind(cli);
   cli.serve = (arguments_ = process.argv.slice(2), options) =>
-    serve(normalizeCliArguments(arguments_), options);
+    serveDeclared(normalizeCliArguments(arguments_), options ?? {}, serve);
   return cli;
 };

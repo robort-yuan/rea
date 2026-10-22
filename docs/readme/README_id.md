@@ -152,6 +152,7 @@ Alat tambahan dan dukungan sistem host bergantung pada target yang dianalisis:
 | Artefak WASM               | Validasi, bagian, bentuk WAT import/ekspor yang tepat, dan WAT yang didekode                          | WABT 1.0.42 yang disediakan pemanggil; `inspect_wasm_artifact`                                                                 |
 | Bytecode EVM               | Selector dispatch, offset byte, argumen yang disimpulkan, dan sifat mutabilitas                       | Pembawa data raw/hex lokal; [panduan EVM offline](../evm-bytecode.md)                                                          |
 | Rust binaries              | Embedded cargo-auditable dependency list                                                              | [Rust binaries](../rust-binaries.md)                                                                                           |
+| ELF notes                  | PT_NOTE/SHT_NOTE owners, types, GNU build-id and ABI-tag fields                                       | Built-in static ELF inspection; [ELF notes](../elf-notes.md)                                                                   |
 | Crash Linux yang direkam   | Catatan mentah, register/sinyal setiap thread yang direkam, dan kandidat pemetaan opsional            | pwntools yang disediakan pemanggil; GDB/pwndbg opsional; [crash yang direkam](../recorded-crashes.md)                          |
 | Instalasi desktop          | Kandidat runtime, berkas pendukung, penanda komponen, dan langkah berikutnya                          | Pemeriksaan direktori dan header terbatas；[Aplikasi desktop](../desktop-applications.md)                                      |
 | JavaScript / Electron      | Modul, impor, source map, rute, IPC, dan hubungan add-on native                                       | Node.js dan npm; [analisis aplikasi](../javascript-application-workflows.md)                                                   |
@@ -290,6 +291,7 @@ Untuk mengetahui opsi, prasyarat, dan kontrak hasil secara tepat:
 
 - [Instalasi dan penyiapan](../installation.md): pendaftaran agen, konfigurasi penyedia, pembaruan, dan penghapusan instalasi.
 - [Kesiapan dan pemecahan masalah](../installation.md#check-readiness-for-your-task): mendiagnosis satu agen atau mesin analisis.
+- [CUDA / HIP](../gpu-code-objects.md)
 - [GGUF / safetensors](../model-artifacts.md)
 - [CLI dan Bukti](../cli.md): perintah, pemilihan penyedia, snapshot, impor/ekspor, dan status keluar.
 - [Kontrak MCP](../mcp-contracts.md) dan [prompt agen](../mcp-prompts.md): hasil alat, sesi, dan investigasi terpandu.

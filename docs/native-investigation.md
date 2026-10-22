@@ -202,8 +202,38 @@ Function dossiers retain this same string evidence. Native call edges retain
 Hopper's partial `CallReference` classification and exact endpoints; detailed
 reference flags remain unavailable rather than being invented.
 Regex searches use ECMAScript Unicode syntax in a cancellable worker with a
-five-second matching deadline. Deadline or cancellation stops matching while
-leaving the Hopper API available. Literal mode retains Unicode casefold matching.
+five-second matching deadline and a worker old-generation heap. Deadline or
+cancellation stops matching while leaving the Hopper API available. This
+release has no runtime override for that deadline. The worker requests 128
+MiB. A positive Node.js `--max-old-space-size` on the process that starts
+REA, including `NODE_OPTIONS`, overrides that request and sets the effective
+heap. `--max-old-space-size-percentage` takes precedence over that flag in
+either order. REA does not turn the percentage into a MiB, so the effective
+heap stays unestablished instead of the 128 MiB request or the absolute flag.
+The reported `NODE_OPTIONS` value is the process initial environment when that
+block can be read. A later edit to the environment is not the value Node
+applied, and an unreadable initial value leaves the effective heap
+unestablished. The launch Node options are the initial command line on Linux
+when that buffer still has a program entry, not a later edit to
+`process.execArgv`. A preload can clear that array after V8 has applied the
+flags. Setting `process.title` or `--title` overwrites the command line, so a
+buffer without a program entry leaves the effective heap unestablished.
+`--env-file` or `--env-file-if-exists` can supply `NODE_OPTIONS`
+when the initial environment has none. That file is not part of the initial
+environment block, so the effective heap stays unestablished instead of the
+128 MiB request. An initial `NODE_OPTIONS` is still used, because Node does
+not let the file replace it. A positive `--max-heap-size`, including the
+underscore form and launch `NODE_OPTIONS` on Node versions that allow it,
+sets the total heap rather than the old generation and can be lower than the
+128 MiB request. The effective old generation stays unestablished while that
+value is in effect. A zero or empty value clears it.
+`--experimental-config-file` or `--experimental-default-config-file` can set
+`nodeOptions`, including a heap percentage, from a file that is not read
+back. The effective heap stays unestablished when either flag is present,
+including when an absolute `--max-old-space-size` is also on the command
+line or in the recovered `NODE_OPTIONS`. Node accepts the config path as
+`=` or the next argument.
+Literal mode retains Unicode casefold matching.
 
 ## Bounded static traces
 
@@ -302,8 +332,13 @@ Binary plist inspection reads the original bytes through an owned file descripto
 so conversion cannot erase control characters, fractional dates, negative zero,
 or the high word of a 128-bit integer. It accepts at most 64 MiB of input and
 reserves an estimated 64 MiB decode budget before parsing; this estimate is not
-a hard process-memory bound. Binary-source provenance records the `file`
-classification without claiming a `plutil` conversion.
+a hard process-memory bound. A refused input reports non-retryable
+`resource_constraint` with `reported_limits.maximum_input_bytes`,
+`maximum_decoded_bytes` or, for nesting deeper than 128 levels,
+`maximum_nesting_depth`. These are fixed allowances: worker limits and host
+memory do not raise them, and the unchanged request fails the same way.
+Binary-source provenance records the `file` classification without claiming a
+`plutil` conversion.
 
 A plist explicitly selected through the path input or as the active plist target
 reports an unreadable or malformed selection as `invalid_request`. A missing or
@@ -427,11 +462,33 @@ complete observation.
   `rea inspect-native-dispatch-metadata <app-or-binary>` prefers a validated macOS Mach-O byte reader. It decodes
   64-bit little-endian Objective-C class/metaclass records, superclass pointers,
   absolute/relative method entries, ivar offsets/sizes/alignment and protocol
-  declarations. It also decodes simple Swift conformances, static synchronous
-  witness slots, signed-relative pointers and non-generic, non-resilient class
-  vtable descriptors. Records include exact virtual addresses/file offsets and
+  declarations. It also decodes Swift nominal type declarations, simple Swift
+  conformances, static synchronous witness slots, signed-relative pointers and
+  non-generic, non-resilient class vtable descriptors. Records include exact virtual addresses/file offsets and
   artifact evidence. Vtable indexes are metadata word offsets; witness indexes
   start after the conformance header. Names unavailable in metadata remain null.
+  The byte reader holds the whole selected file in memory, so it admits files up
+  to 64 MiB / 67108864 bytes by default. Select a larger budget with
+  `max_input_bytes` (CLI `--max-input-bytes`), at most 1 GiB / 1073741824
+  bytes. The whole file counts, including every slice of a universal Mach-O.
+  Results record `input_admission` with the effective budget, its source
+  (`default` or `caller`) and the bytes retained. A refusal names the observed
+  file size, the effective budget and its source, and either the budget to
+  select or, above 1 GiB, a deep analysis provider.
+  `swift_decls` lists each `__swift5_types` nominal type descriptor, which
+  survives stripping: `kind` (`class`, `struct`, `enum`, or `actor` from the
+  class actor flag), the descriptor's own `name`, `module`, `qualified_name`
+  (`Outer.Inner`), `generic`, the metadata `accessor_address`, the descriptor
+  `location`, and evidence citing its `__swift5_types` record.
+  Private and local types set `anonymous_context` because their anonymous
+  context is omitted from `qualified_name`. When a parent context cannot be
+  resolved, such as an extension of a type named only by a mangled name, a
+  missing module, or a cyclic chain, `qualified_name` is null and the entry is
+  partial with a reason. Access level, superclass, conformances, and fields are
+  not reported by this facet. The `swift_declarations` coverage counters count
+  examined type records and fully decoded declarations. Class vtable recovery
+  reads the same descriptors, so an unreadable type record also keeps
+  `swift_class_vtable_descriptors` partial.
   The `swift_class_vtable_descriptors` coverage counters count examined vtable
   slots and successfully decoded slots, rather than type-section entries.
   The `objc_class_method_ivar_metadata` counters count admitted class and
@@ -532,8 +589,10 @@ cleanup. A later abort does not replace an earlier helper or output failure.
 Cleanup failures retain their runtime owner until a confirmed cleanup retry.
 
 Scenarios accept caller-selected action lists and accessibility node counts.
-Individual waits cannot exceed the operation's 180-second deadline, and the
-complete scenario result has a 64 MiB output budget. Screenshots are scaled to
+One wait step stays capped at 180000 ms. That cap has no runtime override.
+The operation deadline is `native_ui_deadline_ms` (omitted means 180000 ms)
+and does not raise the wait-step cap. The complete scenario result has a
+64 MiB output budget. Screenshots are scaled to
 at most 2,048 pixels and captured only for the selected window. REA compiles one
 owned helper per scenario, removes its temporary compiler cache and stops its
 helper on cancellation. It does not launch or own the selected application. UI

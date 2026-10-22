@@ -1,3 +1,4 @@
+import { metadataReportSubjectFormat } from "../apple/machoTargetSelection.js";
 import { z } from "zod";
 import type { AnalysisError } from "../analysisErrorBase.js";
 import {
@@ -22,6 +23,7 @@ import {
 } from "./analysisViewCoverage.js";
 import { analysisViewInputError } from "./analysisViewErrors.js";
 import { parseAnalysisViewResult } from "./analysisViewParent.js";
+import { selectViewRows } from "./selectViewRows.js";
 
 const indexSchema = z.number().int().nonnegative();
 const count = z.number().int().nonnegative();
@@ -74,6 +76,7 @@ export const goBinarySummarySchema = z.strictObject({
   architecture: goBinarySchema.shape.architecture,
   bits: goBinarySchema.shape.bits,
   byte_order: goBinarySchema.shape.byte_order,
+  selected_slice: goBinarySchema.shape.selected_slice,
   build_info: goBuildInfoSchema
     .omit({
       go_version_bytes_base64: true,
@@ -123,23 +126,6 @@ const parseReport = (
   return ok(report);
 };
 
-const selectRows = <Source, Row>(
-  rows: readonly Source[],
-  view: { readonly offset: number; readonly limit: number },
-  matches: (row: Source, index: number) => boolean,
-  project: (row: Source, index: number) => Row,
-): { rows: Row[]; total: number } => {
-  const selected: Row[] = [];
-  let total = 0;
-  for (const [index, row] of rows.entries()) {
-    if (!matches(row, index)) continue;
-    if (total >= view.offset && selected.length < view.limit)
-      selected.push(project(row, index));
-    total++;
-  }
-  return { rows: selected, total };
-};
-
 /** Query the existing metadata owner's facts; never reopen or reinterpret a file. */
 export const projectGoBinaryView = (
   parent: AnalysisViewParent,
@@ -161,8 +147,7 @@ export const projectGoBinaryView = (
   if (
     parent.subject?.local_path !== report.artifact.path ||
     parent.subject.digest.sha256 !== report.artifact.sha256 ||
-    parent.subject.format !==
-      (report.format === "macho" ? "mach-o" : report.format) ||
+    parent.subject.format !== metadataReportSubjectFormat(report) ||
     parent.subject.architecture !==
       (goArchitectureForSubject(report.architecture) ?? null)
   )
@@ -228,6 +213,9 @@ export const projectGoBinaryView = (
         architecture: report.architecture,
         bits: report.bits,
         byte_order: report.byte_order,
+        ...(report.selected_slice === undefined
+          ? {}
+          : { selected_slice: report.selected_slice }),
         build_info:
           info === null
             ? null
@@ -259,7 +247,7 @@ export const projectGoBinaryView = (
     view.fields === undefined ? undefined : new Set<string>(view.fields);
   if (view.collection === "dependencies") {
     const paths = view.paths === undefined ? undefined : new Set(view.paths);
-    const selected = selectRows(
+    const selected = selectViewRows(
       info?.module.dependencies ?? [],
       view,
       (row, index) =>
@@ -287,7 +275,7 @@ export const projectGoBinaryView = (
     });
   }
   const keys = view.keys === undefined ? undefined : new Set(view.keys);
-  const selected = selectRows(
+  const selected = selectViewRows(
     info?.module.settings ?? [],
     view,
     (row, index) =>

@@ -51,6 +51,16 @@ import {
 /** Project expected failures into exhaustive, secret-safe caller fields. */
 export const projectAnalysisError = (
   error: AnalysisError,
+): AnalysisErrorProjection => projectError(error, true);
+
+/** Cleanup history references output retained by its enclosing error owner. */
+export const projectAnalysisErrorWithoutCapturedOutput = (
+  error: AnalysisError,
+): AnalysisErrorProjection => projectError(error, false);
+
+const projectError = (
+  error: AnalysisError,
+  includeCapturedOutput: boolean,
 ): AnalysisErrorProjection => {
   const composed = error;
   error = resolvedAnalysisError(error);
@@ -88,7 +98,7 @@ export const projectAnalysisError = (
             primaryDetails?.execution_failure ?? underlyingCode,
         }
       : {}),
-    ...(capturedOutput === undefined
+    ...(!includeCapturedOutput || capturedOutput === undefined
       ? {}
       : {
           captured_output: {
@@ -364,6 +374,14 @@ const artifactStateErrorDetails = (
       reason: error.reason,
       ...(error.reason === "limit" ? { truncated: true } : {}),
       ...(error.detail === undefined ? {} : { detail: error.detail }),
+      ...(error.admission === undefined
+        ? {}
+        : {
+            admission: error.admission.kind,
+            maximum_header_bytes: error.admission.maximumBytes,
+            maximum_header_bytes_source: error.admission.source,
+            setting: "REA_ASAR_MAX_HEADER_BYTES",
+          }),
     };
   if (error instanceof UnknownRegistryError) return { reason: error.reason };
   if (error instanceof EvidenceFileError)

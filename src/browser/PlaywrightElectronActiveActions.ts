@@ -5,55 +5,38 @@ import type { ExecutionOptions } from "../application/AnalysisProvider.js";
 import { BrowserObservationError } from "../domain/browserObservationError.js";
 import {
   electronActiveTimelineEventSchema,
+  electronActiveProcessMetricSchema,
+  electronActiveWindowSchema,
+  electronActiveObservationResultSchema,
   type ElectronActiveObservationInput,
   type ElectronActiveObservationResult,
 } from "../domain/javascript/electronActiveObservation.js";
+import {
+  notExecutedActionError,
+  type ScenarioActionStop,
+} from "./ScenarioActionSequence.js";
 
 const OPERATION = "capture_electron_scenario" as const;
 const CANCELLED_STATE_READ_TIMEOUT_MS = 5_000;
 const GRACE_EXPIRED = Symbol("cancellation grace expired");
 
+const retention = electronActiveObservationResultSchema.shape.retention.shape;
 const hookSnapshotSchema = z.strictObject({
   events: z.array(electronActiveTimelineEventSchema),
-  retention_budget_bytes: z.number().int().min(0),
-  estimated_retained_bytes: z.number().int().min(0),
-  event_serialized_byte_upper_bound: z.number().int().min(0),
-  retained: z.number().int().min(0),
-  dropped: z.number().int().min(0),
-  dropped_ipc: z.number().int().min(0),
-  dropped_runtime: z.number().int().min(0),
-  dropped_event_families: z.array(
-    z.strictObject({
-      family: z.string().min(1),
-      count: z.number().int().min(1),
-    }),
-  ),
-  dropped_event_roles: z.array(
-    z.strictObject({
-      role: z.string().min(1),
-      count: z.number().int().min(1),
-    }),
-  ),
-  observed: z.number().int().min(0),
-  observed_ipc: z.number().int().min(0),
-  observed_runtime: z.number().int().min(0),
+  retention_budget_bytes: retention.budget_bytes,
+  estimated_retained_bytes: retention.estimated_retained_bytes,
+  event_serialized_byte_upper_bound:
+    retention.event_serialized_byte_upper_bound,
+  retained: retention.retained,
+  dropped: retention.dropped,
+  dropped_ipc: retention.dropped_ipc,
+  dropped_runtime: retention.dropped_runtime,
+  dropped_event_families: retention.dropped_event_families,
+  dropped_event_roles: retention.dropped_event_roles,
+  observed: z.int().min(0),
+  observed_ipc: retention.observed_ipc,
+  observed_runtime: retention.observed_runtime,
   hook_error: z.boolean(),
-});
-
-const metricSchema = z.strictObject({
-  pid: z.number().int().min(1),
-  type: z.string().min(1),
-  name: z.string().nullable(),
-  service_name: z.string().nullable(),
-});
-
-const windowMetadataSchema = z.strictObject({
-  window_id: z.string(),
-  web_contents_id: z.string(),
-  url: z.string(),
-  title: z.string(),
-  visible: z.boolean().nullable(),
-  destroyed: z.boolean(),
 });
 
 type ElectronAction = ElectronActiveObservationInput["actions"][number];
@@ -63,22 +46,41 @@ export type ElectronHookSnapshot = z.infer<typeof hookSnapshotSchema>;
 export type ElectronHookEvent = z.infer<
   typeof electronActiveTimelineEventSchema
 >;
-export type ElectronMetrics = z.infer<typeof metricSchema>[];
-type ElectronWindowMetadata = z.infer<typeof windowMetadataSchema>;
+export type ElectronMetrics = z.infer<
+  typeof electronActiveProcessMetricSchema
+>[];
+type ElectronWindowMetadata = z.infer<typeof electronActiveWindowSchema>;
 type ElectronApplicationState = Awaited<
   ReturnType<typeof readApplicationState>
 >;
 
-/** Run explicit actions against provider-owned Electron windows. */
+/**
+ * Run explicit actions against provider-owned Electron windows. Every declared
+ * action has one result; actions after a failed or cancelled action are
+ * recorded as not executed.
+ */
 export const runElectronActions = async (
   application: ElectronApplication,
   input: ElectronActiveObservationInput,
   options: ExecutionOptions,
 ): Promise<ElectronActions> => {
   const actions: ElectronActions = [];
+  let stoppedBy: ScenarioActionStop | undefined;
   for (const action of input.actions) {
     const actionStartedAt = performance.now();
     const windowIndex = actionWindowIndex(action);
+    if (stoppedBy !== undefined) {
+      actions.push({
+        step_id: action.step_id,
+        kind: action.kind,
+        window_index: windowIndex,
+        target: null,
+        status: "cancelled",
+        elapsed_ms: 0,
+        error: notExecutedActionError(stoppedBy),
+      });
+      continue;
+    }
     let selectedWindow: Page | undefined;
     try {
       if (options.signal?.aborted === true)
@@ -119,20 +121,20 @@ export const runElectronActions = async (
         error: null,
       });
     } catch (cause: unknown) {
+      stoppedBy = options.signal?.aborted ? "cancelled" : "failed";
       actions.push({
         step_id: action.step_id,
         kind: action.kind,
         window_index: windowIndex,
         target:
           selectedWindow === undefined ? null : `window:${String(windowIndex)}`,
-        status: options.signal?.aborted ? "cancelled" : "failed",
+        status: stoppedBy,
         elapsed_ms: Math.max(
           0,
           Math.round(performance.now() - actionStartedAt),
         ),
         error: safeActionErrorMessage(cause),
       });
-      break;
     }
   }
   return actions;
@@ -268,14 +270,7 @@ const emitDeepLink = (
 export const readApplicationState = async (
   application: ElectronApplication,
 ): Promise<{
-  readonly windows: ReadonlyArray<{
-    readonly window_id: string;
-    readonly web_contents_id: string;
-    readonly url: string;
-    readonly title: string;
-    readonly visible: boolean | null;
-    readonly destroyed: boolean;
-  }>;
+  readonly windows: ReadonlyArray<ElectronWindowMetadata>;
   readonly metrics: ElectronMetrics;
   readonly electronVersion: string;
   readonly hookSnapshot: ElectronHookSnapshot;
@@ -302,7 +297,7 @@ export const readApplicationState = async (
         }),
       ),
     )
-    .then((value) => z.array(windowMetadataSchema).parse(value));
+    .then((value) => z.array(electronActiveWindowSchema).parse(value));
   const processMetricsPromise: Promise<ElectronMetrics> = application
     .evaluate(({ app }) =>
       app
@@ -321,7 +316,7 @@ export const readApplicationState = async (
           }),
         ),
     )
-    .then((value) => z.array(metricSchema).parse(value));
+    .then((value) => z.array(electronActiveProcessMetricSchema).parse(value));
   const electronVersionPromise: Promise<string> = application
     .evaluate(() => process.versions.electron)
     .then((value) => z.string().parse(value));

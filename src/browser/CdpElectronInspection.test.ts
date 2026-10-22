@@ -1,3 +1,4 @@
+import { DEFAULT_ASAR_HEADER_ADMISSION } from "../config/asarHeaderAdmission.js";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -12,6 +13,7 @@ import {
   ingestElectronScriptEvent,
   type ElectronScriptDraft,
 } from "./CdpElectronScriptEvents.js";
+import { CDP_SCRIPT_SOURCE_BYTES_OMISSION_REASON } from "./CdpScriptSourceBudget.js";
 import { captureElectronScripts } from "./CdpElectronScripts.js";
 import { inspectElectronPageInputSchema } from "../domain/javascript/electronObservation.js";
 
@@ -53,6 +55,7 @@ describe("Electron frame capture", () => {
           },
         },
         completeness,
+        DEFAULT_ASAR_HEADER_ADMISSION,
       );
 
       expect(frames.map((frame) => frame.frame_id)).toEqual(["frame-main"]);
@@ -132,6 +135,7 @@ describe("Electron frame capture", () => {
       scripts,
       frameIds: new Set(["frame-old", "frame-new"]),
       completeness,
+      asarHeaderAdmission: DEFAULT_ASAR_HEADER_ADMISSION,
     });
 
     expect(capture.total).toBe(4);
@@ -211,6 +215,7 @@ it("admits a prefix and fitting suffix around an oversized Electron source", asy
     scripts,
     frameIds: new Set(),
     completeness,
+    asarHeaderAdmission: DEFAULT_ASAR_HEADER_ADMISSION,
   });
   const byHash = new Map(
     capture.items.map((item) => [item.cdp_hash, item.source]),
@@ -221,8 +226,7 @@ it("admits a prefix and fitting suffix around an oversized Electron source", asy
   expect(byHash.get("prefix")?.included).toBe(true);
   expect(byHash.get("oversized")).toEqual({
     included: false,
-    reason:
-      "script source was omitted because the aggregate 32 MiB source budget was exhausted",
+    reason: CDP_SCRIPT_SOURCE_BYTES_OMISSION_REASON,
   });
   expect(byHash.get("suffix")?.included).toBe(true);
   expect(completeness.snapshot().excluded).toContainEqual({

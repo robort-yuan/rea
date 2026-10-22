@@ -1,3 +1,7 @@
+import {
+  DEFAULT_ASAR_HEADER_ADMISSION,
+  type AsarHeaderAdmission,
+} from "../config/asarHeaderAdmission.js";
 import type {
   ExecutionOptions,
   ProviderIdentity,
@@ -11,6 +15,7 @@ import {
   type InspectElectronPageInput,
   type ListElectronTargetsInput,
 } from "../domain/javascript/electronObservation.js";
+import { selectedCdpCommandTimeoutMs } from "../domain/browserDeadline.js";
 import { AnalysisError } from "../domain/analysisErrorBase.js";
 import { AnalysisCancelledError } from "../domain/analysisErrorCore.js";
 import { BrowserObservationError } from "../domain/browserObservationError.js";
@@ -45,6 +50,14 @@ import {
 /** Passive Electron provider for local file pages exposed by loopback CDP. */
 export class CdpElectronProvider implements ElectronObservationPort {
   readonly #owner = new CdpTargetSessionOwner();
+  readonly #asarHeaderAdmission: AsarHeaderAdmission;
+
+  /** The admission comes from the composition root's environment; default otherwise. */
+  constructor(
+    asarHeaderAdmission: AsarHeaderAdmission = DEFAULT_ASAR_HEADER_ADMISSION,
+  ) {
+    this.#asarHeaderAdmission = asarHeaderAdmission;
+  }
   #activeOperations = 0;
   #closing = false;
   #closePromise: Promise<void> | undefined;
@@ -147,6 +160,7 @@ export class CdpElectronProvider implements ElectronObservationPort {
           target.url,
           options.signal,
           "list_electron_targets",
+          this.#asarHeaderAdmission,
         );
         if (path === undefined) {
           examined += 1;
@@ -270,6 +284,7 @@ export class CdpElectronProvider implements ElectronObservationPort {
       const target = await authorizeTarget(
         discovery.targets,
         input.target_id,
+        this.#asarHeaderAdmission,
         options.signal,
       );
       targetSession = await openCdpTargetSession(
@@ -277,7 +292,11 @@ export class CdpElectronProvider implements ElectronObservationPort {
         target,
         "inspect_electron_page",
         options.signal,
-        undefined,
+        {
+          commandTimeoutMs: selectedCdpCommandTimeoutMs(
+            input.command_timeout_ms,
+          ),
+        },
         this.#owner,
       );
       result = ok(
@@ -288,6 +307,7 @@ export class CdpElectronProvider implements ElectronObservationPort {
             discovery,
             target,
             input,
+            asarHeaderAdmission: this.#asarHeaderAdmission,
             ...(options.signal === undefined ? {} : { signal: options.signal }),
             ...(options.progress === undefined
               ? {}
@@ -412,6 +432,7 @@ export class CdpElectronProvider implements ElectronObservationPort {
 const authorizeTarget = async (
   targets: readonly CdpEndpointTarget[],
   targetId: string,
+  asarHeaderAdmission: AsarHeaderAdmission,
   signal?: AbortSignal,
 ): Promise<CdpEndpointTarget> => {
   throwIfElectronOperationCancelled(signal, "inspect_electron_page");
@@ -424,6 +445,7 @@ const authorizeTarget = async (
     target.url,
     signal,
     "inspect_electron_page",
+    asarHeaderAdmission,
   );
   throwIfElectronOperationCancelled(signal, "inspect_electron_page");
   if (path === undefined)
@@ -449,9 +471,8 @@ const providerError = (
     operation,
   );
   if (fileFailure !== undefined) return fileFailure;
-  return cause instanceof BrowserObservationError &&
-    cause.operation !== operation
-    ? new BrowserObservationError(operation, cause.reason, { cause })
+  return cause instanceof BrowserObservationError
+    ? cause.forOperation(operation)
     : cause instanceof AnalysisError
       ? cause
       : new ProviderAdapterError(CDP_ELECTRON_PROVIDER_IDENTITY.id, operation, {

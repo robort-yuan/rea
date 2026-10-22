@@ -1,3 +1,4 @@
+import type { AsarHeaderAdmission } from "../../config/asarHeaderAdmission.js";
 import { locateGodotPck } from "../GodotPckLocation.js";
 import { sameRegularFileState } from "../../filesystem/RegularFile.js";
 import type { FileHandle } from "node:fs/promises";
@@ -8,13 +9,14 @@ import type { OwnedFileHandle } from "../../filesystem/OwnedFileHandle.js";
 import { containsPyInstallerArchive } from "../pyinstaller/CArchiveLayout.js";
 import { classifyArtifactContent } from "./ArtifactGraphConstruction.js";
 import { abortIfNeeded } from "../ArtifactHash.js";
+import { claimsExecutableHeader } from "../../domain/binaryTarget.js";
 import { createArtifactClassificationProbe } from "../ArtifactClassificationProbe.js";
 import type { ArtifactOccurrence } from "../../domain/artifactGraph.js";
 import {
   hasZipSignature,
+  locateTrailingZipArchive,
   isZipPackageFormat,
-  zipPackageFormatForPath,
-  type ZipPackageFormat,
+  zipRootPackageFormat,
 } from "../../domain/zipPackageFormat.js";
 import { ArtifactReaderFailure } from "../ArtifactReader.js";
 import type { ArtifactResourceOwner } from "../ArtifactResourceScope.js";
@@ -77,7 +79,10 @@ export const classifyAndHashRootForInventory = async (
   path: string,
   directory: boolean,
   expectedMetadata: Stats,
-  options: Pick<ArtifactInventoryOptions, "resourceScope" | "signal">,
+  options: Pick<
+    ArtifactInventoryOptions,
+    "resourceScope" | "signal" | "asarHeaderAdmission"
+  >,
 ): Promise<RootInventoryClassification> => {
   if (directory)
     return { format: "directory", digest: null, rootSource: undefined };
@@ -105,7 +110,12 @@ export const classifyAndHashRootForInventory = async (
         "integrity",
         `Root artifact changed before inventory: ${path}`,
       );
-    const format = await classifyRootFormat(path, handle, options.signal);
+    const format = await classifyRootFormat(
+      path,
+      handle,
+      options.signal,
+      options.asarHeaderAdmission,
+    );
     const digest = await hashStableRootArtifactHandle(
       path,
       handle,
@@ -143,8 +153,9 @@ const classifyRootFormat = async (
   path: string,
   handle: FileHandle,
   signal?: AbortSignal,
+  asarHeaderAdmission?: AsarHeaderAdmission,
 ): Promise<ArtifactOccurrence["artifact_format"]> => {
-  const probe = createArtifactClassificationProbe();
+  const probe = createArtifactClassificationProbe(asarHeaderAdmission);
   const chunk = Buffer.alloc(64 * 1024);
   while (probe.length < probe.limit) {
     abortIfNeeded(signal);
@@ -188,6 +199,20 @@ const classifyRootFormat = async (
     },
     archiveBytes,
   ).format;
+  // Only bytes no other format claims may lead a located ZIP, so an
+  // executable with an appended archive keeps its executable classification.
+  if (
+    (format === "file" || format === "unknown") &&
+    !claimsExecutableHeader(evidence.prefix, archiveBytes) &&
+    (await locateTrailingZipArchive(archiveBytes, async (position, length) => {
+      abortIfNeeded(signal);
+      const bytes = Buffer.alloc(length);
+      const read = await handle.read(bytes, 0, length, position);
+      abortIfNeeded(signal);
+      return bytes.subarray(0, read.bytesRead);
+    })) !== undefined
+  )
+    return zipRootPackageFormat(lower);
   if (["elf", "pe", "mach-o", "mach-o-universal"].includes(format)) {
     const packaged = await containsPyInstallerArchive(
       handle,
@@ -242,12 +267,6 @@ const readRootFatSliceHeaders = async (
   }
   return { header, sliceHeadersByOffset };
 };
-
-/** App Pack is a verified ZIP root role; nested .app members retain their observed format. */
-const zipRootPackageFormat = (lower: string): ZipPackageFormat =>
-  lower.endsWith(".app")
-    ? "app-pack"
-    : (zipPackageFormatForPath(lower) ?? "zip");
 
 const hasKolyTrailer = async (
   handle: FileHandle,

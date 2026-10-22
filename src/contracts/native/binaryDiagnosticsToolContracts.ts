@@ -1,3 +1,6 @@
+import { inspectByteEntropyInputSchema } from "../../domain/native/byteEntropy.js";
+import { publicInputStrictObject } from "../../domain/publicInput.js";
+import { byteEntropyOutputSchema } from "../toolOutputSchemaGroups.js";
 import {
   inspectRecordedCrashInputSchema,
   recordedCrashSchema,
@@ -18,13 +21,65 @@ import {
   inspectPeResourcesInputSchema,
   peResourcesSchema,
 } from "../../domain/native/peResources.js";
+import {
+  inspectElfNotesInputSchema,
+  elfNotesSchema,
+} from "../../domain/native/elfNotes.js";
 
 /** Caller-selected delivery of completed binary layout Evidence. */
 export const inspectBinaryLayoutRequestSchema =
   inspectBinaryLayoutInputSchema.extend({ detail: analysisDetailSchema });
 
+/**
+ * Public `inspect_byte_entropy` input. The shared constructor runs before
+ * `detail` is added so the advertised input stays closed.
+ */
+export const inspectByteEntropyRequestSchema = publicInputStrictObject(
+  inspectByteEntropyInputSchema.shape,
+).extend({ detail: analysisDetailSchema });
+
 /** Offline binary diagnostics are independent of macOS process/UI providers. */
 export const BINARY_DIAGNOSTICS_TOOL_CONTRACTS = [
+  {
+    name: "inspect_elf_notes",
+    ...toolContractMetadata("inspect_elf_notes"),
+    kind: "native-provider",
+    description:
+      "Inspect one explicit local ELF32/ELF64 image's PT_NOTE program headers and SHT_NOTE sections without executing it or opening a disassembler. Returns note-table file ranges, owners, types, descriptor SHA-256 and hex previews, plus GNU build-id, ABI-tag and gold-version fields when those descriptors match. A missing table is observed absence of those declarations, not proof the image never carried notes in another container. Reads a stable regular file; malformed ELF headers, truncated notes and exhausted budgets return no partial success. Portable on supported Node hosts; no debug package or catalog is required.",
+    inputSchema: inspectElfNotesInputSchema,
+    outputSchema: evidenceResultOf(elfNotesSchema),
+    examples: [
+      {
+        title: "Inspect ELF GNU build-id and ABI-tag notes",
+        input: { path: "/artifacts/program" },
+      },
+    ],
+  },
+  {
+    name: "inspect_byte_entropy",
+    ...toolContractMetadata("inspect_byte_entropy"),
+    kind: "native-provider",
+    description:
+      "Inspect Shannon byte entropy for one explicit local file offline, without execution, extraction or external tools. Returns file-wide SHA-256 and entropy, fixed-block entropy for an optional offset/length window, and adjacent high (>=7.2) and low (<=1.0) runs with exact file offsets. Block size is a power of two from 256 to 65536 (default 4096). Complete output can become very large because it includes one row per selected block, and summary detail still retains that full list. Use a shorter length or a larger block_size; the selected window is limited to 32,768 output blocks. Entropy cannot distinguish compression from encryption. Summary detail returns file entropy plus the ten longest runs; retrieve parent Evidence for the full series. The entire file is read even for a window.",
+    inputSchema: inspectByteEntropyRequestSchema,
+    outputSchema: byteEntropyOutputSchema,
+    examples: [
+      {
+        title: "Profile firmware bytes before extraction",
+        input: { path: "/artifacts/firmware.bin" },
+      },
+      {
+        title: "Summarize a selected byte window",
+        input: {
+          path: "/artifacts/firmware.bin",
+          offset: 4096,
+          length: 65536,
+          block_size: 4096,
+          detail: "summary",
+        },
+      },
+    ],
+  },
   {
     name: "inspect_pe_resources",
     ...toolContractMetadata("inspect_pe_resources"),
@@ -45,7 +100,7 @@ export const BINARY_DIAGNOSTICS_TOOL_CONTRACTS = [
     ...toolContractMetadata("inspect_binary_layout"),
     kind: "native-provider",
     description:
-      "Inspect an explicit local binary without launching it as a host process. Returns file-backed section/segment ranges, linked addresses, original symbol/REL/RELA table identities, complete encoded RELR tables and upstream-derived offsets with unknown per-word locations/addends, raw name bytes, dependency/interpreter names and static mitigation inferences inline with artifact SHA-256 Evidence. Initial profile: ELF64 x86-64 little-endian EXEC/DYN/REL on Linux x64 via caller-supplied Python with unchanged pwntools 4.15.0, pyelftools 0.33 and Unicorn 2.1.2. Runtime addresses/library paths, overall relocation inventory completeness and complete derived GOT/PLT coverage remain unknown. Zero executable entry values mean absence; relocatable entries are not applicable. Upstream can emulate PLT instructions with Unicorn for derived static maps. Uses bounded complete output and owned temporary files/processes; malformed, unsupported or oversized objects return no partial success. Select detail summary to retain the complete layout Evidence in this session and receive only its summary view, then inspect sections, symbols, mitigations or linkage with inspect_analysis_view.",
+      "Inspect an explicit local binary without launching it as a host process. Returns file-backed section/segment ranges, linked addresses, original symbol/REL/RELA table identities, complete encoded RELR tables and upstream-derived offsets with unknown per-word locations/addends, raw name bytes, dependency/interpreter names and static mitigation inferences inline with artifact SHA-256 Evidence. Initial profile: ELF64 x86-64 little-endian EXEC/DYN/REL on Linux x64 via caller-supplied Python with unchanged pwntools 4.15.0, pyelftools 0.33 and Unicorn 2.1.2. Runtime addresses/library paths, overall relocation inventory completeness and complete derived GOT/PLT coverage remain unknown. Zero executable entry values mean absence; relocatable entries are not applicable. Upstream can emulate PLT instructions with Unicorn for derived static maps. Uses bounded complete output and owned temporary files/processes; malformed, unsupported or oversized objects return no partial success. Select detail summary to retain the complete layout Evidence in this session and receive only its summary view, then inspect sections, symbols, mitigations or linkage with inspect_analysis_view. pwntools_timeout_ms is each owned pwntools command's deadline (omitted means 30000 ms, range 1..2147483647, next call). cpuSeconds 30 and the output, diagnostic, and address-space byte allowances have no runtime override.",
     inputSchema: inspectBinaryLayoutRequestSchema,
     outputSchema: analysisDetailOutputSchemaOf(
       binaryLayoutSchema,
@@ -67,7 +122,7 @@ export const BINARY_DIAGNOSTICS_TOOL_CONTRACTS = [
     ...toolContractMetadata("inspect_recorded_crash"),
     kind: "native-provider",
     description:
-      "Inspect a supplied Linux ELF64 amd64 or AArch64 little-endian core without launching its target or attaching to any live PID. Returns all recorded segments, raw note owners/descriptors and source ranges, every Linux CORE PRSTATUS thread/register and SIGINFO fields inline with SHA-256 Evidence. Historical PID is recorded metadata; current process/file identity, note coverage and signal-thread associations stay unknown. Optionally add derived core-only GDB/pwndbg mapping candidates through explicit BYO configuration; zero map flags mean unknown permissions. Uses the same stable snapshot for both stages, bounded complete output and owned cleanup. Linux x64 host profile: unchanged pwntools 4.15.0/pyelftools 0.33/Unicorn 2.1.2; optional unchanged pwndbg 2026.09.15. No implicit executable/library pairing, GDB command language, host configuration changes or dependency installation.",
+      "Inspect a supplied Linux ELF64 amd64 or AArch64 little-endian core without launching its target or attaching to any live PID. Returns all recorded segments, raw note owners/descriptors and source ranges, every Linux CORE PRSTATUS thread/register and SIGINFO fields inline with SHA-256 Evidence. Historical PID is recorded metadata; current process/file identity, note coverage and signal-thread associations stay unknown. Optionally add derived core-only GDB/pwndbg mapping candidates through explicit BYO configuration; zero map flags mean unknown permissions. Uses the same stable snapshot for both stages, bounded complete output and owned cleanup. Linux x64 host profile: unchanged pwntools 4.15.0/pyelftools 0.33/Unicorn 2.1.2; optional unchanged pwndbg 2026.09.15. No implicit executable/library pairing, GDB command language, host configuration changes or dependency installation. pwntools_timeout_ms is each owned pwntools command's deadline (omitted means 30000 ms, range 1..2147483647, next call). cpuSeconds 30 and the output, diagnostic, and address-space byte allowances have no runtime override.",
     inputSchema: inspectRecordedCrashInputSchema,
     outputSchema: evidenceResultOf(recordedCrashSchema),
     examples: [

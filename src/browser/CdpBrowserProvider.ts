@@ -68,6 +68,7 @@ import {
   type CdpTargetSession,
 } from "./CdpTargetSession.js";
 import { capturePage, type CapturedPage } from "./CdpPageCapture.js";
+import { selectedCdpCommandTimeoutMs } from "../domain/browserDeadline.js";
 import { fetchWebSourceMaps } from "./WebSourceMapFetcher.js";
 import { authorizeCdpTarget } from "./CdpAuthorizedTarget.js";
 import { observeCdpSession } from "./CdpObservationSession.js";
@@ -359,7 +360,7 @@ interface CdpTargetOperationSession<Input> {
 const withTargetSession = async <
   Input extends Pick<
     InspectWebPageInput,
-    "cdp_endpoint" | "target_id" | "allowed_origins"
+    "cdp_endpoint" | "target_id" | "allowed_origins" | "command_timeout_ms"
   >,
   Output,
 >(
@@ -370,19 +371,31 @@ const withTargetSession = async <
   owner: CdpTargetSessionOwner,
   partialObservation?: (output: Output) => AnalysisPartialObservation,
 ): Promise<Output> => {
+  const commandTimeoutMs = selectedCdpCommandTimeoutMs(
+    input.command_timeout_ms,
+  );
   const endpoint = await openCdpEndpoint(
     input.cdp_endpoint,
     operation,
     options.signal,
     undefined,
     owner,
+    commandTimeoutMs,
   );
   let targetSession: CdpTargetSession | undefined;
   let outcome: Result<Output, unknown>;
   let cleanupFailure: AnalysisError | undefined;
   try {
-    const target = authorizeTarget(endpoint.discovery, input);
-    const scopedInput = scopeToTargetOrigin(input, target);
+    const { target, allowedOrigins } = authorizeCdpTarget(
+      endpoint.discovery,
+      input,
+      operation,
+    );
+    // The authorization owner already derived the target origin scope.
+    const scopedInput =
+      input.allowed_origins.length > 0
+        ? input
+        : { ...input, allowed_origins: [...allowedOrigins] };
     targetSession =
       endpoint.connection === undefined
         ? await openCdpTargetSession(
@@ -390,7 +403,7 @@ const withTargetSession = async <
             target,
             operation,
             options.signal,
-            undefined,
+            { commandTimeoutMs },
             owner,
           )
         : await attachCdpTargetSession(
@@ -543,31 +556,13 @@ const selectTargets = (
   };
 };
 
-const authorizeTarget = (
-  discovery: CdpEndpointDiscovery,
-  input: Pick<InspectWebPageInput, "target_id" | "allowed_origins">,
-): CdpEndpointTarget => {
-  return authorizeCdpTarget(discovery, input, "inspect_web_page").target;
-};
-
-const scopeToTargetOrigin = <T extends { allowed_origins: readonly string[] }>(
-  input: T,
-  target: CdpEndpointTarget,
-): T => {
-  if (input.allowed_origins.length > 0) return input;
-  const origin = sanitizeBrowserUrl(target.url).origin;
-  if (origin === null)
-    throw new BrowserObservationError("inspect_web_page", "target_not_allowed");
-  return { ...input, allowed_origins: [origin] };
-};
-
 const providerError = (
   cause: unknown,
   operation: BrowserObservationOperation,
   signal?: AbortSignal,
 ): AnalysisError =>
-  cause instanceof BrowserObservationError && cause.operation !== operation
-    ? new BrowserObservationError(operation, cause.reason, { cause })
+  cause instanceof BrowserObservationError
+    ? cause.forOperation(operation)
     : cause instanceof AnalysisError
       ? cause
       : signal?.aborted === true

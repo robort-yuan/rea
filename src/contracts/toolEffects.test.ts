@@ -25,7 +25,9 @@ const EXECUTION_WORDING_EXCEPTIONS: Readonly<Record<string, string>> = {
     "spawned targets remain suspended until resume_frida_session",
   inspect_native_load_image: "states that it does not execute the target",
   resolve_native_call_targets: "states that it does not execute code",
+  inspect_byte_entropy: "states that it profiles the file without execution",
   inspect_pe_resources: "states that it does not execute the image",
+  inspect_elf_notes: "states that it does not execute the image",
   inspect_desktop_application:
     "states that directory triage performs no target execution",
   inspect_go_binary: "reads embedded metadata without executing the target",
@@ -66,6 +68,8 @@ const EXECUTION_WORDING_EXCEPTIONS: Readonly<Record<string, string>> = {
     "inspects the operator-selected adb client; never starts its server",
   list_adb_devices: "may start the local adb server, which REA does not own",
   inspect_firmware_regions: "states there is no target execution",
+  inspect_gpu_code_objects:
+    "reads static declarations without executing GPU code",
   inspect_model_artifact:
     "states that model code and inference are never executed",
   extract_firmware: "states that extracted code is never executed",

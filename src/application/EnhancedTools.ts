@@ -151,8 +151,12 @@ export class EnhancedTools {
           ? this.executeValidated({ name, input: parsed.data }, signal)
           : invalidEnhancedInput(name, parsed.error);
       }
-      case "get_objc_protocols":
-        return this.executeValidated({ name, input: {} }, signal);
+      case "get_objc_protocols": {
+        const parsed = enhancedInputSchemas.get_objc_protocols.safeParse(input);
+        return parsed.success
+          ? this.executeValidated({ name, input: parsed.data }, signal)
+          : invalidEnhancedInput(name, parsed.error);
+      }
       case "batch_decompile": {
         const parsed = enhancedInputSchemas.batch_decompile.safeParse(input);
         return parsed.success
@@ -194,12 +198,13 @@ export class EnhancedTools {
   ): EnhancedResult {
     switch (call.name) {
       case "inspect_native_dispatch_metadata":
-        return this.#inspectNativeDispatchMetadata(
-          call.input.max_records,
+        return inspectNativeDispatch(this.analysis, call.input.max_records, {
           signal,
-          call.input.objc_class_import_addresses,
-          call.input.objc_class_import_addresses_complete,
-        );
+          objcClassImportAddresses: call.input.objc_class_import_addresses,
+          objcClassImportAddressesComplete:
+            call.input.objc_class_import_addresses_complete,
+          maxInputBytes: call.input.max_input_bytes,
+        });
       case "get_objc_classes":
         return this.#objcClasses(call.input.pattern, signal);
       case "get_objc_protocols":
@@ -413,21 +418,6 @@ export class EnhancedTools {
           reason: coverageReason.length === 0 ? null : coverageReason,
         },
       }),
-    );
-  }
-
-  #inspectNativeDispatchMetadata(
-    maxRecords: number,
-    signal?: AbortSignal,
-    objcClassImportAddresses?: readonly string[],
-    objcClassImportAddressesComplete?: boolean,
-  ): EnhancedResult {
-    return inspectNativeDispatch(
-      this.analysis,
-      maxRecords,
-      signal,
-      objcClassImportAddresses,
-      objcClassImportAddressesComplete,
     );
   }
 

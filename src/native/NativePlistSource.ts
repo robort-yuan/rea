@@ -21,6 +21,7 @@ import { BinaryTargetError } from "../domain/configurationErrors.js";
 import { ProviderAdapterError } from "../domain/providerAdapterError.js";
 import { ProviderCleanupError } from "../domain/providerCleanupError.js";
 import { projectAnalysisError } from "../domain/analysisErrorProjection.js";
+import { fixedAllowanceOptions } from "../domain/fixedAllowanceRemediation.js";
 import { err, ok, type Result } from "../domain/result.js";
 import { ArtifactReaderFailure } from "../artifacts/ArtifactReader.js";
 import {
@@ -33,7 +34,10 @@ import {
 } from "../artifacts/ArtifactFileOperation.js";
 import type { ArtifactResourceScope } from "../artifacts/ArtifactResourceScope.js";
 import { NATIVE_MACOS_PROVIDER_IDENTITY as IDENTITY } from "./NativeMacOSProviderMetadata.js";
-import { MAX_NATIVE_PLIST_BYTES } from "./parsers/plist.js";
+import {
+  MAX_NATIVE_PLIST_BYTES,
+  NATIVE_PLIST_INPUT_ALLOWANCE,
+} from "./parsers/plist.js";
 
 /** Resolved lookup identity and selection intent, independent of file readiness. */
 export interface NativePlistSelection {
@@ -214,15 +218,25 @@ export const nativePlistFailure = (
     );
   if (cause instanceof ArtifactReaderFailure && cause.reason === "limit") {
     const resource = cause.boundary ?? "memory";
-    return new AnalysisResourceConstraintError(
-      "inspect_plist",
-      resource,
-      cause.message,
-      resource === "file-size"
-        ? { maximum_input_bytes: MAX_NATIVE_PLIST_BYTES }
-        : null,
-      { cause, capturedOutput, retryable: false },
-    );
+    return resource === "file-size"
+      ? new AnalysisResourceConstraintError(
+          "inspect_plist",
+          resource,
+          cause.message,
+          { maximum_input_bytes: MAX_NATIVE_PLIST_BYTES },
+          {
+            cause,
+            capturedOutput,
+            ...fixedAllowanceOptions(NATIVE_PLIST_INPUT_ALLOWANCE, "input"),
+          },
+        )
+      : new AnalysisResourceConstraintError(
+          "inspect_plist",
+          resource,
+          cause.message,
+          null,
+          { cause, capturedOutput, retryable: false },
+        );
   }
   if (selection === undefined)
     return new ProviderAdapterError(IDENTITY.id, "inspect_plist", {
@@ -299,7 +313,7 @@ export const readNativePlistBytes = (
     if (before.size > BigInt(MAX_NATIVE_PLIST_BYTES))
       throw new ArtifactReaderFailure(
         "limit",
-        `Selected plist exceeds ${String(MAX_NATIVE_PLIST_BYTES)} bytes: ${input.selection.path}`,
+        `Selected plist exceeds ${String(MAX_NATIVE_PLIST_BYTES)} bytes: ${input.selection.path}. This release has no runtime override for this ${String(MAX_NATIVE_PLIST_BYTES)}-byte allowance.`,
         { boundary: "file-size" },
       );
     const bytes = Buffer.allocUnsafe(Number(before.size));
@@ -315,7 +329,7 @@ export const readNativePlistBytes = (
     if (after.size > BigInt(MAX_NATIVE_PLIST_BYTES))
       throw new ArtifactReaderFailure(
         "limit",
-        `Selected plist grew beyond ${String(MAX_NATIVE_PLIST_BYTES)} bytes: ${input.selection.path}`,
+        `Selected plist grew beyond ${String(MAX_NATIVE_PLIST_BYTES)} bytes: ${input.selection.path}. This release has no runtime override for this ${String(MAX_NATIVE_PLIST_BYTES)}-byte allowance.`,
         { boundary: "file-size" },
       );
     if (
@@ -335,7 +349,10 @@ export const readNativePlistBytes = (
     return bytes;
   });
 
-/** Bytes examined for leading markup when `file` reports only text. */
+/**
+ * Bytes examined for leading markup when `file` reports only text.
+ * This is a probe window, not a document cap, and has no runtime override.
+ */
 const PLIST_MARKUP_PROBE_BYTES = 4096;
 
 /** Source classification remains independent of plutil's converted value format. */

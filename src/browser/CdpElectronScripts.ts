@@ -1,3 +1,4 @@
+import type { AsarHeaderAdmission } from "../config/asarHeaderAdmission.js";
 import type {
   ElectronPageInspection,
   InspectElectronPageInput,
@@ -11,9 +12,10 @@ import type { ElectronScriptDraft } from "./CdpElectronScriptEvents.js";
 import { authorizedElectronFile } from "./ElectronFileScope.js";
 import { compareUnicodeCodePoints } from "../domain/unicodeCodePointOrder.js";
 import { AnalysisCancelledError } from "../domain/analysisErrorCore.js";
+import { selectedCdpCommandTimeoutMs } from "../domain/browserDeadline.js";
 import {
   CDP_SCRIPT_SOURCE_BYTES_OMISSION_REASON,
-  CDP_SCRIPT_SOURCE_DEADLINE_OMISSION_REASON,
+  cdpScriptSourceDeadlineOmissionReason,
   CdpScriptSourceBudget,
 } from "./CdpScriptSourceBudget.js";
 
@@ -25,6 +27,7 @@ interface ElectronScriptCaptureInput {
   readonly scripts: readonly ElectronScriptDraft[];
   readonly frameIds: ReadonlySet<string>;
   readonly completeness: CdpCaptureCompleteness;
+  readonly asarHeaderAdmission: AsarHeaderAdmission;
 }
 
 /** Normalize local script metadata and optionally approved source. */
@@ -34,9 +37,14 @@ export const captureElectronScripts = async (
   let total = 0;
   const items: ElectronPageInspection["scripts"]["items"] = [];
   const seen = new Set<string>();
+  const commandTimeoutMs = selectedCdpCommandTimeoutMs(
+    input.request.command_timeout_ms,
+  );
+  const deadlineOmission =
+    cdpScriptSourceDeadlineOmissionReason(commandTimeoutMs);
   const sourceBudget =
     input.request.include_script_sources && input.scripts.length > 0
-      ? new CdpScriptSourceBudget(input.signal)
+      ? new CdpScriptSourceBudget(input.signal, commandTimeoutMs)
       : undefined;
   try {
     for (const script of input.scripts) {
@@ -45,6 +53,7 @@ export const captureElectronScripts = async (
         script.rawUrl,
         input.signal,
         "inspect_electron_page",
+        input.asarHeaderAdmission,
       );
       if (path === undefined) {
         input.completeness.exclude("scripts", "out_of_target_scope");
@@ -68,7 +77,7 @@ export const captureElectronScripts = async (
       let source: ElectronScriptSource = input.request.include_script_sources
         ? {
             included: false,
-            reason: CDP_SCRIPT_SOURCE_DEADLINE_OMISSION_REASON,
+            reason: deadlineOmission,
           }
         : {
             included: false,
@@ -129,7 +138,9 @@ const captureScriptSource = async (
     excludeScriptSource(input.completeness);
     return {
       included: false,
-      reason: CDP_SCRIPT_SOURCE_DEADLINE_OMISSION_REASON,
+      reason: cdpScriptSourceDeadlineOmissionReason(
+        sourceBudget.commandTimeoutMs,
+      ),
     };
   }
   if (!sourceBudget.admit(text)) {

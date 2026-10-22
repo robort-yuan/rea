@@ -252,7 +252,14 @@ Successfully observed identity replacements use `identity_changed` with a null
 system code. Unstable symlink targets are omitted; already observed directory
 metadata remains available. The affected root stays incomplete, so omitted
 entries do not prove deletion. A path missing at its initial lookup remains an
-observed absence. Cancellation and unexpected I/O failures still stop capture.
+observed absence.
+
+Before launch, a selected root below a non-directory, or one whose lookup is
+denied or otherwise unavailable, fails capture. After admission, a root or descendant lookup that
+reports a missing path or a non-directory ancestor is an observed absence. A
+denied or otherwise unavailable lookup records an `entry_unavailable` omission
+for that path instead, and its root stays incomplete. Cancellation and
+unexpected I/O failures still stop capture.
 
 Terminal frame `data` is the comparison text after the selected normalization.
 New captures also preserve `raw_data` when normalization changes a PTY chunk;
@@ -544,6 +551,15 @@ an unset or empty compiler setting keeps the normal `xcrun swiftc` path. A
 missing or relative SDK/compiler path fails with an actionable prerequisite
 error before compilation. An incompatible installation reports the compiler's
 bounded diagnostics; REA does not repair or replace the toolchain.
+
+The compile deadline is `REA_SWIFTC_COMPILE_TIMEOUT_MS`. An omitted value is
+120,000 ms, and accepted values are integers from 1 to 2,147,483,647. REA reads
+the variable from the environment that starts the process and keeps that
+deadline for every helper compile in that process. Restart REA to apply a
+change; the next ownership-helper compile uses the new value. A timeout names
+the effective milliseconds. Invalid values fail configuration validation at
+startup. Embedded compiler diagnostics are cut at 512 bytes, and this release
+has no runtime override for that excerpt.
 
 For example, select paths from your existing Xcode or Command Line Tools
 installation **before** entering an enforced write boundary:
