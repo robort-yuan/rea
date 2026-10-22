@@ -156,11 +156,19 @@ export const runFirmwareCommand = async (context: {
   };
   checkInterruption();
   const runId = `rea-firmware-${randomUUID()}`;
+  // RLIMIT_FSIZE applies to every regular file the producer writes, including
+  // its mandatory report and log outside the staging tree. Polling and the
+  // final inventory enforce the aggregate staging budget, so this per-file
+  // ceiling admits the largest single file either budget allows, plus one
+  // byte: a report or staged file the kernel stops at the ceiling then still
+  // exceeds its budget instead of ending exactly at it and passing as complete.
+  const fileSizeLimit =
+    Math.max(context.outputBudget?.bytes ?? 0, FIRMWARE_LIMITS.reportBytes) + 1;
   const spawned = await (context.launcher ?? spawnOwnedProviderProcess)({
     command: context.limiter,
     arguments: [
       `--as=${FIRMWARE_LIMITS.addressSpaceBytes}`,
-      `--fsize=${context.outputBudget?.bytes ?? FIRMWARE_LIMITS.reportBytes}`,
+      `--fsize=${fileSizeLimit}`,
       "--core=0",
       `--cpu=${FIRMWARE_LIMITS.cpuSeconds}`,
       "--",
