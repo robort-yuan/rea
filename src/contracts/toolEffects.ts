@@ -404,6 +404,11 @@ export const TOOL_EFFECTS: Readonly<Record<string, ToolEffects>> = {
     launchesProcess: true,
     accessesNetwork: true,
   }),
+  inspect_adb_view_hierarchy: effects({
+    mutatesSession: true,
+    launchesProcess: true,
+    accessesNetwork: true,
+  }),
   read_adb_setting: effects({
     mutatesSession: true,
     launchesProcess: true,
