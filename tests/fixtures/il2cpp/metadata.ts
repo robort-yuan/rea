@@ -32,7 +32,23 @@ export interface Il2cppMetadataFixtureOptions {
     readonly genericContainers: number;
     readonly parameters: number;
   };
+  /** Write FIXTURE_GENERIC_CONTAINERS and point their owners at them. */
+  readonly genericOwners?: boolean;
 }
+
+/**
+ * Generic containers as [owner, argument count, is method, first parameter]:
+ * System.Größe<T>, Game.Player.Slot.Add<T1, T2> and System.Größe.ToString<T>.
+ */
+export const FIXTURE_GENERIC_CONTAINERS = [
+  [3, 1, 0, 0],
+  [2, 2, 1, 1],
+  [4, 1, 1, 3],
+] as const;
+const containerOf = (owner: number, isMethod: number) =>
+  FIXTURE_GENERIC_CONTAINERS.findIndex(
+    ([index, , method]) => index === owner && method === isMethod,
+  );
 
 export const FIXTURE_IMAGES = [
   { name: "Assembly-CSharp.dll", type_start: 0, type_count: 3 },
@@ -216,6 +232,7 @@ const encodeMethods = (
   { D, T, P, G }: Readonly<Record<"D" | "T" | "P" | "G", Width>>,
   returnToken: number,
   intern: (value: string) => number,
+  genericOwners: boolean,
 ) => {
   const recordBytes = { methods: methodBytes };
   const methods = Buffer.alloc(rows.length * recordBytes.methods);
@@ -238,7 +255,12 @@ const encodeMethods = (
             (parameter) => parameter.method === index,
           ),
     );
-    writeIndex(methods, parameterStart + P, G, -1);
+    writeIndex(
+      methods,
+      parameterStart + P,
+      G,
+      genericOwners ? containerOf(index, 1) : -1,
+    );
     methods.writeUInt32LE(
       FIXTURE_METHOD_TOKENS[index]!,
       parameterStart + P + G,
@@ -365,6 +387,25 @@ const zeroFilledSection = (
     ? []
     : [[name, { bytes: Buffer.alloc(count * recordBytes), count }]];
 
+/** FIXTURE_GENERIC_CONTAINERS, or zero-filled padding rows. */
+const genericContainerSection = (
+  genericOwners: boolean,
+  count: number,
+): [SectionName, SectionContent][] =>
+  genericOwners
+    ? [
+        [
+          "genericContainers",
+          {
+            bytes: Buffer.from(
+              new Int32Array(FIXTURE_GENERIC_CONTAINERS.flat()).buffer,
+            ),
+            count,
+          },
+        ],
+      ]
+    : zeroFilledSection("genericContainers", count, 16);
+
 /** Real rows followed by zero-filled rows that no owner claims. */
 const paddedRows = (
   rows: Buffer,
@@ -384,6 +425,7 @@ const encodeTypes = ({
   typeIndexFields,
   named,
   intern,
+  genericOwners,
 }: {
   readonly typeRows: ReturnType<typeof fixtureRows>["types"];
   readonly recordSize: number;
@@ -395,6 +437,7 @@ const encodeTypes = ({
     readonly events: readonly { declaring_type: number }[];
   };
   readonly intern: (value: string) => number;
+  readonly genericOwners: boolean;
 }) => {
   const types = Buffer.alloc(typeRows.length * recordSize);
   typeRows.forEach((type, index) => {
@@ -406,7 +449,7 @@ const encodeTypes = ({
     // unrelated to nesting; the reader must use nestedTypes instead.
     for (let field = 0; field < typeIndexFields; field += 1, at += T)
       writeIndex(types, at, T, 0x2a);
-    writeIndex(types, at, G, -1);
+    writeIndex(types, at, G, genericOwners ? containerOf(index, 0) : -1);
     at += G + 4;
     const fieldStart = FIXTURE_FIELDS.findIndex(
       (field) => field.declaring_type === index,
@@ -460,7 +503,10 @@ export const createIl2cppMetadataFixture = (
     properties: options.propertiesAndEvents ? FIXTURE_PROPERTIES : [],
     events: options.propertiesAndEvents ? FIXTURE_EVENTS : [],
   };
-  const genericContainers = options.wide?.genericContainers ?? 0;
+  const genericOwners = options.genericOwners === true;
+  const genericContainers = genericOwners
+    ? FIXTURE_GENERIC_CONTAINERS.length
+    : (options.wide?.genericContainers ?? 0);
   const parameterCount = Math.max(
     options.wide?.parameters ?? 0,
     FIXTURE_PARAMETERS.length,
@@ -514,6 +560,7 @@ export const createIl2cppMetadataFixture = (
     typeIndexFields,
     named,
     intern,
+    genericOwners,
   });
 
   const images = Buffer.alloc(imageRows.length * recordBytes.images);
@@ -534,6 +581,7 @@ export const createIl2cppMetadataFixture = (
     { D, T, P, G },
     returnToken,
     intern,
+    genericOwners,
   );
 
   const {
@@ -567,7 +615,7 @@ export const createIl2cppMetadataFixture = (
     ["properties", { bytes: properties, count: named.properties.length }],
     ["events", { bytes: events, count: named.events.length }],
     ["methods", { bytes: methods, count: rows.methods.length }],
-    ...zeroFilledSection("genericContainers", genericContainers, 16),
+    ...genericContainerSection(genericOwners, genericContainers),
     ["nestedTypes", { bytes: nested, count: nestedTypeEntries.length }],
     ["typeDefinitions", { bytes: types, count: typeRows.length }],
     ["images", { bytes: images, count: imageRows.length }],
