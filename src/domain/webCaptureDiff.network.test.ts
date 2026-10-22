@@ -50,6 +50,67 @@ const redirectCapture = (resourceType: string | null): WebPageInspection => {
   return capture;
 };
 
+describe("omitted network initiator URLs", () => {
+  const capture = () => unselectedShapes(passiveNetworkCapture());
+
+  const omitUrl = (inspection: WebPageInspection) => {
+    inspection.network.requests[0]!.initiator.url = null;
+    inspection.completeness.policy_filtered_sections.push("network_initiators");
+    inspection.completeness.excluded.push({
+      section: "network_initiators",
+      reason: "disallowed_origin",
+      count: 1,
+    });
+    return inspection;
+  };
+
+  it.each(["both", "forward", "reverse"] as const)(
+    "does not infer an initiator change from %s omissions",
+    (mode) => {
+      const retained = capture();
+      const omitted = omitUrl(structuredClone(retained));
+      const left = mode === "forward" ? retained : omitted;
+      const right = mode === "reverse" ? retained : structuredClone(omitted);
+      expect(compare(left, right)).toMatchObject({
+        status: "unknown",
+        total_changes: 0,
+        changes: [],
+      });
+    },
+  );
+
+  it("retains known initiator and response differences", () => {
+    const retained = capture();
+    retained.network.requests[0]!.initiator.url =
+      "https://app.example.test/main.js";
+    const changedInitiator = structuredClone(retained);
+    changedInitiator.network.requests[0]!.initiator.url =
+      "https://app.example.test/other.js";
+    expect(compare(retained, changedInitiator)).toMatchObject({
+      status: "changed",
+      total_changes: 1,
+    });
+
+    const omitted = omitUrl(structuredClone(retained));
+    const changedResponse = structuredClone(omitted);
+    changedResponse.network.requests[0]!.status = 201;
+    expect(compare(omitted, changedResponse)).toMatchObject({
+      status: "changed",
+      total_changes: 1,
+    });
+  });
+
+  it("keeps unrelated filtering independent of network equality", () => {
+    const retained = capture();
+    const unrelated = structuredClone(retained);
+    unrelated.completeness.policy_filtered_sections.push("console_text");
+    expect(compare(retained, unrelated)).toMatchObject({
+      status: "unchanged",
+      total_changes: 0,
+    });
+  });
+});
+
 describe("nullable redirect resource types", () => {
   it.each([true, false])(
     "retains uncertainty when a redirect type is omitted (reversed=%s)",

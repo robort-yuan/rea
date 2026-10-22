@@ -403,6 +403,19 @@ const networkDimension = (
   );
   const requestIdentities = networkIdentityCoverage(before, after);
   const metadata = sharedNetworkMetadata(before, after);
+  // An omitted initiator URL is not evidence of either equality or change.
+  // Keep all other retained request facts comparable.
+  const incompleteInitiatorUrls = new Set<string>();
+  let initiatorsComplete = true;
+  for (const inspection of [before, after]) {
+    const limited = !sectionsComplete(inspection, ["network_initiators"]);
+    for (const request of inspection.network.requests) {
+      if (limited) {
+        incompleteInitiatorUrls.add(networkIdentity(request));
+        initiatorsComplete = false;
+      }
+    }
+  }
   const selected = bodyShapesSelected(before) && bodyShapesSelected(after);
   const webSocketShapes =
     webSocketShapesSelected(before) && webSocketShapesSelected(after);
@@ -410,6 +423,7 @@ const networkDimension = (
     metadataFields: metadata.fields,
     ambiguousIdentities: requestIdentities.ambiguousIdentities,
     inventoryComplete: requestsComplete,
+    incompleteInitiatorUrls,
   };
   const sources = new Map<string, BodyShapeSources>();
   if (selected) {
@@ -484,6 +498,7 @@ const networkDimension = (
       ...afterWebSocketPayload,
     ]),
     requestsComplete &&
+      initiatorsComplete &&
       requestIdentities.complete &&
       webSocketInventoryComplete &&
       shapesComplete &&
@@ -524,6 +539,7 @@ const networkMap = (
     >;
     readonly ambiguousIdentities: ReadonlySet<string>;
     readonly inventoryComplete: boolean;
+    readonly incompleteInitiatorUrls: ReadonlySet<string>;
   },
 ): ReadonlyMap<string, string> => {
   const grouped = new Map<string, string[]>();
@@ -564,7 +580,9 @@ const networkMap = (
             };
           },
         ),
-        initiator: request.initiator,
+        initiator: projection.incompleteInitiatorUrls.has(identity)
+          ? (({ url: _unknownUrl, ...known }) => known)(request.initiator)
+          : request.initiator,
         ...(shapes?.request === true
           ? { request_shape: request.body_shapes.request }
           : {}),
