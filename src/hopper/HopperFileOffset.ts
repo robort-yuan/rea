@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
-import { constants } from "node:fs";
-import { open, type FileHandle } from "node:fs/promises";
+import type { FileHandle } from "node:fs/promises";
 import { z } from "zod";
 
 import type { AnalysisError } from "../domain/analysisErrorBase.js";
@@ -21,6 +20,17 @@ import {
   validateFatSlice,
 } from "../domain/apple/machoContainer.js";
 import { err, ok, type Result } from "../domain/result.js";
+import { ProviderCleanupError } from "../domain/providerCleanupError.js";
+import type { OwnedFileHandle } from "../filesystem/OwnedFileHandle.js";
+import {
+  RegularFileCancelled,
+  RegularFileCleanupFailure,
+  withOwnedRegularFile,
+} from "../filesystem/OwnedRegularFile.js";
+import {
+  NonRegularFileReadError,
+  RegularFileOperationCancelled,
+} from "../filesystem/RegularFile.js";
 
 const OPERATION = "address_to_file_offset";
 const MAX_FAT_ARCHITECTURES = 128;
@@ -39,12 +49,24 @@ const observationSchema = z.strictObject({
     .nullable(),
 });
 type Observation = z.infer<typeof observationSchema>;
+type SourceSnapshot = Awaited<ReturnType<typeof readSourceSnapshot>>;
+type FileOffsetTarget = Pick<BinaryTarget, "path" | "sha256">;
+
+const changedSourceReason = (
+  path: string,
+  expected: string,
+  observed: string,
+): string =>
+  `Source ${path} differs from the admitted artifact: expected SHA-256 ${expected}, observed ${observed}. Reopen the changed source for a new analysis identity.`;
 
 /** Bind native image-relative offsets to coordinates in the admitted source bytes. */
 export async function mapHopperFileOffset(
   target: BinaryTarget,
   value: JsonValue,
   signal?: AbortSignal,
+  options?: {
+    readonly retainFailedClose?: (owner: OwnedFileHandle) => void;
+  },
 ): Promise<Result<JsonValue, AnalysisError>> {
   const parsed = observationSchema.safeParse(value);
   if (!parsed.success)
@@ -77,7 +99,11 @@ export async function mapHopperFileOffset(
       }),
     );
   try {
-    const captured = await snapshotFromPath(target.path, signal);
+    const captured = await snapshotFromPath(
+      target.path,
+      signal,
+      options?.retainFailedClose,
+    );
     if (!captured.ok)
       return err(
         new AnalysisArtifactChangedError(
@@ -97,7 +123,11 @@ export async function mapHopperFileOffset(
         }),
       );
     if (snapshot.sha256 !== target.sha256) {
-      const reason = `Source ${target.path} differs from the admitted artifact: expected SHA-256 ${target.sha256}, observed ${snapshot.sha256}. Reopen the changed source for a new analysis identity.`;
+      const reason = changedSourceReason(
+        target.path,
+        target.sha256,
+        snapshot.sha256,
+      );
       return err(
         new AnalysisArtifactChangedError(OPERATION, target.path, reason, {
           partialObservation: partial(reason),
@@ -114,13 +144,53 @@ export async function mapHopperFileOffset(
       source_path: target.path,
     });
   } catch (cause: unknown) {
+    if (cause instanceof RegularFileCleanupFailure) {
+      const cancellation =
+        signal?.aborted === true
+          ? { reason: signal.reason }
+          : cause.completionCancellation;
+      return err(
+        cancellation === undefined
+          ? cleanupFailure(cause, target, observation, partial)
+          : cancellationWithCleanup(
+              cause,
+              target,
+              observation,
+              partial,
+              cancellation.reason,
+            ),
+      );
+    }
     if (signal?.aborted)
       return err(
         new AnalysisCancelledError(OPERATION, {
-          cause,
+          cause: signal.reason,
           partialObservation: partial("Source verification was cancelled"),
         }),
       );
+    if (cause instanceof RegularFileCancelled)
+      return err(
+        new AnalysisCancelledError(OPERATION, {
+          cause: cause.reason,
+          partialObservation: partial("Source verification was cancelled"),
+        }),
+      );
+    if (cause instanceof RegularFileOperationCancelled)
+      return err(
+        new AnalysisCancelledError(OPERATION, {
+          cause: cause.reason,
+          partialObservation: partial("Source verification was cancelled"),
+        }),
+      );
+    if (cause instanceof NonRegularFileReadError) {
+      const reason = `Source ${target.path} is no longer a regular file. Restore the admitted executable or reopen a regular source.`;
+      return err(
+        new AnalysisArtifactChangedError(OPERATION, target.path, reason, {
+          cause,
+          partialObservation: partial(reason),
+        }),
+      );
+    }
     const reason = `Cannot verify original source bytes: ${cause instanceof Error ? cause.message : String(cause)}`;
     const code =
       typeof cause === "object" && cause !== null && "code" in cause
@@ -142,17 +212,181 @@ export async function mapHopperFileOffset(
   }
 }
 
-async function snapshotFromPath(path: string, signal?: AbortSignal) {
-  const file = await open(path, constants.O_RDONLY | constants.O_NONBLOCK);
-  try {
-    if (!(await file.stat()).isFile())
-      return err(
-        `Source ${path} is no longer a regular file. Restore the admitted executable or reopen a regular source.`,
+async function snapshotFromPath(
+  path: string,
+  signal?: AbortSignal,
+  retainFailedClose?: (owner: OwnedFileHandle) => void,
+) {
+  return withOwnedRegularFile(
+    path,
+    {
+      symlinks: "follow",
+      ...(signal === undefined ? {} : { signal }),
+      ...(retainFailedClose === undefined ? {} : { retainFailedClose }),
+    },
+    async (file) => {
+      if (!(await file.stat()).isFile())
+        return err(
+          `Source ${path} is no longer a regular file. Restore the admitted executable or reopen a regular source.`,
+        );
+      return ok(await readSourceSnapshot(file, signal));
+    },
+  );
+}
+
+const cleanupReason = (
+  cause: RegularFileCleanupFailure<Result<SourceSnapshot, string>>,
+): string =>
+  `Source descriptor cleanup failed: ${cause.cleanupCause instanceof Error ? cause.cleanupCause.message : String(cause.cleanupCause)}`;
+
+/** Mapping facts from a completed read, only when the bytes still match the admitted source. */
+const completedMappingDiagnostics = (
+  cause: RegularFileCleanupFailure<Result<SourceSnapshot, string>>,
+  target: FileOffsetTarget,
+  observation: Observation,
+): Readonly<Record<string, JsonValue>> | undefined => {
+  if (cause.outcome.kind !== "completed" || !cause.outcome.value.ok)
+    return undefined;
+  const snapshot = cause.outcome.value.value;
+  if (snapshot.sha256 !== target.sha256)
+    return {
+      original_file_offset: {
+        available: false,
+        reason: changedSourceReason(
+          target.path,
+          target.sha256,
+          snapshot.sha256,
+        ),
+      },
+    };
+  const mapped = originalOffset(snapshot, observation);
+  return {
+    original_file_offset: mapped.ok
+      ? {
+          available: true,
+          file_offset: mapped.value + observation.provider_file_offset,
+          image_base_file_offset: mapped.value,
+          source_path: target.path,
+        }
+      : { available: false, reason: mapped.error },
+  };
+};
+
+function cancellationWithCleanup(
+  cause: RegularFileCleanupFailure<Result<SourceSnapshot, string>>,
+  target: FileOffsetTarget,
+  observation: Observation,
+  partial: (reason: string) => FileOffsetPartialObservation,
+  cancellationReason: unknown,
+): AnalysisError {
+  const reason = cleanupReason(cause);
+  const diagnostics = completedMappingDiagnostics(cause, target, observation);
+  return new AnalysisCancelledError(OPERATION, {
+    cause: cancellationReason,
+    cleanup: { reason, resources: [target.path] },
+    partialObservation: partial("Source verification was cancelled"),
+    ...(diagnostics === undefined ? {} : { diagnostics }),
+  });
+}
+
+function cleanupFailure(
+  cause: RegularFileCleanupFailure<Result<SourceSnapshot, string>>,
+  target: FileOffsetTarget,
+  observation: Observation,
+  partial: (reason: string) => FileOffsetPartialObservation,
+): AnalysisError {
+  const reason = cleanupReason(cause);
+  if (cause.outcome.kind === "completed") {
+    const captured = cause.outcome.value;
+    if (!captured.ok) {
+      const changeReason = captured.error;
+      return new AnalysisArtifactChangedError(
+        OPERATION,
+        target.path,
+        changeReason,
+        {
+          cause,
+          cleanup: { reason, resources: [target.path] },
+          partialObservation: partial(changeReason),
+        },
       );
-    return ok(await readSourceSnapshot(file, signal));
-  } finally {
-    await file.close();
+    }
+    if (captured.value.sha256 !== target.sha256) {
+      const changeReason = changedSourceReason(
+        target.path,
+        target.sha256,
+        captured.value.sha256,
+      );
+      return new AnalysisArtifactChangedError(
+        OPERATION,
+        target.path,
+        changeReason,
+        {
+          cause,
+          cleanup: { reason, resources: [target.path] },
+          partialObservation: partial(changeReason),
+        },
+      );
+    }
+    const mapped = originalOffset(captured.value, observation);
+    return new ProviderCleanupError(
+      "hopper",
+      [target.path],
+      {
+        reason,
+        ...(mapped.ok
+          ? {
+              original_file_offset: {
+                available: true,
+                file_offset: mapped.value + observation.provider_file_offset,
+                image_base_file_offset: mapped.value,
+                source_path: target.path,
+              },
+            }
+          : {
+              original_file_offset: {
+                available: false,
+                reason: mapped.error,
+              },
+            }),
+      },
+      {
+        operation: OPERATION,
+        cause,
+        partialObservation: partial(reason),
+      },
+    );
   }
+  const operationFailure = cause.outcome.cause;
+  if (operationFailure instanceof NonRegularFileReadError) {
+    const changeReason = `Source ${target.path} is no longer a regular file. Restore the admitted executable or reopen a regular source.`;
+    return new AnalysisArtifactChangedError(
+      OPERATION,
+      target.path,
+      changeReason,
+      {
+        cause,
+        cleanup: { reason, resources: [target.path] },
+        partialObservation: partial(changeReason),
+      },
+    );
+  }
+  return new ProviderCleanupError(
+    "hopper",
+    [target.path],
+    {
+      reason,
+      operation_failure:
+        operationFailure instanceof Error
+          ? operationFailure.message
+          : String(operationFailure),
+    },
+    {
+      operation: OPERATION,
+      cause,
+      partialObservation: partial(reason),
+    },
+  );
 }
 
 interface FatLayout {
@@ -235,8 +469,6 @@ async function readSourceSnapshot(file: FileHandle, signal?: AbortSignal) {
   }
   return { layout, headers, size, sha256: hash.digest("hex") };
 }
-
-type SourceSnapshot = Awaited<ReturnType<typeof readSourceSnapshot>>;
 
 function originalOffset(
   snapshot: SourceSnapshot,

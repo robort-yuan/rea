@@ -356,7 +356,14 @@ export class HopperProvider implements AnalysisProviderCandidate {
         if (!result.ok) return result;
         const mapped =
           operation === "address_to_file_offset"
-            ? await mapHopperFileOffset(target, result.value, options?.signal)
+            ? await mapHopperFileOffset(target, result.value, options?.signal, {
+                retainFailedClose: (owner) =>
+                  this.#ownedResources.retain({
+                    kind: "file-handle",
+                    resource: target.path,
+                    handle: owner,
+                  }),
+              })
             : result;
         if (!mapped.ok) return mapped;
         const inventory =
