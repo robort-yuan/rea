@@ -124,5 +124,11 @@
     "name": "മലയാളം",
     "readme": "docs/readme/README_ml.md",
     "dir": "ltr"
+  },
+  {
+    "code": "ku",
+    "name": "کوردی",
+    "readme": "docs/readme/README_ku.md",
+    "dir": "rtl"
   }
 ]
