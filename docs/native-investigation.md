@@ -166,6 +166,30 @@ remains valid. This tool
 has no dedicated CLI command; the existing `decompile` command remains the
 single-procedure CLI operation.
 
+`decompile_all` (`rea decompile-all <target> --output <directory>`) writes one
+pseudocode file per analyzed function and returns only a manifest: counts, the
+output directory, capped failure reasons, provider identity, and the
+analysis-profile digest. The manifest and `decompile-index.json` do not contain
+pseudocode. Each file records the provider name, canonical address, inclusive
+body ranges when `procedure_info` supplies them, and the `procedure_info` and
+pseudocode limitations for that function, truncated after 4,000 characters.
+Each function's `decompile-index.json` record, written or failed, keeps the
+complete limitations of the observations it used. The returned Evidence keeps
+the eight most often observed distinct per-function provider limitations and
+counts the rest. A fresh output directory must not already exist. `--resume`
+continues an export for the same target SHA-256, provider, analysis profile,
+and layout; it requires the directory to exist, and an export without a known
+target or profile digest cannot be resumed. Resume skips files whose bytes still match the last write the journal
+recorded, even after a later read failure, tries
+functions it has not attempted before retrying recorded failures, ignores a
+journal line torn by an interrupted write, and never overwrites a conflicting
+file. One function's decompiler error or deadline is counted and does not stop
+the others. Inventory rows without an address are counted in the limitations. `--layout dwarf`
+reports that compilation-unit paths are unavailable and still names files by
+address. Filters are a case-sensitive name substring, a case-sensitive name
+prefix, an inclusive address range, and a count limit. Cancellation leaves
+files already written in place.
+
 Type inspection selects one exact database pathname or typed data address.
 Struct/union fields, enums, pointers, arrays, typedefs, size, alignment, packing
 and bitfields retain database authority. Child types use exact IDs for further
