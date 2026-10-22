@@ -1,4 +1,4 @@
-import { isSafeNumber, LosslessNumber } from "lossless-json";
+import { LosslessNumber } from "lossless-json";
 import type { JsonValue } from "../../domain/jsonValue.js";
 import type { QlogCaptureFacts } from "../../domain/qlogCapture.js";
 import {
@@ -442,18 +442,14 @@ const project = (
     )
       return redactor.credential(pointer);
     if (item instanceof LosslessNumber) {
-      if (
-        redactor.text(item.value, pointer) === null ||
-        (isSafeNumber(item.value) &&
-          redactor.text(String(Number(item.value)), pointer) === null)
-      )
-        return null;
+      const number = redactor.number(item, pointer);
+      if (number === null) return null;
       numeric_literals.push({
         pointer,
         producer_type: "json-number",
-        literal: item.value,
+        literal: number.literal,
       });
-      return isSafeNumber(item.value) ? Number(item.value) : null;
+      return number.reported;
     }
     if (typeof item === "string")
       return redactor.text(
