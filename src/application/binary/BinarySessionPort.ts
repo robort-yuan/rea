@@ -95,6 +95,7 @@ export interface BinarySessionPort
   ): Promise<Result<SavedAnalysisSnapshot, AnalysisError>>;
   status(options?: { readonly signal?: AbortSignal }): Promise<JsonValue>;
   activeTarget(): BinaryTarget | undefined;
+  activeBundleResourceRoot?(): ResolvedAppBundleResourceRoot | undefined;
   exportAnalysisSnapshot(): Result<AnalysisSnapshot, AnalysisError>;
   importAnalysisSnapshot(
     snapshot: AnalysisSnapshot,

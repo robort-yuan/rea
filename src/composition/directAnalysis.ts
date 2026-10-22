@@ -1,6 +1,9 @@
 import { snapshotEnvironment } from "../process/snapshotEnvironment.js";
 import { parseConfig } from "../config/parseConfig.js";
 import type { DirectAnalysisDependencies } from "../application/DirectAnalysisDependencies.js";
+import type { AnalysisExecution } from "../application/AnalysisProvider.js";
+import type { AnalysisError } from "../domain/analysisErrorBase.js";
+import type { Result } from "../domain/result.js";
 
 type DirectAnalysisRuntime = typeof import("../application/DirectAnalysis.js");
 type DirectAnalysisStatusRuntime =
@@ -74,6 +77,31 @@ export const createDirectAnalysis = (
 
 /** Bound operations used by CLI command registration. */
 export type DirectAnalysis = ReturnType<typeof createDirectAnalysis>;
+
+/** Read one absolutely selected plist without a target, session, or provider candidates. */
+export const inspectStandalonePlist = async (
+  selectedEnvironment: Readonly<NodeJS.ProcessEnv>,
+  path: string,
+  signal: AbortSignal | undefined,
+): Promise<Result<AnalysisExecution, AnalysisError>> => {
+  const [
+    { NativeMacOSProvider },
+    { NATIVE_MACOS_PROVIDER_IDENTITY },
+    { readStandalonePlist },
+  ] = await Promise.all([
+    import("../native/NativeMacOSProvider.js"),
+    import("../native/NativeMacOSProviderMetadata.js"),
+    import("../application/StandalonePlistRead.js"),
+  ]);
+  return readStandalonePlist(
+    new NativeMacOSProvider(
+      snapshotEnvironment(selectedEnvironment),
+    ).createStandalonePlistClient(),
+    NATIVE_MACOS_PROVIDER_IDENTITY.id,
+    path,
+    signal,
+  );
+};
 
 /** Execute managed metadata without configuration or native provider candidates. */
 export const runManagedProviderExecution: BoundOperation<

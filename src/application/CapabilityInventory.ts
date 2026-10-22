@@ -696,6 +696,8 @@ const targetAvailability = ({
   descriptors,
 }: AvailabilityContext): Availability | null => {
   if (FRIDA_OPERATION_NAMES.has(name)) return null;
+  // An absolute plist path is inspected without a target; relative selections still need one.
+  if (!targetOpen && name === "inspect_plist") return null;
   if (!targetOpen && ACTIVE_TARGET_KINDS.has(kind))
     return {
       reason: "target_required",

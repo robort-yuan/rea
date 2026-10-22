@@ -134,7 +134,10 @@ import {
 } from "./NativeUiHelperRuntime.js";
 import { NativeUiInterruptionControl } from "./NativeUiInterruptionControl.js";
 import type { ResolvedAppBundleResourceRoot } from "../application/AppBundleExecutable.js";
-import { resolveBundleResourcePlistSelection } from "./NativePlistSource.js";
+import {
+  resolveBundleResourcePlistSelection,
+  resolveStandalonePlistSelection,
+} from "./NativePlistSource.js";
 
 type SignatureRuntimeRootFactory = () => Promise<
   Pick<PrivateRuntimeRoot, "path" | "close">
@@ -191,6 +194,17 @@ export class NativeMacOSProvider implements AnalysisProvider {
   createBundleResourceClient(
     root: ResolvedAppBundleResourceRoot,
   ): AnalysisClient {
+    return this.#targetlessClient(root);
+  }
+
+  /** Read caller-selected absolute plist paths without a target or app root. */
+  createStandalonePlistClient(): AnalysisClient {
+    return this.#targetlessClient(undefined);
+  }
+
+  #targetlessClient(
+    root: ResolvedAppBundleResourceRoot | undefined,
+  ): AnalysisClient {
     const plistAvailable = this.#capabilities.some(
       ({ operation, available }) => operation === "inspect_plist" && available,
     );
@@ -225,7 +239,7 @@ class NativeMacOSClient implements AnalysisClient {
       | SignatureRuntimeRootFactory
       | undefined,
     private readonly bundleResourceRoot?: ResolvedAppBundleResourceRoot,
-    private readonly bundlePlistAvailable = true,
+    private readonly targetlessPlistAvailable = true,
   ) {}
 
   private get target(): BinaryTarget {
@@ -261,7 +275,7 @@ class NativeMacOSClient implements AnalysisClient {
           "This client is bound to app resource access only.",
         ),
       );
-    if (this.bundleResourceRoot !== undefined && !this.bundlePlistAvailable)
+    if (this.activeTarget === undefined && !this.targetlessPlistAvailable)
       return err(
         new AnalysisCapabilityUnavailableError(
           IDENTITY.id,
@@ -975,12 +989,14 @@ class NativeMacOSClient implements AnalysisClient {
       return await this.#plistResources.run(async () => {
         try {
           const plist =
-            this.bundleResourceRoot === undefined
-              ? await resolveNativePlistSelection(this.target, requested)
-              : resolveBundleResourcePlistSelection(
+            this.bundleResourceRoot !== undefined
+              ? resolveBundleResourcePlistSelection(
                   this.bundleResourceRoot,
                   requested,
-                );
+                )
+              : this.activeTarget === undefined
+                ? resolveStandalonePlistSelection(requested)
+                : await resolveNativePlistSelection(this.target, requested);
           if (!plist.ok) return plist;
           const fileInput: NativePlistReadContext = {
             selection: plist.value,

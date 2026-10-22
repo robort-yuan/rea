@@ -92,6 +92,24 @@ export const resolveBundleResourcePlistSelection = (
   });
 };
 
+/** Without a target or app root, only an absolute selection names a file. */
+export const resolveStandalonePlistSelection = (
+  requested: string | undefined,
+): Result<NativePlistSelection, AnalysisError> =>
+  requested !== undefined && isAbsolute(requested)
+    ? ok({ path: resolve(requested), origin: "selected" })
+    : err(
+        new AnalysisInputError("inspect_plist", undefined, [
+          {
+            path: ["path"],
+            reason:
+              requested === undefined ? "missing_argument" : "invalid_value",
+            message:
+              "Provide an absolute plist path, or open a target to select one relative to it.",
+          },
+        ]),
+      );
+
 /** The bundle whose Contents/MacOS directory directly holds the program. */
 const macOSBundleRoot = (path: string): string | undefined => {
   const programs = dirname(path);

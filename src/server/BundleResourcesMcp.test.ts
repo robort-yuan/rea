@@ -82,7 +82,17 @@ it("routes bundle resource MCP calls with null executable identity and retained 
     new InvestigationRecords(),
     { createClient: () => ({ client: resourceClient, capabilities: [] }) },
   );
-  const server = createServer({ kind: "session", session });
+  const standalonePaths: string[] = [];
+  const server = createServer(
+    { kind: "session", session },
+    {
+      // A resource-only session keeps absolute selections on its own client.
+      standalonePlistInspection: (path) => {
+        standalonePaths.push(path);
+        return Promise.reject(new Error("standalone plist route used"));
+      },
+    },
+  );
   const client = new Client({ name: "bundle-resource-test", version: "1" });
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();
@@ -146,6 +156,7 @@ it("routes bundle resource MCP calls with null executable identity and retained 
       resource_root: { executable_sha256: null },
     },
   });
+  expect(standalonePaths).toEqual([]);
   const evidenceId = z
     .object({ evidence_id: z.string() })
     .parse(evidence).evidence_id;

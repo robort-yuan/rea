@@ -530,6 +530,34 @@ describe("partial navigation availability", () => {
   });
 });
 
+it("keeps explicit-path plist inspection available without an open target", () => {
+  const declared = (operation: string) => [
+    { operation, available: true, reason: null },
+  ];
+  expect(
+    entry("inspect_plist", status({ capabilities: declared("inspect_plist") })),
+  ).toMatchObject({ available: true, reason: "available" });
+  expect(
+    entry("inspect_macho", status({ capabilities: declared("inspect_macho") }))
+      .reason,
+  ).toBe("target_required");
+  expect(
+    entry(
+      "inspect_plist",
+      status({
+        capabilities: [
+          {
+            operation: "inspect_plist",
+            available: false,
+            availability_code: "unsupported_host",
+            reason: "Property list inspection requires a macOS host.",
+          },
+        ],
+      }),
+    ).reason,
+  ).toBe("unsupported_host");
+});
+
 it("reports host denial before target mismatch but keeps composed workflow prerequisites", () => {
   const capability = {
     operation: "inspect_macho",

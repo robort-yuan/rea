@@ -477,8 +477,133 @@ describe("active-target availability over MCP", () => {
   });
 });
 
+describe("explicit-path plist inspection over MCP", () => {
+  it("reads an absolute plist path without an open target or a session change", async () => {
+    const session = createTestBinarySession(
+      availabilityProvider(["inspect_plist"]),
+    );
+    const standalonePaths: string[] = [];
+    const server = createServer(
+      { kind: "session", session },
+      {
+        environment: { REA_MCP_OUTPUT_SCHEMA_PROFILE: "off" },
+        standalonePlistInspection: (path) => {
+          standalonePaths.push(path);
+          return Promise.resolve(observed(plistObservation(path)));
+        },
+      },
+    );
+    const client = new Client({ name: "plist-path-test", version: "1" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    const directory = await createTestTempDirectory("rea-plist-path-");
+    const plist = join(directory, "Info.plist");
+    await writeFile(plist, PLIST_XML);
+    try {
+      await server.connect(serverTransport);
+      await client.connect(clientTransport);
+      expect(await toolReason(client, "inspect_plist")).toBe("available");
+      const standalone = await client.callTool({
+        name: "inspect_plist",
+        arguments: { path: plist },
+      });
+      expect(standalone.isError ?? false).toBe(false);
+      expect(standalonePaths).toEqual([plist]);
+      expect(session.activeTarget()).toBeUndefined();
+      // A relative selection has no root without a target.
+      const relative = await client.callTool({
+        name: "inspect_plist",
+        arguments: { path: "Info.plist" },
+      });
+      expect(parseMcpToolError(relative)).toMatchObject({
+        error: { code: "target_unavailable" },
+      });
+      // An open target keeps the call on the session's own provider.
+      await openTarget(client, plist);
+      await client.callTool({
+        name: "inspect_plist",
+        arguments: { path: plist },
+      });
+      expect(standalonePaths).toEqual([plist]);
+    } finally {
+      await Promise.allSettled([
+        client.close(),
+        server.close(),
+        session.close(),
+      ]);
+    }
+  });
+
+  it("keeps an absolute selection on a server bound to a fixed target", async () => {
+    const fixedCalls: string[] = [];
+    const standalonePaths: string[] = [];
+    const server = createServer(
+      {
+        kind: "fixed",
+        analysis: {
+          execute: (operation, parameters) => {
+            fixedCalls.push(operation);
+            return Promise.resolve(
+              observed(plistObservation(String(parameters.path))),
+            );
+          },
+        },
+      },
+      {
+        environment: { REA_MCP_OUTPUT_SCHEMA_PROFILE: "off" },
+        standalonePlistInspection: (path) => {
+          standalonePaths.push(path);
+          return Promise.resolve(observed(plistObservation(path)));
+        },
+      },
+    );
+    const client = new Client({ name: "plist-fixed-test", version: "1" });
+    const [clientTransport, serverTransport] =
+      InMemoryTransport.createLinkedPair();
+    try {
+      await server.connect(serverTransport);
+      await client.connect(clientTransport);
+      const read = await client.callTool({
+        name: "inspect_plist",
+        arguments: { path: "/fixture/Info.plist" },
+      });
+      expect(read.isError ?? false).toBe(false);
+      expect(fixedCalls).toEqual(["inspect_plist"]);
+      expect(standalonePaths).toEqual([]);
+    } finally {
+      await Promise.allSettled([client.close(), server.close()]);
+    }
+  });
+});
+
 const PLIST_XML =
   '<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleName</key><string>Fixture</string></dict></plist>';
+
+const plistObservation = (path: string) => ({
+  format: "xml",
+  value: {},
+  bundle: {
+    identifier: null,
+    executable: null,
+    name: null,
+    version: null,
+    short_version: null,
+  },
+  source_path: path,
+  provenance: [],
+  limitations: [],
+});
+
+const toolReason = async (client: Client, name: string): Promise<unknown> => {
+  const status = await client.callTool({
+    name: "binary_session",
+    arguments: {},
+  });
+  return expandToolAvailability(
+    z.object({ result: sessionProvider }).parse(status.structuredContent).result
+      .tool_availability,
+  ).find((tool) => tool.name === name)?.reason;
+};
 
 const toolNames = async (client: Client): Promise<string[]> =>
   (await client.listTools()).tools.map(({ name }) => name);
