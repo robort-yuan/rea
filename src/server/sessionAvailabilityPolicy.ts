@@ -35,9 +35,6 @@ export const sessionAvailabilityPolicy = (
   const policy =
     configured ??
     (() => ({
-      ...(defaults.hostUnsupported === undefined
-        ? {}
-        : { hostUnsupported: defaults.hostUnsupported }),
       packetCaptureEnabled:
         defaults.optionalFeatures?.packetCaptureEnabled ?? false,
       signalRecordingEnabled:
@@ -70,6 +67,8 @@ export const sessionAvailabilityPolicy = (
       v8InspectorObservationEnabled:
         defaults.optionalFeatures?.v8InspectorObservationEnabled ?? false,
     }));
+  // Observed host support also bounds a configured policy: no policy lets the
+  // default providers pass their execution host checks.
   return () => ({
     ...policy(),
     ...(defaults.optionalProviderLoadFailures === undefined
@@ -77,5 +76,8 @@ export const sessionAvailabilityPolicy = (
       : {
           optionalProviderLoadFailures: defaults.optionalProviderLoadFailures,
         }),
+    ...(defaults.hostUnsupported === undefined
+      ? {}
+      : { hostUnsupported: defaults.hostUnsupported }),
   });
 };
