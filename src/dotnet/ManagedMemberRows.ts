@@ -441,6 +441,7 @@ export const edges = (
             {
               caller_token: method.token,
               caller,
+              il_offset: anchor.il_offset,
               opcode: anchor.opcode,
               target_token: operand,
               target_kind: targetKind(operand),
@@ -457,6 +458,7 @@ export const edges = (
             {
               method_token: method.token,
               method: caller,
+              il_offset: anchor.il_offset,
               opcode: anchor.opcode,
               field_token: operand,
               field_name: target?.name ?? null,

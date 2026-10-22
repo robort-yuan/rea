@@ -212,6 +212,7 @@ describe("managed member inspection", () => {
       {
         caller_token: "0x06000001",
         caller: "Fixture.Program.Main",
+        il_offset: 6,
         opcode: "call",
         target_token: "0x0a000001",
         target_kind: "member-ref",
@@ -224,6 +225,7 @@ describe("managed member inspection", () => {
       {
         method_token: "0x06000001",
         method: "Fixture.Program.Main",
+        il_offset: 1,
         opcode: "ldfld",
         field_token: "0x04000001",
         field_name: "counter",
@@ -392,6 +394,21 @@ describe("managed edge target declaring types", () => {
         target_declaring_type: null,
       },
     ]);
+  });
+
+  it("preserves missing site offsets in older Evidence without inventing a location", () => {
+    const current = inspect({});
+    const parsed = managedMemberInspectionSchema.parse({
+      ...current,
+      call_edges: current.call_edges.map(
+        ({ il_offset: _omitted, ...legacy }) => legacy,
+      ),
+      field_accesses: current.field_accesses.map(
+        ({ il_offset: _omitted, ...legacy }) => legacy,
+      ),
+    });
+    expect(parsed.call_edges[0]).not.toHaveProperty("il_offset");
+    expect(parsed.field_accesses[0]).not.toHaveProperty("il_offset");
   });
 
   it("reads Evidence recorded before declaring types were named as unknown", () => {

@@ -34,6 +34,13 @@ rea inspect-managed-members /absolute/path/Assembly.dll --json
 ```
 
 Use the artifact result to identify the assembly and its metadata coverage.
+Call edges and field accesses include `il_offset`, the byte offset already
+recorded by their owning method's CIL anchor. Join a call site by
+`(caller_token, il_offset)` or a field-access site by `(method_token, il_offset)`;
+repeated uses of the same target remain distinct without relying on array order.
+Offsets are relative to the method's IL body, not file offsets. Older Evidence
+may omit this field; a missing coordinate is not inferred as zero.
+
 Member results retain build-local tokens, signatures, CIL bodies, and decoded
 relationships. Use an exact reported `full_name` with `--type` when a focused
 inspection is needed; see [selected member inspection](#selected-member-inspection).
