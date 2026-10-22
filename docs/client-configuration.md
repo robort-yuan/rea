@@ -279,6 +279,12 @@ comments and unrelated settings. It resolves that file from `HERMES_HOME`, else
 from the platform default Hermes itself uses — `%LOCALAPPDATA%\hermes` on
 Windows, `~/.hermes` elsewhere — including any `HERMES_DATA_DIR_SUFFIX`. Hermes
 connects an entry unless `enabled` is false, so setup states `enabled: true`.
+Aliases whose anchor is defined in the `rea` entry retain their original resolved
+values when setup refreshes or uninstall removes that entry. Another server using
+one of those aliases keeps its existing configuration.
+This also covers an anchor on the removed registration key. References to
+definitions outside the entry keep sharing the original value, including when
+another definition later reuses the same anchor name.
 
 Hermes personal skills install under the active Hermes home's `skills` directory.
 Setup, doctor and uninstall follow the root's `active_profile` selection, as

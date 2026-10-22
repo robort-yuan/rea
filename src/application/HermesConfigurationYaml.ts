@@ -11,6 +11,7 @@ import {
   type ScalarTag,
   type Tags,
 } from "yaml";
+import { preserveHermesAliasValues } from "./HermesConfigurationAliases.js";
 
 const SOURCE_SCALAR_TAGS = new Set([
   "tag:yaml.org,2002:int",
@@ -373,6 +374,16 @@ export const editHermesConfigurationYaml = (
         .join("\n");
     document.contents = map;
   }
+  const previous = document.getIn(path, true);
+  // Deletion removes the pair's key too; replacement retains that key node.
+  const parent =
+    value === undefined ? document.getIn(path.slice(0, -1), true) : undefined;
+  const removedKey = isMap(parent)
+    ? parent.items.find(
+        (pair) => isScalar(pair.key) && pair.key.value === path.at(-1),
+      )?.key
+    : undefined;
+  preserveHermesAliasValues(document, [previous, removedKey]);
   if (value === undefined) document.deleteIn(path);
   else {
     // setIn's implicit JS Map parents serialize as !!omap in YAML 1.1.
@@ -382,7 +393,6 @@ export const editHermesConfigurationYaml = (
       if (!document.hasIn(parent))
         document.setIn(parent, document.createNode({}));
     }
-    const previous = document.getIn(path, true);
     // Let YAML's scalar update preserve numeric formats for a direct edit.
     // Replacing containers needs explicit retention of unchanged child nodes.
     document.setIn(
