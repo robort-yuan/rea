@@ -497,6 +497,11 @@ it.each([
     "REA_REGEX_MATCHING_DEADLINE_MS",
   ],
   [
+    "capture decoder heap below its floor",
+    { REA_CAPTURE_DECODER_OLD_GENERATION_MIB: "7" },
+    "REA_CAPTURE_DECODER_OLD_GENERATION_MIB",
+  ],
+  [
     "malformed loader JSON",
     { HOPPER_LOADER_ARGS_JSON: "{" },
     "HOPPER_LOADER_ARGS_JSON",
