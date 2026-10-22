@@ -93,6 +93,7 @@ cliTest(
       recursive: true,
     });
     const original = await readFile(join(managed, "SKILL.md"), "utf8");
+    const originalEntries = (await readdir(managed)).sort();
     await symlink(
       managed,
       selected,
@@ -134,7 +135,7 @@ cliTest(
     expect(registration.json).toMatchObject({ status: "ready" });
     await access(join(directory, ".claude.json"));
     expect((await lstat(selected)).isSymbolicLink()).toBe(true);
-    expect((await readdir(managed)).sort()).toEqual(["SKILL.md", "references"]);
+    expect((await readdir(managed)).sort()).toEqual(originalEntries);
     expect(await readFile(join(managed, "SKILL.md"), "utf8")).toBe(original);
   },
 );

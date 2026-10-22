@@ -27,6 +27,10 @@ export const MANAGED_SKILL_FILES = [
   "references/android-applications.md",
   "references/runtime-observation.md",
   "references/evidence-workflows.md",
+  "references/coordo-multi-agent.md",
+  "references/coordo-investigation-v2.md",
+  "scripts/coordo-handoff.mjs",
+  "scripts/coordo-investigate.mjs",
 ] as const;
 
 export const isManagedSkillManifest = (content: string): boolean =>
@@ -275,14 +279,26 @@ const skillDirectoryIssues = async (
   destinations: readonly SkillDestination[],
 ): Promise<readonly SkillPathIssue[]> => {
   const issues: SkillPathIssue[] = [];
+  const managedParents = new Set<string>();
+  for (const file of MANAGED_SKILL_FILES) {
+    let parent = dirname(file);
+    while (parent !== ".") {
+      managedParents.add(parent);
+      const next = dirname(parent);
+      if (next === parent) break;
+      parent = next;
+    }
+  }
   for (const { path } of destinations) {
     const root = await inspectSkillDirectory(path);
     if (!root.ok) {
       issues.push(root.error);
       continue;
     }
-    const references = await inspectSkillDirectory(join(path, "references"));
-    if (!references.ok) issues.push(references.error);
+    for (const parent of managedParents) {
+      const issue = await inspectSkillDirectory(join(path, parent));
+      if (!issue.ok) issues.push(issue.error);
+    }
   }
   return issues;
 };
