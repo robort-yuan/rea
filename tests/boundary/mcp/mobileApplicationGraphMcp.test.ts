@@ -11,6 +11,7 @@ import {
 import { afterEach, expect, it } from "vitest";
 
 import { createDirectAnalysis } from "../../../src/composition/directAnalysis.js";
+import { toolContract } from "../../../src/contracts/toolContracts.js";
 import { parseEvidence } from "../../../src/domain/evidence.js";
 import { fragmentInventoryEvidence } from "../../fixtures/artifactEvidence.js";
 import { createTestBinarySession } from "../../fixtures/binarySession.js";
@@ -39,6 +40,30 @@ async function connect() {
   await client.connect(a);
   return client;
 }
+
+it.each(
+  (
+    [
+      "project_android_application_graph",
+      "project_apple_application_graph",
+      "project_harmony_application_graph",
+    ] as const
+  ).flatMap((name) =>
+    toolContract(name).examples.map((example) => ({ name, ...example })),
+  ),
+)("executes canonical example: $title", async ({ name, input }) => {
+  const client = await connect();
+  const reply = await client.callTool({ name, arguments: input });
+  if (reply.isError === true) throw new Error(JSON.stringify(reply));
+  const evidence = parseEvidence(reply.structuredContent);
+  expect(evidence.operation).toBe(name);
+  expect(evidence.normalized_result).toMatchObject({
+    coverage: { status: "partial", inventory_complete: true },
+    limitations: expect.arrayContaining([
+      "Source inventory coverage is partial; absence is unknown.",
+    ]),
+  });
+});
 
 const writeApk = async (directory: string): Promise<string> => {
   const path = join(directory, "Fixture.apk");

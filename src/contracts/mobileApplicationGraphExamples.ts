@@ -72,6 +72,8 @@ const inventory = (
     nodes,
     occurrences,
     edges: [],
+    integrity_contradictions: [],
+    coverage: { scope: "root", status: "complete" },
     provenance: [],
     integrity_contradictions: [],
     coverage: { scope: "root", status: "complete" },
