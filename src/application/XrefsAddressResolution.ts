@@ -9,6 +9,34 @@ import { err, ok, type Result } from "../domain/result.js";
 import type { AnalysisOperationPort } from "./AnalysisProvider.js";
 import { resolveProcedureAddress } from "./ProcedureAddressResolution.js";
 
+/** The outcome of selecting one exact name from a parsed symbol inventory. */
+export type ExactNameMatch =
+  | { readonly status: "missing" }
+  | { readonly status: "unique"; readonly address: string }
+  | { readonly status: "ambiguous"; readonly message: string };
+
+/**
+ * Select the distinct addresses carrying one exact inventory name.
+ * Duplicate rows at one address stay unique; more than one distinct
+ * address is ambiguous and never silently picks the first.
+ */
+export const matchExactName = (
+  entries: Iterable<{ readonly name: string; readonly address: string }>,
+  name: string,
+): ExactNameMatch => {
+  const addresses = new Set<string>();
+  for (const entry of entries)
+    if (entry.name === name) addresses.add(entry.address);
+  const [address] = addresses;
+  if (addresses.size === 0) return { status: "missing" };
+  if (addresses.size === 1 && address !== undefined)
+    return { status: "unique", address };
+  return {
+    status: "ambiguous",
+    message: `Analyzed symbol name ${JSON.stringify(name)} is ambiguous at ${[...addresses].join(", ")}. Select an exact address.`,
+  };
+};
+
 /** Resolve a CLI symbol selector without changing existing address spellings. */
 export const resolveXrefsAddress = async (
   analysis: AnalysisOperationPort,
@@ -52,7 +80,7 @@ export const resolveXrefsAddress = async (
       ),
     );
 
-  const addresses = new Set<string>();
+  const entries: { name: string; address: string }[] = [];
   for (const [index, item] of inventory.value.result.entries()) {
     const parsed = addressedValueSchema.safeParse(item);
     if (!parsed.success || parsed.data.address.length === 0)
@@ -62,19 +90,19 @@ export const resolveXrefsAddress = async (
           `Invalid symbol inventory entry at index ${index}`,
         ),
       );
-    if (parsed.data.value === selector) addresses.add(parsed.data.address);
+    entries.push({ name: parsed.data.value, address: parsed.data.address });
   }
-  const [address] = addresses;
-  if (addresses.size === 1 && address !== undefined) return ok(address);
+  const match = matchExactName(entries, selector);
+  if (match.status === "unique") return ok(match.address);
   return err(
     new AnalysisInputError("xrefs", undefined, [
       {
         path: ["address"],
         reason: "invalid_value",
         message:
-          addresses.size === 0
+          match.status === "missing"
             ? `Unknown analyzed symbol name ${JSON.stringify(selector)}. Use an exact analyzed name or a hexadecimal address.`
-            : `Analyzed symbol name ${JSON.stringify(selector)} is ambiguous at ${[...addresses].join(", ")}. Select an exact address.`,
+            : match.message,
       },
     ]),
   );

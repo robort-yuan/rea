@@ -57,7 +57,7 @@ export const ENHANCED_TOOL_CONTRACTS = [
   ),
   enhanced(
     "find_xrefs_to_name",
-    "Resolve an exact name against the bound provider's name inventory and return a resolved or unresolved result. Unresolved names use the stable name_not_found reason; this xref workflow returns address-only projections.",
+    "Resolve an exact name against the bound provider's name inventory and return a resolved or unresolved result. Unresolved names use the stable name_not_found reason. A name found at more than one distinct address is rejected with a typed ambiguity error listing the candidates instead of silently selecting the first; call xrefs with one listed address to proceed. This xref workflow returns address-only projections.",
     enhancedInputSchemas.find_xrefs_to_name,
   ),
   enhanced(
