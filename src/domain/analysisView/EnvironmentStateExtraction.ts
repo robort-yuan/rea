@@ -22,6 +22,7 @@ import {
   locateItem,
   locateList,
   normalizedPath,
+  projectsFields,
   rootOf,
   same,
   scalarText,
@@ -276,12 +277,14 @@ export class EnvironmentStateExtraction {
     candidate: Candidate,
     pointer: string,
     recordings: readonly StateRecordFacts[],
+    projected: readonly number[] = [],
   ): void {
     this.#plans.push({
       ...candidate,
       pointer,
       recordings,
       latest: this.#latestPerLine(recordings),
+      projected,
     });
   }
 
@@ -292,6 +295,8 @@ export class EnvironmentStateExtraction {
     if (recordings === undefined) return;
     let pointer: string | undefined;
     let keys: string[] | undefined;
+    const kept: StateRecordFacts[] = [];
+    const projected: number[] = [];
     for (const record of recordings) {
       const located = this.#withBody(record.ordinal, (body) =>
         body === undefined
@@ -302,6 +307,13 @@ export class EnvironmentStateExtraction {
         this.#recorded(tool, "body-unusable");
         return;
       }
+      // A read that asked for some fields only may leave the identity out; replay answers it.
+      if (located === undefined && projectsFields(record.query)) {
+        this.#retain(ENTRY_BYTES);
+        projected.push(record.ordinal);
+        continue;
+      }
+      kept.push(record);
       if (
         located === undefined ||
         (pointer ?? located.pointer) !== located.pointer
@@ -328,7 +340,7 @@ export class EnvironmentStateExtraction {
       return;
     }
     this.#identity.set(type, { field, basis: "path-parameter" });
-    this.#addPlan(candidate, pointer, recordings);
+    this.#addPlan(candidate, pointer, kept, projected);
   }
 
   /**
