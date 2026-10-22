@@ -61,7 +61,8 @@ export const nativeMacOSCapabilities = (
           mayAccessNetwork: OWNED_PROCESS_OPERATIONS.has(contract.name),
           mayWriteFilesystem:
             OWNED_PROCESS_OPERATIONS.has(contract.name) ||
-            contract.name === "observe_native_ui",
+            contract.name === "observe_native_ui" ||
+            contract.name === "inspect_signature",
           changesPermissions: false,
           requiresRoot: false,
         }),

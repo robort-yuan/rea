@@ -598,7 +598,11 @@ export const TOOL_EFFECTS: Readonly<Record<string, ToolEffects>> = {
     idempotent: false,
   }),
   inspect_macho: nativeEvidence,
-  inspect_signature: nativeEvidence,
+  inspect_signature: effects({
+    mutatesSession: true,
+    launchesProcess: true,
+    writesFilesystem: true,
+  }),
   inspect_plist: nativeEvidence,
   list_architectures: nativeEvidence,
   demangle_swift: nativeEvidence,
