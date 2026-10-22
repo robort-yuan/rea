@@ -121,10 +121,13 @@ export const artifactInventorySummarySchema = z.strictObject({
   limitation_count: z.number().int().nonnegative(),
 });
 
-const inputError = (message: string): AnalysisInputError =>
+const inputError = (
+  message: string,
+  field: "source" | "view" = "source",
+): AnalysisInputError =>
   new AnalysisInputError("inspect_analysis_view", undefined, [
     {
-      path: ["source"],
+      path: [field],
       reason: "invalid_value",
       message,
     },
@@ -232,7 +235,10 @@ export const projectArtifactInventoryView = (
     );
   if (view.kind !== "summary" && view.kind !== "inventory")
     return err(
-      inputError("Artifact Evidence supports summary and inventory views."),
+      inputError(
+        "Artifact Evidence supports summary and inventory views.",
+        "view",
+      ),
     );
   const parsed = parseSource(parent);
   if (!parsed.ok) return parsed;

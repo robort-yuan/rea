@@ -13,7 +13,10 @@ import {
   artifactInventoryViewRequestSchema,
   projectArtifactInventoryView,
 } from "./artifactInventoryView.js";
-import type { AnalysisViewParent } from "./analysisView.js";
+import {
+  analysisViewRequestSchema,
+  type AnalysisViewParent,
+} from "./analysisView.js";
 
 const carrier = ARTIFACT_COMPARISON_EXAMPLE.left;
 const freshInventory = () => {
@@ -303,4 +306,34 @@ it("binds reused facts to the current Evidence ID and validates its subject on e
       { kind: "inventory", collection: "nodes" },
     ),
   ).toThrow();
+});
+
+it("attributes an unsupported artifact view kind to the view and keeps the source", () => {
+  const source = parent(freshInventory());
+  const rejected = projectArtifactInventoryView(
+    source,
+    analysisViewRequestSchema.parse({
+      kind: "page",
+      collection: "sections",
+      offset: 0,
+      limit: 1,
+    }),
+  );
+  if (rejected.ok) throw new Error("Expected a view-kind refusal");
+  expect(rejected.error).toMatchObject({
+    _tag: "AnalysisInputError",
+    issues: [
+      {
+        path: ["view"],
+        reason: "invalid_value",
+        message: "Artifact Evidence supports summary and inventory views.",
+      },
+    ],
+  });
+  const control = projectArtifactInventoryView(
+    source,
+    analysisViewRequestSchema.parse({ kind: "summary" }),
+  );
+  if (!control.ok) throw control.error;
+  expect(control.value.kind).toBe("summary");
 });
