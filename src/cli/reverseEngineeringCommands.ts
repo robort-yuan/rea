@@ -7,6 +7,7 @@ import {
   AnalysisCancelledError,
   AnalysisInputError,
   AnalysisOutputError,
+  AnalysisResourceConstraintError,
 } from "../domain/analysisErrorCore.js";
 import { evidenceSchema, type Evidence } from "../domain/evidence.js";
 import type { Result } from "../domain/result.js";
@@ -33,20 +34,20 @@ import {
 } from "./analysisEvidenceDelivery.js";
 
 const executeWithCleanup = async (
-  service: ReverseEngineeringService,
-  signal: AbortSignal,
   execute: () => Promise<Result<Evidence, AnalysisError>>,
+  close: () => Promise<void>,
+  signal: AbortSignal,
 ): Promise<Result<Evidence, AnalysisError>> => {
   let result: Result<Evidence, AnalysisError>;
   try {
     result = await execute();
   } catch (cause) {
-    await service.close().catch(() => undefined);
+    await close().catch(() => undefined);
     throw cause;
   }
   const hadIncompleteCleanup = !result.ok && result.error.cleanupIncomplete;
   try {
-    await service.close();
+    await close();
   } catch (cause) {
     if (result.ok) return err(asCleanupError(cause));
     const cleanup = cause instanceof AnalysisError ? cause.cleanup : undefined;
@@ -128,7 +129,51 @@ export const registerReverseEngineeringCommands = (
     new GdbSessionManager({ environment: providerEnvironment }),
   createService: typeof createReverseEngineeringService = createReverseEngineeringService,
 ): void => {
-  const service = createService(environment);
+  // Closed services cannot run again, but failed cleanup must outlive a run.
+  // This registration owns every service until its own close confirms release.
+  let retainedService: ReverseEngineeringService | undefined;
+  let running = false;
+  const closeRetained = async (
+    service: ReverseEngineeringService,
+  ): Promise<void> => {
+    await service.close();
+    retainedService = undefined;
+  };
+  const runWithService = async (
+    signal: AbortSignal,
+    execute: (
+      service: ReverseEngineeringService,
+    ) => Promise<Result<Evidence, AnalysisError>>,
+  ): Promise<Result<Evidence, AnalysisError>> => {
+    if (running)
+      return err(
+        new AnalysisResourceConstraintError(
+          "reverse_engineering_cleanup",
+          "capacity",
+          "A CLI provider command is already running.",
+          { max_concurrent_operations: 1 },
+        ),
+      );
+    running = true;
+    try {
+      if (retainedService !== undefined) {
+        try {
+          await closeRetained(retainedService);
+        } catch (cause) {
+          return err(asCleanupError(cause));
+        }
+      }
+      const service = createService(environment);
+      retainedService = service;
+      return await executeWithCleanup(
+        () => execute(service),
+        () => closeRetained(service),
+        signal,
+      );
+    } finally {
+      running = false;
+    }
+  };
   cli.command(CLI_COMMANDS.inspectWithObjdump, {
     description:
       "Inspect a local artifact with GNU objdump and retain its raw output as Evidence",
@@ -169,7 +214,7 @@ export const registerReverseEngineeringCommands = (
           };
           const inputError = cliEvidenceDeliveryInputError(delivery);
           if (inputError !== undefined) return projectAnalysisError(inputError);
-          const result = await executeWithCleanup(service, signal, () =>
+          const result = await runWithService(signal, (service) =>
             service.inspectWithObjdump(
               {
                 ...args,
@@ -213,7 +258,7 @@ export const registerReverseEngineeringCommands = (
             const inputError = cliEvidenceDeliveryInputError(delivery);
             if (inputError !== undefined)
               return projectAnalysisError(inputError);
-            const result = await executeWithCleanup(service, signal, () =>
+            const result = await runWithService(signal, (service) =>
               service.inspectWithObjdump(
                 {
                   operation: "architectures",
@@ -246,7 +291,7 @@ export const registerReverseEngineeringCommands = (
     run: ({ args, options }) =>
       withCommandCancellation((signal) =>
         logCliCommand(logger, CLI_COMMANDS.executeRizinCommand, async () => {
-          const result = await executeWithCleanup(service, signal, () =>
+          const result = await runWithService(signal, (service) =>
             service.executeRizinCommand(
               {
                 ...args,
@@ -385,7 +430,9 @@ export const registerReverseEngineeringCommands = (
       inferiorTty: z
         .string()
         .min(1)
-        .describe("Caller-selected Linux TTY for inferior stdout and stderr."),
+        .describe(
+          "Caller-selected Linux TTY for inferior stdin, stdout and stderr; the inferior may consume terminal input.",
+        ),
       backend: z
         .string()
         .min(1)

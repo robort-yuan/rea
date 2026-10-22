@@ -16,6 +16,7 @@ import {
 } from "../../../src/domain/evidence.js";
 import { ok } from "../../../src/domain/result.js";
 import { inspectAnalysisView } from "../../../src/application/analysisView/AnalysisViewService.js";
+import { commandObservationSummarySchema } from "../../../src/domain/commandObservation.js";
 import { TestReverseEngineeringService } from "../../support/reverseEngineeringService.js";
 import { advertisedMcpToolSchemas } from "../../fixtures/advertisedMcpTool.js";
 
@@ -103,6 +104,7 @@ const connect = async (retain = true) => {
     undefined,
     undefined,
     undefined,
+    true,
     retain ? lookup : undefined,
   );
   registerAnalysisViewTool(
@@ -338,3 +340,52 @@ it.each([true, false, null])(
     }
   },
 );
+
+it("summarizes cancelled objdump output when normalized output is withheld", () => {
+  const partial = {
+    exit_code: null,
+    signal: "SIGINT",
+    output_truncated: false,
+    completion_status: "unknown" as const,
+    artifact_sha256_after: null,
+    artifact_changed: null,
+  };
+  const parent = createEvidence(
+    {
+      path: "/artifacts/input",
+      sha256: "a".repeat(64),
+      format: "elf",
+      architecture: "x86_64",
+    },
+    { id: "gnu.objdump", name: "GNU objdump", version: null },
+    {
+      operation: "inspect_with_objdump",
+      parameters: { path: "/artifacts/input", operation: "symbols" },
+      result: partial,
+      rawResult: { stdout: "partial bytes", stderr: "diagnostic" },
+    },
+  );
+
+  const selected = inspectAnalysisView({
+    source: { kind: "inline", evidence: parent },
+    view: { kind: "summary" },
+  });
+
+  expect(selected.ok).toBe(true);
+  if (!selected.ok) throw selected.error;
+  expect(selected.value.normalized_result).toMatchObject({
+    summary: partial,
+  });
+  expect(selected.value.normalized_result).not.toHaveProperty("summary.stdout");
+  expect(selected.value.normalized_result).not.toHaveProperty("summary.stderr");
+  expect(
+    commandObservationSummarySchema.safeParse({
+      ...partial,
+      completion_status: "complete",
+    }).success,
+  ).toBe(false);
+  expect(
+    commandObservationSummarySchema.safeParse({ ...partial, stdout: "partial" })
+      .success,
+  ).toBe(false);
+});

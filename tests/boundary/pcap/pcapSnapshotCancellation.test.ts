@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { expect, onTestFinished, test, vi } from "vitest";
 
 import { ProviderCleanupError } from "../../../src/domain/providerCleanupError.js";
+import { projectAnalysisError } from "../../../src/domain/analysisErrorProjection.js";
 import { OwnedFileHandle } from "../../../src/filesystem/OwnedFileHandle.js";
 import { PcapSnapshot } from "../../../src/pcap/PcapSnapshot.js";
 import { createTestTempDirectory } from "../../fixtures/temporaryDirectory.js";
@@ -155,6 +156,9 @@ test("close failure during final cancellation retains owner and resolves its mar
     _tag: "ProviderAdapterError",
   });
   expect(error.secondaryFailures[0].cause).toBe(closeFailure);
+  expect(projectAnalysisError(error).details).toMatchObject({
+    cleanup_reason: "Owned snapshot descriptor close failed",
+  });
   expect(retained?.fd).toBeGreaterThanOrEqual(0);
   expect(reason.cleanupIncomplete).toBe(true);
   expect(reason.cleanupResources).toEqual(["caller-owned-resource"]);

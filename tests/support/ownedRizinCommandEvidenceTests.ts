@@ -90,7 +90,7 @@ const registerOwnedRizinCommandOutcomeTests = (options: {
         expect(result).toMatchObject({
           ok: true,
           value: {
-            raw_result: {
+            normalized_result: {
               stdout: "captured owned output",
               completion_status: completion,
               exit_code: exitCode,
@@ -155,7 +155,7 @@ const registerOwnedRizinCommandFailureTests = (): void => {
           expect(result).toMatchObject({
             ok: true,
             value: {
-              raw_result: {
+              normalized_result: {
                 stdout: "captured owned output",
                 exit_code: mappedCode === 7 ? 7 : null,
                 completion_status:
@@ -170,12 +170,17 @@ const registerOwnedRizinCommandFailureTests = (): void => {
             error: {
               _tag: expected,
               partialObservation: {
-                raw_result: {
-                  stdout: "captured owned output",
+                normalized_result: {
+                  ...(reason === "cancelled"
+                    ? {}
+                    : { stdout: "captured owned output" }),
                   exit_code: null,
                   completion_status: "unknown",
                   output_truncated: reason !== "cancelled",
                 },
+                ...(reason === "cancelled"
+                  ? { raw_result: { stdout_bytes: 21, stderr_bytes: 10 } }
+                  : {}),
               },
               ...(reason === "timeout"
                 ? {

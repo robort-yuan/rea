@@ -1,12 +1,81 @@
-import { existsSync, statSync } from "node:fs";
+import { stat } from "node:fs/promises";
+import { spawn } from "node:child_process";
 import { win32 } from "node:path";
+
+import { ProviderStartupDeadline } from "../process/ProviderDeadline.js";
+import { ABORTED, waitForAbortable } from "../process/AbortablePromise.js";
+import { PROVIDER_COMMAND_RESOLUTION_CAPACITY_ERROR_CODE } from "../application/reverse/ReverseEngineeringCommandPort.js";
+import { AnalysisInputError } from "../domain/analysisErrorCore.js";
 
 export interface WindowsExecutableLookup {
   /** Windows-formatted working directory; defaults to the process CWD. */
   readonly cwd?: string;
   /** Test seam for Windows paths when running on a non-Windows host. */
-  readonly isFile?: (path: string) => boolean;
+  readonly isFile?: (
+    path: string,
+    signal?: AbortSignal,
+  ) => boolean | Promise<boolean>;
+  /** Test seam proving drive-rooted probes use a terminable owned helper. */
+  readonly isOwnedFile?: (
+    path: string,
+    signal?: AbortSignal,
+  ) => boolean | Promise<boolean>;
+  /** Test seam for one terminable lookup over ordered drive-rooted candidates. */
+  readonly findOwnedFiles?: (
+    paths: readonly string[],
+    signal?: AbortSignal,
+  ) => string | undefined | Promise<string | undefined>;
+  readonly operation?: "inspect_with_objdump" | "execute_rizin_command";
+  readonly signal?: AbortSignal | undefined;
+  /** Total startup lookup budget, including stalled network filesystem probes. */
+  readonly timeoutMs?: number;
+  /** Track non-cancellable filesystem probes until their physical completion. */
+  readonly onProbe?: (probe: Promise<unknown>) => void;
 }
+type WindowsFileProbe = NonNullable<WindowsExecutableLookup["isFile"]>;
+
+/**
+ * `\\server\share\...` and `//server/share/...` are UNC roots. A single
+ * leading separator is drive- or root-relative, and four leading separators
+ * are malformed rather than UNC, so neither may take this branch.
+ */
+const isUncPath = (value: string): boolean => /^[\\/]{2}(?![\\/])/u.test(value);
+
+const isDriveRootedPath = (value: string): boolean =>
+  /^[a-z]:[\\/]/iu.test(value);
+
+const isCrossDriveRelativePath = (value: string, cwd: string): boolean => {
+  const drive = /^([a-z]):(?=[^\\/]|$)/iu.exec(value)?.[1];
+  return (
+    drive !== undefined &&
+    `${drive}:`.toLowerCase() !==
+      win32.parse(cwd).root.slice(0, 2).toLowerCase()
+  );
+};
+
+const rejectCrossDriveRelativePath = (
+  value: string,
+  cwd: string,
+  operation: WindowsExecutableLookup["operation"] | undefined,
+  field: "executable" | "PATH",
+): void => {
+  if (!isCrossDriveRelativePath(value, cwd)) return;
+  throw new AnalysisInputError(
+    operation ?? "provider_command_resolution",
+    {
+      userMessage:
+        "A drive-relative provider path cannot be resolved from a different working drive. Set an absolute provider executable path.",
+    },
+    [
+      {
+        path: [field],
+        reason: "invalid_format",
+        message:
+          "Use an absolute path or a drive-relative path on the invocation working drive.",
+      },
+    ],
+  );
+};
 
 const splitWindowsPath = (value: string): readonly string[] => {
   const entries: string[] = [];
@@ -27,22 +96,211 @@ const splitWindowsPath = (value: string): readonly string[] => {
   });
 };
 
-const isRegularFile = (path: string): boolean => {
+const isRegularFile = async (
+  path: string,
+  signal?: AbortSignal,
+): Promise<boolean> => {
+  if (isUncPath(path)) return isRegularFileInOwnedProcess(path, signal);
   try {
-    return existsSync(path) && statSync(path).isFile();
+    return (await stat(path)).isFile();
   } catch {
     return false;
   }
 };
 
-/** Resolve Windows bare command names against the captured child environment. */
-export const resolveWindowsProviderExecutable = (
+const isRegularFileInOwnedProcess = (
+  path: string,
+  signal?: AbortSignal,
+): Promise<boolean> =>
+  new Promise((resolve, reject) => {
+    const isAborted = (): boolean => signal?.aborted === true;
+    if (isAborted()) {
+      reject(signal?.reason ?? new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const child = spawn(
+      process.execPath,
+      [
+        "-e",
+        "const fs=require('node:fs');try{process.exitCode=fs.statSync(process.argv[1]).isFile()?0:1}catch{process.exitCode=1}",
+        path,
+      ],
+      {
+        stdio: "ignore",
+        windowsHide: true,
+        env:
+          process.env.SystemRoot === undefined
+            ? {}
+            : { SystemRoot: process.env.SystemRoot },
+      },
+    );
+    const cleanup = (): void => signal?.removeEventListener("abort", onAbort);
+    const onAbort = (): void => {
+      child.kill();
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+    child.once("error", (cause) => {
+      cleanup();
+      reject(cause);
+    });
+    child.once("exit", (code) => {
+      cleanup();
+      if (isAborted())
+        reject(signal?.reason ?? new DOMException("Aborted", "AbortError"));
+      else resolve(code === 0);
+    });
+    if (isAborted()) onAbort();
+  });
+
+const findRegularFileInOwnedProcess = (
+  paths: readonly string[],
+  signal?: AbortSignal,
+): Promise<string | undefined> =>
+  new Promise((resolve, reject) => {
+    const isAborted = (): boolean => signal?.aborted === true;
+    if (isAborted()) {
+      reject(signal?.reason ?? new DOMException("Aborted", "AbortError"));
+      return;
+    }
+    const child = spawn(
+      process.execPath,
+      [
+        "-e",
+        "let input='';process.stdin.setEncoding('utf8');process.stdin.on('data',chunk=>input+=chunk);process.stdin.on('end',()=>{let paths;try{paths=JSON.parse(input)}catch{process.exitCode=2;return}for(let i=0;i<paths.length;i++){try{if(require('node:fs').statSync(paths[i]).isFile()){process.stdout.write(String(i));process.exitCode=0;return}}catch{}}process.exitCode=1})",
+      ],
+      {
+        stdio: ["pipe", "pipe", "ignore"],
+        windowsHide: true,
+        env:
+          process.env.SystemRoot === undefined
+            ? {}
+            : { SystemRoot: process.env.SystemRoot },
+      },
+    );
+    let output = "";
+    const cleanup = (): void => signal?.removeEventListener("abort", onAbort);
+    const onAbort = (): void => {
+      child.kill();
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (chunk: string) => {
+      output += chunk;
+      if (output.length > 12) child.kill();
+    });
+    child.stdin.on("error", () => undefined);
+    child.once("error", (cause) => {
+      cleanup();
+      reject(cause);
+    });
+    child.once("close", (code) => {
+      cleanup();
+      if (isAborted()) {
+        reject(signal?.reason ?? new DOMException("Aborted", "AbortError"));
+        return;
+      }
+      if (code === 1) {
+        resolve(undefined);
+        return;
+      }
+      const index = /^\d+$/u.test(output) ? Number(output) : -1;
+      if (code !== 0 || index < 0 || index >= paths.length) {
+        reject(
+          new Error("Owned Windows PATH helper returned an invalid result."),
+        );
+        return;
+      }
+      resolve(paths[index]);
+    });
+    child.stdin.end(JSON.stringify(paths));
+    if (isAborted()) onAbort();
+  });
+
+const MAX_PENDING_WINDOWS_PATH_PROBES = 8;
+let pendingWindowsPathProbes = 0;
+
+const probeWindowsPathEntry = (
+  isFile: WindowsFileProbe,
+  path: string,
+  onProbe?: (probe: Promise<unknown>) => void,
+  signal?: AbortSignal,
+): Promise<boolean> => {
+  if (pendingWindowsPathProbes >= MAX_PENDING_WINDOWS_PATH_PROBES)
+    throw Object.assign(
+      new Error(
+        "Windows provider PATH lookup capacity is exhausted by filesystem probes that have not settled.",
+      ),
+      { code: PROVIDER_COMMAND_RESOLUTION_CAPACITY_ERROR_CODE },
+    );
+  pendingWindowsPathProbes += 1;
+  let probe: Promise<boolean>;
+  try {
+    probe = Promise.resolve(isFile(path, signal));
+  } catch (cause) {
+    pendingWindowsPathProbes -= 1;
+    throw cause;
+  }
+  void probe.then(
+    () => {
+      pendingWindowsPathProbes -= 1;
+    },
+    () => {
+      pendingWindowsPathProbes -= 1;
+    },
+  );
+  onProbe?.(probe);
+  return probe;
+};
+
+const probeOwnedWindowsPathEntries = (
+  findFiles: (
+    paths: readonly string[],
+    signal?: AbortSignal,
+  ) => string | undefined | Promise<string | undefined>,
+  paths: readonly string[],
+  onProbe?: (probe: Promise<unknown>) => void,
+  signal?: AbortSignal,
+): Promise<string | undefined> => {
+  if (pendingWindowsPathProbes >= MAX_PENDING_WINDOWS_PATH_PROBES)
+    throw Object.assign(
+      new Error(
+        "Windows provider PATH lookup capacity is exhausted by filesystem probes that have not settled.",
+      ),
+      { code: PROVIDER_COMMAND_RESOLUTION_CAPACITY_ERROR_CODE },
+    );
+  pendingWindowsPathProbes += 1;
+  let probe: Promise<string | undefined>;
+  try {
+    probe = Promise.resolve(findFiles(paths, signal));
+  } catch (cause) {
+    pendingWindowsPathProbes -= 1;
+    throw cause;
+  }
+  void probe.then(
+    () => {
+      pendingWindowsPathProbes -= 1;
+    },
+    () => {
+      pendingWindowsPathProbes -= 1;
+    },
+  );
+  onProbe?.(probe);
+  return probe;
+};
+
+/** Resolve against every selected PATH entry within a cancellable startup budget. */
+export const resolveWindowsProviderExecutable = async (
   executable: string,
   environment: Readonly<NodeJS.ProcessEnv>,
   lookup: WindowsExecutableLookup = {},
-): string => {
+): Promise<string> => {
+  lookup.signal?.throwIfAborted();
   const cwd = lookup.cwd ?? process.cwd();
   const absolute = (...paths: string[]): string => win32.resolve(cwd, ...paths);
+  // A UNC selection is already absolute. Return it verbatim instead of
+  // re-rooting it against the process drive through win32.resolve(cwd, ...).
+  if (isUncPath(executable)) return executable;
+  rejectCrossDriveRelativePath(executable, cwd, lookup.operation, "executable");
   if (
     win32.isAbsolute(executable) ||
     executable.includes("/") ||
@@ -66,12 +324,100 @@ export const resolveWindowsProviderExecutable = (
             [".com", ".exe"].includes(extension.toLowerCase()),
           );
 
-  for (const entry of pathEntries) {
-    if (entry.length === 0) continue;
-    for (const extension of extensions) {
-      const candidate = absolute(entry, `${executable}${extension}`);
-      if ((lookup.isFile ?? isRegularFile)(candidate)) return candidate;
+  const isFile =
+    lookup.isFile ??
+    ((path: string, signal?: AbortSignal) => {
+      if (isUncPath(path) || isDriveRootedPath(path))
+        return (lookup.isOwnedFile ?? isRegularFileInOwnedProcess)(
+          path,
+          signal,
+        );
+      return isRegularFile(path, signal);
+    });
+  const candidates = pathEntries.flatMap((entry) =>
+    entry.length === 0
+      ? []
+      : extensions.map((extension) => ({
+          entry,
+          path: isUncPath(entry)
+            ? win32.join(entry, `${executable}${extension}`)
+            : absolute(entry, `${executable}${extension}`),
+        })),
+  );
+  const batchOwnedCandidates =
+    lookup.findOwnedFiles !== undefined ||
+    (lookup.isFile === undefined && lookup.isOwnedFile === undefined);
+  const deadline = new ProviderStartupDeadline(
+    lookup.timeoutMs ?? 120_000,
+    lookup.signal,
+  );
+  try {
+    for (let index = 0; index < candidates.length;) {
+      deadline.signal.throwIfAborted();
+      const candidate = candidates[index]!;
+      rejectCrossDriveRelativePath(
+        candidate.entry,
+        cwd,
+        lookup.operation,
+        "PATH",
+      );
+      if (
+        batchOwnedCandidates &&
+        (isUncPath(candidate.path) || isDriveRootedPath(candidate.path))
+      ) {
+        let end = index + 1;
+        while (
+          end < candidates.length &&
+          !isCrossDriveRelativePath(candidates[end]!.entry, cwd) &&
+          (isUncPath(candidates[end]!.path) ||
+            isDriveRootedPath(candidates[end]!.path))
+        )
+          end += 1;
+        const paths = candidates.slice(index, end).map(({ path }) => path);
+        const found = await waitForAbortable(
+          probeOwnedWindowsPathEntries(
+            lookup.findOwnedFiles ?? findRegularFileInOwnedProcess,
+            paths,
+            lookup.onProbe,
+            deadline.signal,
+          ),
+          deadline.signal,
+        );
+        if (found === ABORTED) {
+          deadline.signal.throwIfAborted();
+          index = end;
+          continue;
+        }
+        if (found !== undefined) return found;
+        index = end;
+        continue;
+      }
+      // Keep a handler on a late filesystem rejection after cancellation.
+      const found = await waitForAbortable(
+        probeWindowsPathEntry(
+          isFile,
+          candidate.path,
+          lookup.onProbe,
+          deadline.signal,
+        ),
+        deadline.signal,
+      );
+      if (found === ABORTED) deadline.signal.throwIfAborted();
+      if (found) return candidate.path;
+      index += 1;
     }
+    return executable;
+  } catch (cause) {
+    if (deadline.interruption === "timeout")
+      throw Object.assign(
+        new Error(
+          "Provider PATH lookup timed out; set an absolute REA_OBJDUMP_COMMAND or REA_RIZIN_COMMAND path.",
+          { cause },
+        ),
+        { code: "ETIMEDOUT" },
+      );
+    throw cause;
+  } finally {
+    deadline.dispose();
   }
-  return executable;
 };

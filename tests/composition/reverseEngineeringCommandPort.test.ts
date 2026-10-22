@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { expect, it, vi } from "vitest";
 
 import { ReverseEngineeringService } from "../../src/application/reverse/ReverseEngineeringService.js";
+import { createReverseEngineeringCommandPort } from "../../src/composition/reverseEngineering.js";
 import { analysisErrorProjectionSchema } from "../../src/contracts/errorSchemas.js";
 import { projectAnalysisError } from "../../src/domain/analysisErrorProjection.js";
 import { REVERSE_ENGINEERING_TOOL_CONTRACTS } from "../../src/contracts/reverseEngineeringToolContracts.js";
@@ -63,6 +64,144 @@ it("uses provider profiles supplied through the application port", async () => {
     if (result.ok) expect(result.value.provider.id).toBe("test.objdump");
   } finally {
     await rm(directory, { recursive: true, force: true });
+  }
+});
+
+it("binds relative provider launches to the invocation CWD on non-Windows hosts", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "rea-reverse-relative-cwd-"));
+  const path = join(directory, "fixture.bin");
+  await writeFile(path, Buffer.from([0x7f, 0x45, 0x4c, 0x46]));
+  const changedDirectory = join(directory, "changed");
+  let currentDirectory = directory;
+  const cwd = vi
+    .spyOn(process, "cwd")
+    .mockImplementation(() => currentDirectory);
+  const run = vi.fn(
+    async (
+      _command: string,
+      _args: readonly string[],
+      _options?: ExecFileOutputOptions,
+    ) => ({ stdout: "headers", stderr: "" }),
+  );
+  const service = new ReverseEngineeringService({
+    commands: createReverseEngineeringCommandPort(
+      { REA_RIZIN_COMMAND: "./tools/rizin", PATH: "./bin" },
+      "linux",
+    ),
+    run,
+  });
+
+  try {
+    const pending = service.executeRizinCommand({ path, command: "iI" });
+    currentDirectory = changedDirectory;
+    const result = await pending;
+
+    expect(result.ok).toBe(true);
+    expect(run).toHaveBeenCalledWith(
+      "./tools/rizin",
+      ["-N", "-q", "-e", "scr.color=0", "-c", "iI", path],
+      expect.objectContaining({ cwd: directory }),
+      "execute_rizin_command",
+    );
+  } finally {
+    cwd.mockRestore();
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+it.each(["resolve", "reject"] as const)(
+  "preserves the caller cancellation reason after asynchronous profile preparation %s",
+  async (outcome) => {
+    const directory = await mkdtemp(
+      join(tmpdir(), "rea-reverse-prepare-cancel-"),
+    );
+    const path = join(directory, "fixture.bin");
+    await writeFile(path, Buffer.from([0x7f, 0x45, 0x4c, 0x46]));
+    let entered!: () => void;
+    let finish!: () => void;
+    const preparing = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const ready = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const reason = { request: "cancel-from-caller" };
+    const controller = new AbortController();
+    const service = new ReverseEngineeringService({
+      commands: {
+        objdump: async () => {
+          entered();
+          await preparing;
+          if (outcome === "reject")
+            throw new DOMException("Adapter preparation aborted", "AbortError");
+          return {
+            executable: "unused-objdump",
+            arguments: [path],
+            identity: {
+              id: "test.objdump",
+              name: "Test objdump",
+              version: null,
+            },
+          };
+        },
+        rizin: () => ({
+          executable: "unused-rizin",
+          arguments: [path],
+          identity: { id: "test.rizin", name: "Test Rizin", version: null },
+        }),
+      },
+    });
+    try {
+      const pending = service.inspectWithObjdump(
+        { path, operation: "symbols" },
+        { signal: controller.signal },
+      );
+      await ready;
+      controller.abort(reason);
+      finish();
+      const result = await pending;
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error.cause).toBe(reason);
+    } finally {
+      await service.close();
+      await rm(directory, { recursive: true, force: true });
+    }
+  },
+);
+
+it("returns a typed error when the invocation CWD is unavailable", async () => {
+  const cwd = vi.spyOn(process, "cwd").mockImplementation(() => {
+    throw Object.assign(new Error("ENOENT: invocation directory was removed"), {
+      code: "ENOENT",
+    });
+  });
+  const service = new ReverseEngineeringService({
+    commands: {
+      objdump: () => ({
+        executable: "unused-objdump",
+        arguments: [],
+        identity: { id: "test.objdump", name: "Test objdump", version: null },
+      }),
+      rizin: () => ({
+        executable: "unused-rizin",
+        arguments: [],
+        identity: { id: "test.rizin", name: "Test Rizin", version: null },
+      }),
+    },
+  });
+  try {
+    const result = await service.inspectWithObjdump({
+      operation: "architectures",
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok)
+      expect(result.error).toMatchObject({
+        _tag: "AnalysisOutputError",
+        cause: { code: "ENOENT" },
+      });
+  } finally {
+    cwd.mockRestore();
+    await service.close();
   }
 });
 

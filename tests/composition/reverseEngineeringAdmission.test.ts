@@ -154,8 +154,15 @@ it("preserves the caller reason when cancellation arrives after provider output"
     expect(result.error._tag).toBe("AnalysisCancelledError");
     expect(result.error.cause).toBe(reason);
     expect(result.error.partialObservation).toMatchObject({
-      raw_result: { stdout: "symbols" },
+      raw_result: {
+        stdout: "symbols",
+        stderr: "",
+        stdout_bytes: 7,
+        stderr_bytes: 0,
+        exit_code: 0,
+      },
     });
+    expect(result.error.capturedOutput).toBeUndefined();
   } finally {
     await service.close();
     await rm(directory, { recursive: true, force: true });
@@ -291,13 +298,18 @@ it.each([
       if (result.ok) return;
       expect(result.error.cause).toBe(code === "ABORT_ERR" ? reason : failure);
       if (captured && code === "ABORT_ERR") {
-        expect(result.error.capturedOutput).toMatchObject({
-          stdout: "partial stdout",
-          stderr: "partial stderr",
-        });
+        expect(result.error.capturedOutput).toBeUndefined();
         expect(result.error.partialObservation).toMatchObject({
-          raw_result: { stdout: "partial stdout" },
+          raw_result: {
+            stdout: "partial stdout",
+            stderr: "partial stderr",
+            stdout_bytes: 14,
+            stderr_bytes: 14,
+          },
         });
+        expect(result.error.partialObservation).not.toHaveProperty(
+          "normalized_result.stdout",
+        );
       }
     } finally {
       await service.close();

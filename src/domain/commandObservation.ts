@@ -15,6 +15,14 @@ export const commandObservationSchema = z.strictObject({
   artifact_changed: z.boolean().nullable(),
 });
 
+/** Summary views preserve canceled output omission without weakening complete observations. */
+export const commandObservationSummarySchema = z.union([
+  commandObservationSchema,
+  commandObservationSchema
+    .omit({ stdout: true, stderr: true })
+    .extend({ completion_status: z.literal("unknown") }),
+]);
+
 /** The GDB owner retains ordered records and derives its stream groupings. */
 export const gdbCommandResultSchema = z.strictObject({
   command: z.string(),

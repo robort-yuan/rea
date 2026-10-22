@@ -2,6 +2,7 @@ import { z } from "zod";
 import type { AnalysisError } from "../analysisErrorBase.js";
 import {
   commandObservationSchema,
+  commandObservationSummarySchema,
   gdbCommandResultSchema,
 } from "../commandObservation.js";
 import { digestSchema } from "../digests.js";
@@ -148,7 +149,10 @@ export const projectCommandObservationView = (
       },
     });
   }
-  const parsed = parseAnalysisViewResult(commandObservationSchema, parent);
+  const parsed = parseAnalysisViewResult(
+    commandObservationSummarySchema,
+    parent,
+  );
   if (!parsed.ok) return parsed;
   const report = parsed.value;
   if (

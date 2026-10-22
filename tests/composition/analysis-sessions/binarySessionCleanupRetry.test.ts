@@ -1,6 +1,6 @@
 import { access, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { expect, it, onTestFinished } from "vitest";
+import { expect, it, onTestFinished, vi } from "vitest";
 
 import {
   AnalysisCleanupLease,
@@ -167,6 +167,193 @@ it.each(["close", "switch", "open after close"] as const)(
     expect(new Set(fixture.runIds).size).toBe(fixture.created());
   },
 );
+
+it("settles a retained analysis client before admitting an external mutation", async () => {
+  const fixture = await retryFixture();
+  const [target] = fixture.targets;
+  expect((await fixture.session.open(target)).ok).toBe(true);
+  expect(await fixture.session.close()).toEqual(err(fixture.cleanupError));
+  const operation = vi.fn(async () => resultOk("provider finished"));
+  const mutate = () =>
+    fixture.session.withAdmittedExternalMutation(
+      target,
+      undefined,
+      operation,
+      (_value, failure) => failure,
+    );
+  expect(await mutate()).toEqual(err(fixture.cleanupError));
+  expect(operation).not.toHaveBeenCalled();
+  await access(fixture.runtime);
+  fixture.allowCleanup();
+  expect(await mutate()).toEqual(resultOk(resultOk("provider finished")));
+  expect(operation).toHaveBeenCalledOnce();
+  await expect(access(fixture.runtime)).rejects.toMatchObject({
+    code: "ENOENT",
+  });
+  expect(await fixture.session.status()).toMatchObject({
+    cleanup_pending: false,
+  });
+  await fixture.session.close();
+});
+
+it("retries reverse cleanup after draining earlier provider calls", async () => {
+  const fixture = await retryFixture();
+  const [target] = fixture.targets;
+  expect((await fixture.session.open(target)).ok).toBe(true);
+  fixture.allowCleanup();
+  const started = createDeferred<void>();
+  const release = createDeferred<void>();
+  let reverseCleanupPending = false;
+  let cleanupChecks = 0;
+  const inspection = fixture.session.withAdmittedAnalysis(
+    "inspect_with_objdump",
+    undefined,
+    async () => {
+      started.resolve();
+      await release.promise;
+      reverseCleanupPending = true;
+      return "inspection complete";
+    },
+  );
+  await started.promise;
+
+  const opening = fixture.session.open(target, {
+    beforeOpen: async () => {
+      cleanupChecks += 1;
+      return reverseCleanupPending ? err(fixture.cleanupError) : resultOk(null);
+    },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(cleanupChecks).toBe(0);
+  release.resolve();
+  await inspection;
+
+  const openResult = await opening;
+  expect(openResult).toEqual(err(fixture.cleanupError));
+  expect(cleanupChecks).toBe(1);
+});
+
+it("recovers reverse owners created by drained calls before Rizin dispatch", async () => {
+  const fixture = await retryFixture();
+  const [target] = fixture.targets;
+  expect((await fixture.session.open(target)).ok).toBe(true);
+  fixture.allowCleanup();
+  const started = createDeferred<void>();
+  const release = createDeferred<void>();
+  let priorOwnerPending = false;
+  let recoveryCalls = 0;
+  const ownerFailure = new ProviderCleanupError("objdump", ["owned-read"], {
+    reason: "previous read-only process still requires cleanup",
+  });
+  const recoverPreviousOwner = async () => {
+    recoveryCalls += 1;
+    return priorOwnerPending ? err(ownerFailure) : resultOk(null);
+  };
+  // The handler's preliminary recovery happens before it is queued behind the
+  // active inspection, so it cannot see an owner that inspection later retains.
+  expect((await recoverPreviousOwner()).ok).toBe(true);
+
+  const inspection = fixture.session.withAdmittedAnalysis(
+    "inspect_with_objdump",
+    undefined,
+    async () => {
+      started.resolve();
+      await release.promise;
+      priorOwnerPending = true;
+      return "inspection complete";
+    },
+  );
+  await started.promise;
+  const mutation = vi.fn(async (onDispatch: () => void) => {
+    onDispatch();
+    return resultOk("rizin finished");
+  });
+  const admitMutation = () =>
+    fixture.session.withAdmittedExternalMutation(
+      target,
+      undefined,
+      mutation,
+      (_value, error) => error,
+      "execute_rizin_command",
+      recoverPreviousOwner,
+      "provider-dispatch",
+    );
+  const pendingMutation = admitMutation();
+  release.resolve();
+  await inspection;
+
+  expect(await pendingMutation).toEqual(err(ownerFailure));
+  expect(recoveryCalls).toBe(2);
+  expect(mutation).not.toHaveBeenCalled();
+  expect(fixture.session.activeTarget()?.path).toBe(target);
+
+  ownerFailure.resolveCleanup();
+  priorOwnerPending = false;
+  const retried = await admitMutation();
+  expect(retried).toEqual(resultOk(resultOk("rizin finished")));
+  expect(mutation).toHaveBeenCalledOnce();
+  expect(fixture.session.activeTarget()).toBeUndefined();
+  await fixture.session.close();
+});
+
+it("keeps recorded unknowns when a target switch cannot retire the previous provider", async () => {
+  const fixture = await retryFixture();
+  const [first, second] = fixture.targets;
+  expect((await fixture.session.open(first)).ok).toBe(true);
+  expect(
+    fixture.session.recordUnknown({
+      question: "Does this function reach the network?",
+      severity: "medium",
+      domain: "network",
+      supporting_evidence_ids: [],
+      contradicting_evidence_ids: [],
+      required_authority: "shipped-artifact",
+      required_confidence: "observed",
+      required_environment: null,
+      recommended_probes: [],
+      relationships: [],
+    }).ok,
+  ).toBe(true);
+
+  const switched = await fixture.session.open(second);
+
+  expect(switched.ok).toBe(false);
+  expect(fixture.session.listUnknowns({})).toHaveLength(1);
+});
+
+it("keeps a queued close behind an open that is still settling prior cleanup", async () => {
+  const fixture = await retryFixture();
+  const [first] = fixture.targets;
+  const release = createDeferred<void>();
+  const order: string[] = [];
+
+  const opening = fixture.session
+    .open(first, {
+      beforeOpen: async () => {
+        order.push("cleanup-start");
+        await release.promise;
+        order.push("cleanup-end");
+        return resultOk(null);
+      },
+    })
+    .then((result) => {
+      order.push("open");
+      return result;
+    });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  const closing = fixture.session.close().then((result) => {
+    order.push("close");
+    return result;
+  });
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(order).toEqual(["cleanup-start"]);
+
+  release.resolve();
+  await Promise.all([opening, closing]);
+
+  expect(order).toEqual(["cleanup-start", "cleanup-end", "open", "close"]);
+  expect(fixture.session.activeTarget()).toBeUndefined();
+});
 
 it("keeps a failed candidate for cleanup and preserves its startup failure", async () => {
   const primary = new HopperStartError();

@@ -62,12 +62,14 @@ const fixture = async (
   reason: unknown,
   failedCleanupAttempts: number,
   activeVersion = false,
+  failedVersionCleanupAttempts = 0,
 ) => {
   const root = await createTestTempDirectory("rea-pcap-provider-cancel-");
   const tools = await writeTools(root, mode, activeVersion);
   const capture = join(root, "capture.pcap");
   await writeFile(capture, "controlled capture bytes");
   let cleanupAttempts = 0;
+  let versionCleanupAttempts = 0;
   const launcher: PcapCommandLauncher = async (spawn) => {
     const launched = await spawnOwnedProviderProcess(spawn);
     const captureCommand = spawn.arguments.includes("-M");
@@ -79,6 +81,20 @@ const fixture = async (
       launched.process.stdout?.on("data", (chunk: Buffer) => {
         if (chunk.toString().includes("ready")) controller.abort(reason);
       });
+    if (!captureCommand && activeVersionCommand) {
+      const cleanup =
+        launched.cleanup ??
+        (() => cleanupOwnedProcessGroup(launched.ownership));
+      return {
+        ...launched,
+        cleanup: async () => {
+          versionCleanupAttempts++;
+          if (versionCleanupAttempts <= failedVersionCleanupAttempts)
+            throw new Error("injected retained version-probe cleanup failure");
+          return cleanup();
+        },
+      };
+    }
     if (!captureCommand) return launched;
     const cleanup =
       launched.cleanup ?? (() => cleanupOwnedProcessGroup(launched.ownership));
@@ -102,7 +118,13 @@ const fixture = async (
     launcher,
   });
   onTestFinished(async () => provider.close());
-  return { provider, root, capture, cleanupAttempts: () => cleanupAttempts };
+  return {
+    provider,
+    root,
+    capture,
+    cleanupAttempts: () => cleanupAttempts,
+    versionCleanupAttempts: () => versionCleanupAttempts,
+  };
 };
 
 it("availability preserves the producer's exact cancellation reason", async () => {
@@ -121,6 +143,34 @@ it("availability preserves the producer's exact cancellation reason", async () =
   }
   expect(failure).toBeInstanceOf(AnalysisCancelledError);
   expect(failure).toMatchObject({ cause: reason });
+});
+
+it("links a blocked request to a retained cancelled version-probe owner", async () => {
+  const controller = new AbortController();
+  const { provider, versionCleanupAttempts } = await fixture(
+    "active",
+    controller,
+    "version probe cancelled",
+    0,
+    true,
+    1,
+  );
+
+  await expect(
+    provider.inspectAvailability(controller.signal),
+  ).rejects.toBeInstanceOf(AnalysisCancelledError);
+
+  let blocked: unknown;
+  try {
+    await provider.inspectAvailability();
+  } catch (cause) {
+    blocked = cause;
+  }
+  expect(blocked).toBeInstanceOf(ProviderCleanupError);
+  expect(blocked).toMatchObject({ cleanupIncomplete: true });
+  await provider.close();
+  expect(versionCleanupAttempts()).toBe(2);
+  expect(blocked).toMatchObject({ cleanupIncomplete: false });
 });
 
 it("active cancellation stays primary through retained command and snapshot cleanup retry", async () => {

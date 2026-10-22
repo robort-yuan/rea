@@ -138,20 +138,25 @@ const expectCancelledResult = (result: CancellationResult): void => {
   if (result.ok) return;
   expect(result.error._tag).toBe("AnalysisCancelledError");
   expect(result.error.cleanup).toBeUndefined();
-  expect(result.error.capturedOutput).toMatchObject({
-    stdout: "provider output before cancellation",
-    stderr: "",
-    truncated: false,
-    exit_code: null,
-    signal: "SIGKILL",
-  });
+  expect(result.error.capturedOutput).toBeUndefined();
   expect(result.error.cause).toBeInstanceOf(Error);
   expect(result.error.partialObservation).toMatchObject({
     raw_result: {
       stdout: "provider output before cancellation",
+      stderr: "",
+      stdout_bytes: 35,
+      stderr_bytes: 0,
+      exit_code: null,
+      signal: "SIGKILL",
+      truncated: false,
+    },
+    normalized_result: {
       completion_status: "unknown",
     },
   });
+  expect(result.error.partialObservation).not.toHaveProperty(
+    "normalized_result.stdout",
+  );
 };
 
 const cleanupCancellationScenario = async (options: {

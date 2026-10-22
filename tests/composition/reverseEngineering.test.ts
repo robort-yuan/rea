@@ -1,11 +1,16 @@
 import { createHash } from "node:crypto";
 import type { Stats } from "node:fs";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import {
+  mkdtemp,
+  realpath as realpathOf,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { isAbsolute, join, relative } from "node:path";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { PassThrough } from "node:stream";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { digestFile } from "../../src/application/reverse/ReverseEngineeringService.js";
 import { TestReverseEngineeringService as ReverseEngineeringService } from "../support/reverseEngineeringService.js";
@@ -13,6 +18,36 @@ import { providerSnapshot } from "../support/reverseEngineeringCompositionFixtur
 import { createReverseEngineeringService } from "../../src/composition/reverseEngineering.js";
 import { projectAnalysisError } from "../../src/domain/analysisErrorProjection.js";
 import { REVERSE_ENGINEERING_TOOL_CONTRACTS } from "../../src/contracts/reverseEngineeringToolContracts.js";
+
+describe("reverse engineering dispatch ownership preflight", () => {
+  it("does not report Rizin dispatch when ownership preflight fails", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "rea-rizin-preflight-"));
+    const path = join(directory, "fixture.bin");
+    await writeFile(path, Buffer.from([0x7f, 0x45, 0x4c, 0x46]));
+    let dispatches = 0;
+    let callbackWasForwarded = false;
+    const service = new ReverseEngineeringService({
+      run: async (_command, _args, options) => {
+        callbackWasForwarded =
+          typeof (options as { readonly onDispatch?: unknown } | undefined)
+            ?.onDispatch === "function";
+        throw new Error("process ownership baseline unavailable");
+      },
+    });
+
+    try {
+      const result = await service.executeRizinCommand(
+        { path, command: "iI" },
+        { onDispatch: () => dispatches++ },
+      );
+      expect(result.ok).toBe(false);
+      expect(callbackWasForwarded).toBe(true);
+      expect(dispatches).toBe(0);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("reverse engineering command services", () => {
   it("documents the shared combined capture limit for both command tools", () => {
@@ -56,12 +91,12 @@ describe("reverse engineering command services", () => {
       if (!result.ok) return;
       expect(calls).toEqual([
         {
-          command: "/tools/objdump",
+          command: resolve("/tools/objdump"),
           args: ["-W", "-WK", path],
           env: expect.objectContaining({ DEBUGINFOD_URLS: "" }),
         },
       ]);
-      expect(result.value.raw_result).toMatchObject({
+      expect(result.value.normalized_result).toMatchObject({
         stdout: "DWARF output\n",
         stderr: "diagnostic\n",
         exit_code: 0,
@@ -161,7 +196,7 @@ describe("reverse engineering command services", () => {
       });
       expect(result.ok).toBe(true);
       if (result.ok)
-        expect(result.value.raw_result).toMatchObject({
+        expect(result.value.normalized_result).toMatchObject({
           stdout: "captured partial output",
           exit_code: null,
           output_truncated: true,
@@ -223,6 +258,10 @@ it.each([
       expect(result.value.raw_result).toMatchObject({
         stdout: "captured stdout",
         stderr: "captured stderr",
+      });
+      expect(result.value.normalized_result).toMatchObject({
+        stdout: "captured stdout",
+        stderr: "captured stderr",
         exit_code: 0,
         output_truncated: false,
         completion_status: "complete",
@@ -266,7 +305,7 @@ it("uses one selected environment snapshot for provider selection and execution"
     expect(result.ok).toBe(true);
     expect(calls).toEqual([
       {
-        command: "/selected/rizin",
+        command: resolve("/selected/rizin"),
         env: {
           REA_RIZIN_COMMAND: "/selected/rizin",
           PATH: "/selected/bin",
@@ -312,7 +351,7 @@ it("marks signal-terminated provider commands as unknown completion", async () =
     });
     expect(signaled.ok).toBe(true);
     if (signaled.ok) {
-      expect(signaled.value.raw_result).toMatchObject({
+      expect(signaled.value.normalized_result).toMatchObject({
         stdout: "partial output",
         exit_code: null,
         signal: "SIGKILL",
@@ -326,7 +365,7 @@ it("marks signal-terminated provider commands as unknown completion", async () =
     });
     expect(ordinaryExit.ok).toBe(true);
     if (ordinaryExit.ok) {
-      expect(ordinaryExit.value.raw_result).toMatchObject({
+      expect(ordinaryExit.value.normalized_result).toMatchObject({
         stdout: "ordinary partial output",
         exit_code: 2,
         signal: null,
@@ -396,6 +435,10 @@ describe("Rizin command service", () => {
       expect(result.value.raw_result).toMatchObject({
         stdout: "\u001b[31mpartial data\u001b[0m\n",
         stderr: "command error",
+      });
+      expect(result.value.normalized_result).toMatchObject({
+        stdout: "\u001b[31mpartial data\u001b[0m\n",
+        stderr: "command error",
         exit_code: 2,
         completion_status: "complete",
       });
@@ -412,7 +455,7 @@ describe("Rizin command service", () => {
       expect(result.value.parameters).toMatchObject({
         path: callerPath,
         command,
-        provider_executable: "/tools/rizin",
+        provider_executable: resolve("/tools/rizin"),
       });
       expect(result.value.parameters.command_arguments).toEqual(calls[0]?.args);
       expect(result.value.provider.id).toBe("rizin");
@@ -466,7 +509,7 @@ describe("Rizin command service", () => {
       expect(result.value.subject?.digest.sha256).toBe(
         createHash("sha256").update("before").digest("hex"),
       );
-      expect(result.value.raw_result).toMatchObject({
+      expect(result.value.normalized_result).toMatchObject({
         artifact_sha256_after: createHash("sha256")
           .update("after")
           .digest("hex"),
@@ -683,11 +726,14 @@ it("preserves raw byte counts when cancellation rejects invalid UTF-8 output", a
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error._tag).toBe("AnalysisCancelledError");
-      expect(result.error.capturedOutput).toMatchObject({
-        stdout: "�",
-        stderr: "€",
-        stdout_bytes: 1,
-        stderr_bytes: 3,
+      expect(result.error.capturedOutput).toBeUndefined();
+      expect(result.error.partialObservation).toMatchObject({
+        raw_result: {
+          stdout: "�",
+          stderr: "€",
+          stdout_bytes: 1,
+          stderr_bytes: 3,
+        },
       });
     }
   } finally {
@@ -722,25 +768,25 @@ it("preserves provider facts when cancellation interrupts the post-run digest", 
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error._tag).toBe("AnalysisCancelledError");
-      expect(result.error.capturedOutput).toMatchObject({
-        stdout: "�",
-        stderr: "�",
-        stdout_bytes: 1,
-        stderr_bytes: 1,
-        exit_code: 0,
-        signal: null,
-      });
+      expect(result.error.capturedOutput).toBeUndefined();
       expect(result.error.partialObservation).toMatchObject({
         raw_result: {
           stdout: "�",
-          exit_code: null,
-          completion_status: "unknown",
-          artifact_sha256_after: null,
+          stderr: "�",
+          stdout_bytes: 1,
+          stderr_bytes: 1,
+          truncated: false,
         },
         limitations: expect.arrayContaining([
           expect.stringContaining("cancellation interrupted the digest"),
         ]),
       });
+      expect(result.error.partialObservation).not.toHaveProperty(
+        "normalized_result.stdout",
+      );
+      expect(result.error.partialObservation).not.toHaveProperty(
+        "normalized_result.stderr",
+      );
     }
   } finally {
     await rm(directory, { recursive: true, force: true });
@@ -767,7 +813,7 @@ it("marks signal-terminated provider output incomplete", async () => {
     const result = await service.executeRizinCommand({ path, command: "iI" });
     expect(result.ok).toBe(true);
     if (result.ok)
-      expect(result.value.raw_result).toMatchObject({
+      expect(result.value.normalized_result).toMatchObject({
         signal: "SIGSEGV",
         exit_code: null,
         completion_status: "unknown",
@@ -775,4 +821,35 @@ it("marks signal-terminated provider output incomplete", async () => {
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+describe("provider argv path binding", () => {
+  it("binds provider argv to the path captured before the process directory changes", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "rea-argv-binding-"));
+    await writeFile(join(directory, "fixture.bin"), "fixture");
+    const calls: string[][] = [];
+    const service = new ReverseEngineeringService({
+      environment: { REA_OBJDUMP_COMMAND: "/tools/objdump" },
+      run: async (_command, args) => {
+        calls.push([...args]);
+        return { stdout: "", stderr: "" };
+      },
+    });
+    const cwd = vi.spyOn(process, "cwd").mockReturnValue(directory);
+
+    try {
+      const running = service.inspectWithObjdump({
+        path: "fixture.bin",
+        operation: "file_headers",
+      });
+      cwd.mockReturnValue(tmpdir());
+      const result = await running;
+
+      expect(result.ok).toBe(true);
+      expect(calls).toEqual([["-f", join(directory, "fixture.bin")]]);
+    } finally {
+      cwd.mockRestore();
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
 });
