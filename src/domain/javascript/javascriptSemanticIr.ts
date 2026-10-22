@@ -424,6 +424,15 @@ export interface JavaScriptSemanticModuleLink {
   readonly location: JavaScriptSourceRange;
 }
 
+/** Syntactic influence into one simple assignment target; no value evaluation. */
+export interface JavaScriptSemanticAssignmentFlow {
+  readonly target: JavaScriptSourceRange;
+  readonly source: JavaScriptSourceRange;
+  readonly sourceIsReference: boolean;
+  readonly operator: string;
+  readonly ownerCallableId: string | null;
+}
+
 /** Provider-neutral JavaScript semantic IR. */
 export interface JavaScriptSemanticIr {
   readonly schema: "JavaScriptSemanticIR";
@@ -446,6 +455,7 @@ export interface JavaScriptSemanticIr {
   readonly requestOperations: readonly JavaScriptSemanticRequestOperation[];
   readonly boundaryOperations: readonly JavaScriptSemanticBoundaryOperation[];
   readonly resourceOperations: readonly JavaScriptSemanticResourceOperation[];
+  readonly assignmentFlows: readonly JavaScriptSemanticAssignmentFlow[];
   readonly objectOperations: readonly JavaScriptSemanticObjectOperation[];
   readonly functionFingerprints: readonly JavaScriptSemanticFunctionFingerprint[];
   readonly frontiers: readonly JavaScriptSemanticFrontier[];
@@ -475,6 +485,7 @@ export const failedJavaScriptSemanticIr = (): JavaScriptSemanticIr => ({
   requestOperations: [],
   boundaryOperations: [],
   resourceOperations: [],
+  assignmentFlows: [],
   objectOperations: [],
   functionFingerprints: [],
   frontiers: [],

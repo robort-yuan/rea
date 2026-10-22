@@ -28,6 +28,10 @@ export function* projectSemanticObjects(
   for (const [index, operation] of context.ir.objectOperations.entries()) {
     if (index % 64 === 0) yield;
     const occurrence = addObjectOccurrence(context, operation);
+    if (occurrence !== null) {
+      if (operation.kind === "read") context.readNodes.push(occurrence);
+      if (operation.kind === "write") context.writeNodes.push(occurrence);
+    }
     const target = objectTarget(context, values, operation);
     const ends = objectRelationEnds(context, operation, occurrence, target);
     const resolved =
