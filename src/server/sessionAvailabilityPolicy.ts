@@ -1,4 +1,8 @@
-import type { AvailabilityPolicy } from "../application/CapabilityInventory.js";
+import {
+  HOST_RESTRICTED_FEATURES,
+  type AvailabilityPolicy,
+  type HostRestrictedFeature,
+} from "../application/CapabilityInventory.js";
 import type { OptionalProviderLoadFailures } from "../application/OptionalObservationProviders.js";
 import { platform } from "node:process";
 
@@ -26,6 +30,18 @@ export interface SessionAvailabilityDefaults {
     | "firmwareExtractionEnabled"
   >;
 }
+
+/** Either the caller or the observed host can mark an integration unsupported. */
+const combineHostUnsupported = (
+  configured: AvailabilityPolicy["hostUnsupported"],
+  observed: NonNullable<AvailabilityPolicy["hostUnsupported"]>,
+): Partial<Record<HostRestrictedFeature, boolean>> => {
+  const combined: Partial<Record<HostRestrictedFeature, boolean>> = {};
+  for (const feature of HOST_RESTRICTED_FEATURES)
+    if (configured?.[feature] === true || observed[feature] === true)
+      combined[feature] = true;
+  return combined;
+};
 
 /** Select configured availability reporting or the target-free defaults. */
 export const sessionAvailabilityPolicy = (
@@ -69,15 +85,23 @@ export const sessionAvailabilityPolicy = (
     }));
   // Observed host support also bounds a configured policy: no policy lets the
   // default providers pass their execution host checks.
-  return () => ({
-    ...policy(),
-    ...(defaults.optionalProviderLoadFailures === undefined
-      ? {}
-      : {
-          optionalProviderLoadFailures: defaults.optionalProviderLoadFailures,
-        }),
-    ...(defaults.hostUnsupported === undefined
-      ? {}
-      : { hostUnsupported: defaults.hostUnsupported }),
-  });
+  return () => {
+    const value: AvailabilityPolicy = policy();
+    return {
+      ...value,
+      ...(defaults.optionalProviderLoadFailures === undefined
+        ? {}
+        : {
+            optionalProviderLoadFailures: defaults.optionalProviderLoadFailures,
+          }),
+      ...(defaults.hostUnsupported === undefined
+        ? {}
+        : {
+            hostUnsupported: combineHostUnsupported(
+              value.hostUnsupported,
+              defaults.hostUnsupported,
+            ),
+          }),
+    };
+  };
 };

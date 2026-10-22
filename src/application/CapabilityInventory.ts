@@ -53,15 +53,17 @@ type ToolAvailabilityReason = "available" | ToolUnavailabilityReason;
 type ProviderDescriptor = ProviderCapability;
 
 /** Optional integrations whose verified hosts exclude some platforms. */
-export type HostRestrictedFeature =
-  | "packetCapture"
-  | "signalRecording"
-  | "evmInterface"
-  | "binaryLayout"
-  | "recordedCrash"
-  | "firmwareInspection"
-  | "firmwareExtraction"
-  | "javascriptRecovery";
+export const HOST_RESTRICTED_FEATURES = [
+  "packetCapture",
+  "signalRecording",
+  "evmInterface",
+  "binaryLayout",
+  "recordedCrash",
+  "firmwareInspection",
+  "firmwareExtraction",
+  "javascriptRecovery",
+] as const;
+export type HostRestrictedFeature = (typeof HOST_RESTRICTED_FEATURES)[number];
 
 export type AvailabilityPolicy = {
   /** Integrations this host cannot run, whatever their configuration. */

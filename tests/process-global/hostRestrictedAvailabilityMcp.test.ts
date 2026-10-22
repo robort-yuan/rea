@@ -154,24 +154,36 @@ it.each([
     }),
 );
 
-it("keeps observed host restrictions under a configured availability policy", async () =>
-  emulateHost("darwin", "arm64", async () => {
-    const harness = await connect({
-      availabilityPolicy: () => ({
-        processCaptureEnabled: true,
-        signalRecordingEnabled: true,
-      }),
-    });
-    try {
-      expect(
-        (await harness.availability()).find(
-          (tool) => tool.name === "decode_signal_recording",
-        ),
-      ).toMatchObject({ available: false, reason: "unsupported_host" });
-    } finally {
-      await harness.close();
-    }
-  }));
+it.each([
+  ["the observed host", "darwin", "arm64", {}],
+  [
+    "the caller",
+    "linux",
+    "x64",
+    { hostUnsupported: { signalRecording: true } },
+  ],
+] as const)(
+  "keeps a host restriction from %s under a configured availability policy",
+  async (_source, platform, arch, restriction) =>
+    emulateHost(platform, arch, async () => {
+      const harness = await connect({
+        availabilityPolicy: () => ({
+          processCaptureEnabled: true,
+          signalRecordingEnabled: true,
+          ...restriction,
+        }),
+      });
+      try {
+        expect(
+          (await harness.availability()).find(
+            (tool) => tool.name === "decode_signal_recording",
+          ),
+        ).toMatchObject({ available: false, reason: "unsupported_host" });
+      } finally {
+        await harness.close();
+      }
+    }),
+);
 
 it("refuses execution on the hosts that discovery reports unsupported", async () =>
   emulateHost("darwin", "arm64", async () => {
