@@ -4,7 +4,6 @@ import {
   mkdir,
   readFile,
   readdir,
-  rm,
   symlink,
   writeFile,
 } from "node:fs/promises";
@@ -76,12 +75,6 @@ describe("curl installer scenarios", { timeout: 20_000 }, () => {
     },
   );
 
-  it("resolves and validates the latest REA release tag", async () => {
-    const fixture = await createFixture();
-    const result = await runInstaller(fixture);
-    expect(result.stdout).toContain("Version: 0.3.0");
-  });
-
   it("prints a dry run without invoking npm", async () => {
     const fixture = await createFixture();
     const result = await runInstaller(fixture, [
@@ -112,20 +105,32 @@ describe("curl installer scenarios", { timeout: 20_000 }, () => {
     [
       "release lookup",
       [],
-      { FAKE_CURL_FAIL: "1" },
-      "REA installation failed: the latest REA release could not be resolved. Check network access or pass --version VERSION, then retry.\n",
+      { FAKE_NPM_VIEW_FAIL: "1" },
+      "REA installation failed: the latest REA release could not be resolved from npm. Check registry access or pass --version VERSION, then retry.\n",
     ],
     [
-      "release response",
+      "release metadata",
       [],
-      { FAKE_CURL_BODY: "not-json" },
-      "REA installation failed: the release response was invalid. Retry later or pass --version VERSION.\n",
+      { FAKE_NPM_VIEW_BODY: "not-json" },
+      "REA installation failed: npm returned invalid release metadata. Retry later or pass --version VERSION.\n",
     ],
     [
-      "release tag",
+      "missing latest dist-tag",
       [],
-      { FAKE_CURL_BODY: '{"tag_name":"unrelated-1.0.0"}' },
-      "REA installation failed: the latest release tag was invalid. Retry later or pass --version VERSION.\n",
+      { FAKE_NPM_VIEW_BODY: "" },
+      "REA installation failed: npm returned invalid release metadata. Retry later or pass --version VERSION.\n",
+    ],
+    [
+      "ambiguous release metadata",
+      [],
+      { FAKE_NPM_VIEW_BODY: '["0.3.0","0.4.0"]' },
+      "REA installation failed: npm returned invalid release metadata. Retry later or pass --version VERSION.\n",
+    ],
+    [
+      "release version",
+      [],
+      { FAKE_NPM_VIEW_BODY: '"rea-agents-1.0.0"' },
+      "REA installation failed: the latest npm release version was invalid. Retry later or pass --version VERSION.\n",
     ],
     [
       "npm failure",
@@ -171,18 +176,36 @@ describe("curl installer scenarios", { timeout: 20_000 }, () => {
       expect(await readdir(fixture.temporary)).toEqual([]);
     },
   );
+});
 
-  it("reports exact recovery when curl is missing", async () => {
+describe("installer latest version resolution", { timeout: 20_000 }, () => {
+  it("resolves the latest version through the installing npm configuration", async () => {
     const fixture = await createFixture();
-    await rm(join(fixture.bin, "curl"));
-    await expect(
-      runInstaller(fixture, ["--version", "0.3.0"], {
-        PATH: fixture.bin,
-      }),
-    ).rejects.toMatchObject({
-      stderr:
-        "REA installation failed: curl is required. Install curl, then rerun this installer.\n",
+    const result = await runInstaller(fixture);
+    expect(result.stdout).toContain("Version: 0.3.0");
+    expect(result.stdout).toContain("REA 0.3.0 is installed");
+    expect(await readFile(fixture.npmLog, "utf8")).toBe(
+      `view --global --prefix ${fixture.home}/.local rea-agents dist-tags.latest --json\n` +
+        `install --global --prefix ${fixture.home}/.local rea-agents@0.3.0\n`,
+    );
+  });
+
+  it("reads the latest version from npm 12's one-element array", async () => {
+    const fixture = await createFixture();
+    const result = await runInstaller(fixture, ["--dry-run"], {
+      FAKE_NPM_VIEW_BODY: '[\n  "0.3.0"\n]\n',
     });
+    expect(result.stdout).toContain("Version: 0.3.0");
+  });
+
+  it("resolves the latest version from npm's own global prefix on Darwin", async () => {
+    const fixture = await createFixture();
+    await runInstaller(fixture, ["--dry-run"], {
+      FAKE_PLATFORM: "Darwin",
+    });
+    expect(await readFile(fixture.npmLog, "utf8")).toBe(
+      "view --global rea-agents dist-tags.latest --json\nprefix --global\n",
+    );
   });
 });
 
@@ -296,7 +319,9 @@ describe(
     // the final invocation (a cut right after `main` would drop the flags).
     it("runs nothing and prints nothing until the closing brace arrives", async () => {
       const source = await readFile(join(process.cwd(), "install.sh"));
-      expect(source.subarray(0, 14).toString()).toBe("#!/bin/bash\n{\n");
+      expect(source.subarray(0, 22).toString()).toBe(
+        "#!/usr/bin/env bash\n{\n",
+      );
       const groupOpen = source.indexOf("\n{\n") + 2;
       const groupEnd = source.lastIndexOf("\n}\n") + 2;
       expect(groupEnd).toBe(source.length - 1);
@@ -338,9 +363,12 @@ describe(
       for (let index = 0; index < offsets.length; index += 16)
         await Promise.all(offsets.slice(index, index + 16).map(check));
       expect(failures).toEqual([]);
-      await expect(readFile(fixture.npmLog, "utf8")).rejects.toMatchObject({
-        code: "ENOENT",
-      });
+      // Only the complete dry runs reach npm, and only to resolve the version.
+      expect(await readFile(fixture.npmLog, "utf8")).toBe(
+        `view --global --prefix ${fixture.home}/.local rea-agents dist-tags.latest --json\n`.repeat(
+          source.length + 1 - groupEnd,
+        ),
+      );
       await expect(readFile(fixture.reaLog, "utf8")).rejects.toMatchObject({
         code: "ENOENT",
       });
@@ -475,10 +503,10 @@ describe("installer semantic version parsing", { timeout: 20_000 }, () => {
     });
   });
 
-  it("rejects build metadata in the latest release tag before printing a plan", async () => {
+  it("rejects build metadata in the latest npm version before printing a plan", async () => {
     const fixture = await createFixture();
     const failure = await runInstaller(fixture, [], {
-      FAKE_CURL_BODY: '{"tag_name":"rea-agents-1.2.3+build.01"}',
+      FAKE_NPM_VIEW_BODY: '"1.2.3+build.01"',
     }).then(
       () => undefined,
       (cause: unknown) => cause,
@@ -490,24 +518,24 @@ describe("installer semantic version parsing", { timeout: 20_000 }, () => {
     expect(getProcessOutput(failure, "stdout")).not.toContain(
       "REA install plan",
     );
-    await expect(readFile(fixture.npmLog, "utf8")).rejects.toMatchObject({
-      code: "ENOENT",
-    });
+    expect(await readFile(fixture.npmLog, "utf8")).toBe(
+      `view --global --prefix ${fixture.home}/.local rea-agents dist-tags.latest --json\n`,
+    );
   });
 
-  it("rejects an invalid semantic version from the latest release tag", async () => {
+  it("rejects an invalid semantic version from the latest npm version", async () => {
     const fixture = await createFixture();
     await expect(
       runInstaller(fixture, [], {
-        FAKE_CURL_BODY: '{"tag_name":"rea-agents-1.2.3-01"}',
+        FAKE_NPM_VIEW_BODY: '"1.2.3-01"',
       }),
     ).rejects.toMatchObject({
       stderr:
-        "REA installation failed: the latest release tag was invalid. Retry later or pass --version VERSION.\n",
+        "REA installation failed: the latest npm release version was invalid. Retry later or pass --version VERSION.\n",
     });
-    await expect(readFile(fixture.npmLog, "utf8")).rejects.toMatchObject({
-      code: "ENOENT",
-    });
+    expect(await readFile(fixture.npmLog, "utf8")).toBe(
+      `view --global --prefix ${fixture.home}/.local rea-agents dist-tags.latest --json\n`,
+    );
   });
 });
 
@@ -559,6 +587,13 @@ if [ "$1" = "-p" ]; then printf '%s\n' "\${FAKE_NODE_VERSION:-24.18.0}"; else ex
       `#!/bin/sh
 printf '%s\n' "$*" >> "$FAKE_NPM_LOG"
 if [ -n "\${FAKE_NPM_ARGV_LOG:-}" ]; then printf '%s\\0' "$@" > "$FAKE_NPM_ARGV_LOG"; fi
+if [ "$1" = "view" ]; then
+  [ "\${FAKE_NPM_VIEW_FAIL:-}" = "1" ] && exit 1
+  body='"0.3.0"'
+  [ -n "\${FAKE_NPM_VIEW_BODY+set}" ] && body="$FAKE_NPM_VIEW_BODY"
+  printf '%s' "$body"
+  exit 0
+fi
 [ "$1" = "prefix" ] && { [ "\${FAKE_NPM_PREFIX_FAIL:-}" = "1" ] && exit 1; printf '%s\n' "$FAKE_NPM_PREFIX"; exit 0; }
 [ "\${FAKE_NPM_FAIL:-}" = "1" ] && exit 1
 prefix="$HOME/.local"
@@ -571,13 +606,6 @@ done
 mkdir -p "$prefix/bin"
 cp "$FAKE_REA_SOURCE" "$prefix/bin/rea"
 chmod +x "$prefix/bin/rea"
-`,
-    ),
-    executable(
-      join(bin, "curl"),
-      `#!/bin/sh
-[ "\${FAKE_CURL_FAIL:-}" = "1" ] && exit 1
-if [ -n "\${FAKE_CURL_BODY:-}" ]; then printf '%s' "$FAKE_CURL_BODY"; else printf '%s' '{"tag_name":"rea-agents-0.3.0"}'; fi
 `,
     ),
     executable(

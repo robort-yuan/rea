@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 {
 # Truncation guard: this brace group opens on line 2 and closes on the last
 # line, so bash must read the entire file before it runs any command. On the
@@ -10,7 +10,6 @@
 set -euo pipefail
 
 PACKAGE="rea-agents"
-REPOSITORY="morluto/rea"
 numeric_identifier='(0|[1-9][0-9]*)'
 prerelease_identifier="(${numeric_identifier}|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)"
 build_identifier='[0-9A-Za-z-]+'
@@ -111,7 +110,6 @@ main() {
 
   platform="$(uname -s)"
   [ "$platform" = "Darwin" ] || [ "$platform" = "Linux" ] || fail "REA supports macOS and selected 64-bit Linux distributions."
-  command -v curl >/dev/null 2>&1 || fail "curl is required. Install curl, then rerun this installer."
   command -v node >/dev/null 2>&1 || fail "Node.js 22.x (>=22.19), 24.x (>=24.11), or 26+ is required; install it from https://nodejs.org and retry."
   command -v npm >/dev/null 2>&1 || fail "npm is required; install it with Node.js and retry."
 
@@ -123,13 +121,21 @@ main() {
     fail_node_version "$node_version"
   fi
 
+  npm_scope=(--global)
+  if [ "$platform" = "Linux" ]; then
+    npm_scope+=(--prefix "$HOME/.local")
+  fi
+
   if [ "$version_requested" = true ] || [ -n "$version" ]; then
     matches "$version" "^${version_pattern}$" || fail "version must be an exact semantic version."
   else
-    release_json="$(curl -fsSL --proto '=https' --tlsv1.2 --retry 3 -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$REPOSITORY/releases/latest")" || fail "the latest REA release could not be resolved. Check network access or pass --version VERSION, then retry."
-    tag="$(printf '%s' "$release_json" | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>{const v=JSON.parse(s).tag_name;if(typeof v!=="string")process.exit(1);process.stdout.write(v)})' 2>/dev/null)" || fail "the release response was invalid. Retry later or pass --version VERSION."
-    matches "$tag" "^rea-agents-(${version_pattern})$" || fail "the latest release tag was invalid. Retry later or pass --version VERSION."
-    version="${BASH_REMATCH[1]}"
+    # Resolve through the same npm configuration that installs the package. A
+    # GitHub release can exist before, or without, its qualified npm publication.
+    latest_json="$(npm view "${npm_scope[@]}" "$PACKAGE" dist-tags.latest --json)" || fail "the latest REA release could not be resolved from npm. Check registry access or pass --version VERSION, then retry."
+    # npm 11 prints a JSON string; npm 12 prints it as a one-element array.
+    latest="$(printf '%s' "$latest_json" | node -e 'let s="";process.stdin.on("data",c=>s+=c).on("end",()=>{let v=JSON.parse(s);if(Array.isArray(v)&&v.length===1)v=v[0];if(typeof v!=="string"||v==="")process.exit(1);process.stdout.write(v)})' 2>/dev/null)" || fail "npm returned invalid release metadata. Retry later or pass --version VERSION."
+    matches "$latest" "^${version_pattern}$" || fail "the latest npm release version was invalid. Retry later or pass --version VERSION."
+    version="$latest"
   fi
 
   # npm's exact-version resolver cleans build metadata from the requested version,
@@ -138,9 +144,8 @@ main() {
     fail "npm cannot install an exact version with build metadata. Pass a version without build metadata, then retry."
   fi
 
-  install_args=(install --global)
+  install_args=(install "${npm_scope[@]}")
   if [ "$platform" = "Linux" ]; then
-    install_args+=(--prefix "$HOME/.local")
     install_bin="$HOME/.local/bin/rea"
   else
     npm_prefix="$(npm prefix --global)" || fail "the npm global prefix could not be read. Repair the npm configuration, then retry."

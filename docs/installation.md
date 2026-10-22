@@ -1333,7 +1333,7 @@ The optional curl wrapper installs only the global npm package:
 curl -fsSL https://raw.githubusercontent.com/morluto/rea/main/install.sh | bash
 ```
 
-It prints the version, runtime, npm command, and destination before installing. When a controlling terminal exists it starts `rea setup`; otherwise it prints the command to run later.
+Without `--version` it installs the release npm's `latest` dist-tag selects, resolved through the same npm configuration and prefix it installs into. It prints the version, runtime, npm command, and destination before installing. When a controlling terminal exists it starts `rea setup`; otherwise it prints the command to run later.
 
 Pass options with `bash -s --`:
 
