@@ -326,7 +326,20 @@ canonical form, or compare two supplied bundles:
 rea evidence-import /absolute/path/to/evidence/bundle.json
 rea evidence-export /absolute/path/to/evidence/bundle.json /absolute/path/to/evidence/canonical.json
 rea compare /absolute/path/to/evidence/left.json /absolute/path/to/evidence/right.json
+rea cluster-artifacts --member /absolute/path/to/first.json --member /absolute/path/to/second.json
 ```
+
+`rea cluster-artifacts` partitions two or more complete `inspect_artifact`
+Evidence documents into families by exact root content digest and indexes every
+graph member as shared, partially shared or unique; `--shared-member-minimum`
+sets how many members a graph member must appear in to count as shared, and
+`--offset` and `--limit` page the family rows only. The JSON result repeats the
+caller's own mapping as `members`: each supplied path next to the `evidence_id`
+of the document it named, so the mapping survives the inputs that carry no index
+rows at all — a set whose inventories are all graph-derived, or an index
+withheld over its budget. The MCP result keeps the same roster in its retained
+record instead; see [MCP tool results](mcp-contracts.md#tool-results) for the
+fields both adapters share.
 
 Exports preserve an existing destination unless `--overwrite` is explicit.
 For application traces and version comparisons, see

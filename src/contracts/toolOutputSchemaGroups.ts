@@ -71,6 +71,7 @@ import { managedNativeVerificationResultSchema } from "../domain/managed/managed
 import { managedReconstructionImportResultSchema } from "../domain/managed/managedReconstruction.js";
 import { managedApplicationGraphResultSchema } from "../domain/managed/managedApplicationGraph.js";
 import { artifactComparisonResultSchema } from "../domain/artifactComparison.js";
+import { artifactFamilyClusteringResultSchema } from "../domain/artifactFamilyClustering.js";
 import { functionComparisonResultSchema } from "../domain/functionComparisonSchemas.js";
 import { bundleComparisonResultSchema } from "../domain/bundleComparison.js";
 import { changedBehaviorResultSchema } from "../domain/changedBehavior.js";
@@ -601,6 +602,7 @@ export const sessionOutputSchemas = {
   capture_process_scenario: evidenceResultOf(processCaptureSchema),
   compare_process_captures: evidenceResultOf(processCaptureComparisonSchema),
   compare_artifacts: evidenceResultOf(artifactComparisonResultSchema),
+  cluster_artifacts: evidenceResultOf(artifactFamilyClusteringResultSchema),
   compare_functions: evidenceResultOf(functionComparisonResultSchema),
   match_native_functions: evidenceResultOf(
     z.union([

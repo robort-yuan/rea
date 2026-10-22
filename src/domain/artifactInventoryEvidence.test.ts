@@ -7,7 +7,7 @@ import {
   parseArtifactInventoryEvidence,
   parseArtifactInspectionInventoryResult,
 } from "./artifactInventoryEvidence.js";
-import { createEvidence } from "./evidence.js";
+import { createEvidence, immutableEvidence } from "./evidence.js";
 import { jsonValueSchema } from "./jsonValue.js";
 
 const inventoryEvidence = ARTIFACT_COMPARISON_EXAMPLE.left;
@@ -37,6 +37,19 @@ it("accepts an inspection whose carrier, declaration, and substep identities agr
   expect(
     parseArtifactInventoryEvidence(inspectionEvidence(inspection)).inventory,
   ).toMatchObject({ complete: true, coverage: { status: "complete" } });
+});
+
+it("reuses an admitted snapshot instead of authenticating it twice", () => {
+  // Adapters seal their admitted record once; every later parse of that same
+  // object is a snapshot hit, so the nested inventory is never re-hashed a
+  // second time on the way into a workflow.
+  const sealed = immutableEvidence(inspectionEvidence(inspection));
+  const parsed = parseArtifactInventoryEvidence(sealed);
+  expect(parsed.evidence[0]).toBe(sealed);
+  expect(parsed.inventory).toMatchObject({
+    complete: true,
+    coverage: { status: "complete" },
+  });
 });
 
 it("rejects an inspection carrier whose Evidence subject disagrees with its nested inventory", () => {

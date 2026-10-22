@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { absoluteLocalPathStringSchema } from "../domain/localPath.js";
 import { artifactComparisonInputSchema } from "../domain/artifactComparison.js";
+import { artifactFamilyClusteringInputSchema } from "../domain/artifactFamilyClustering.js";
 import { callPathInputSchema } from "../domain/callPathSchemas.js";
 import { changedBehaviorInputSchema } from "../domain/changedBehavior.js";
 import { functionComparisonInputSchema } from "../domain/functionComparisonSchemas.js";
@@ -107,6 +108,11 @@ export const SESSION_TOOL_CONTRACTS = [
     "compare_artifacts",
     "Compare complete artifact inventories by logical occurrence path, content identity, metadata, and graph relations. Pass the inventory Evidence nested in each inspect_artifact result as left and right, or pass its inspect_analysis_view summary while the complete parent Evidence remains retained in this session. Summary facts are not treated as a complete inventory; comparison resolves the exact retained parent. Every delta cites both complete inputs, and gaps yield truncated or unknown, never equivalence. Returns every change inline.",
     artifactComparisonInputSchema,
+  ),
+  session(
+    "cluster_artifacts",
+    "Partition two or more authenticated inspect_artifact inventories into families by exact root content digest, and index every graph member as shared, partially shared or unique. Family rows cite the member Evidence that established them; a member whose inventory is incomplete, contradictory or declared under a different coverage scope is reported as unplaced with its reason instead of being described as different. A re-packed container with identical members has no family and appears only in the member index. Labels are caller text and never parsed as identity. Returns every family inline; the member index is never paged away, and it is reported complete or withheld with coverage.member_index_withheld when its node or serialized-size budget is exhausted.",
+    artifactFamilyClusteringInputSchema,
   ),
   session(
     "match_native_functions",
