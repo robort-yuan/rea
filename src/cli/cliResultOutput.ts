@@ -12,12 +12,18 @@ import {
   cliOperationFailureIdentity,
   cliOperationFailurePayload,
 } from "../cliLogging.js";
-import { AnalysisResourceConstraintError } from "../domain/analysisErrorCore.js";
+import {
+  AnalysisOutputError,
+  AnalysisResourceConstraintError,
+} from "../domain/analysisErrorCore.js";
 import {
   projectAnalysisError,
   type AnalysisErrorProjection,
 } from "../domain/analysisErrorProjection.js";
 import {
+  formatJsonLinesError,
+  hasClearRecordBoundary,
+  isJsonLinesError,
   jsonOutputParts,
   writeJsonOutput,
   writeOutputText,
@@ -208,10 +214,29 @@ export const createCliResultOutput = (
     const filterPaths = options.filterOutput
       ? Filter.parse(options.filterOutput)
       : undefined;
+    const classifiedFailure = cliOperationFailurePayload(value);
+    const isFailure =
+      isJsonLinesError(value) || classifiedFailure !== undefined;
     const operationFailure =
       options.fullOutput || filterPaths !== undefined
-        ? cliOperationFailurePayload(value)
+        ? classifiedFailure
         : undefined;
+    if (
+      format === "jsonl" &&
+      !isFailure &&
+      !hasClearRecordBoundary(value, filterPaths !== undefined)
+    ) {
+      error = projectAnalysisError(
+        new AnalysisOutputError(
+          metadata.command,
+          "JSON Lines output is available only for row-oriented results with a clear record boundary.",
+          {
+            remediationAction:
+              "Use --format json to stream the complete result, or select records with --filter-output.",
+          },
+        ),
+      );
+    }
     const failure = options.fullOutput ? operationFailure : undefined;
     const filtered: unknown =
       operationFailure ??
@@ -233,7 +258,7 @@ export const createCliResultOutput = (
       operationFailure === undefined
     )
       return false;
-    if (options.tokenCount) {
+    if (error === undefined && options.tokenCount) {
       // Incur/tokenx materialize JSON. Measure its UTF-16 expansion before
       // allowing that allocation, independently of UTF-8 bytes. Other formats
       // retain Incur's materializing behavior.
@@ -256,7 +281,17 @@ export const createCliResultOutput = (
         }
       }
       if (characters <= constants.MAX_STRING_LENGTH) {
-        const count = estimateTokenCount(Formatter.format(tokenValue, format));
+        const text =
+          format === "jsonl"
+            ? [...jsonOutputParts(tokenValue, "jsonl", false)].join("")
+            : Formatter.format(tokenValue, format);
+        const count = estimateTokenCount(
+          format === "jsonl"
+            ? text.endsWith("\n")
+              ? text.slice(0, -1)
+              : text
+            : text,
+        );
         handled = true;
         try {
           await writeOutputText(destination, `${count}\n`);
@@ -302,13 +337,13 @@ export const createCliResultOutput = (
         : filtered === undefined
           ? { ok: true, meta }
           : { ok: true, data: filtered, meta }
-      : // A selected null is a value; only a selection with no JSON value
-        // falls back to the empty document.
-        filtered === undefined ||
-          typeof filtered === "function" ||
-          typeof filtered === "symbol"
-        ? {}
-        : filtered;
+      : classifiedFailure !== undefined && format === "jsonl"
+        ? formatJsonLinesError(classifiedFailure)
+        : filtered === undefined ||
+            typeof filtered === "function" ||
+            typeof filtered === "symbol"
+          ? {}
+          : filtered;
     // Once writing starts, a failed destination must not receive a second
     // document from Incur's error formatter.
     const failureText =

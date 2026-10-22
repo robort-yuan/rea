@@ -297,11 +297,20 @@ export const renderEmptyFilteredCliOutput = (
 export const renderCliOutputArgumentError = (
   error: Exclude<CliOutputArgumentValidation, { readonly ok: true }>,
 ): string => {
+  if (error.format === "yaml")
+    return `ok: false\nerror:\n  code: ${error.code}\n  message: ${JSON.stringify(error.message)}\n`;
+  if (error.format === "jsonl") {
+    const value = {
+      $schema: "https://rea.dev/schemas/jsonl-error-v1.json",
+      type: "error",
+      ok: false,
+      error: { code: error.code, message: error.message },
+    };
+    return `${JSON.stringify(value)}\n`;
+  }
   const value = {
     ok: false,
     error: { code: error.code, message: error.message },
   };
-  if (error.format === "yaml")
-    return `ok: false\nerror:\n  code: ${error.code}\n  message: ${JSON.stringify(error.message)}\n`;
   return `${JSON.stringify(value)}\n`;
 };

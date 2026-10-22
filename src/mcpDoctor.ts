@@ -20,7 +20,7 @@ import {
   mcpDoctorDeadlineRecovery,
 } from "./mcpStartupPolicy.js";
 
-const OUTPUT_FORMATS = ["toon", "json", "yaml", "md", "jsonl"] as const;
+const OUTPUT_FORMATS = ["toon", "json", "yaml", "md"] as const;
 type OutputFormat = (typeof OUTPUT_FORMATS)[number];
 
 /**

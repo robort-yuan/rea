@@ -7,7 +7,11 @@ import { estimateTokenCount } from "tokenx";
 import { parse as parseYaml } from "yaml";
 import { describe, expect, it } from "vitest";
 
-import { writeJsonOutput } from "../../../src/cli/jsonOutput.js";
+import {
+  JSONL_COVERAGE_SCHEMA,
+  JSONL_ERROR_SCHEMA,
+  writeJsonOutput,
+} from "../../../src/cli/jsonOutput.js";
 import {
   createCliResultOutput,
   streamCliCommandResults,
@@ -634,4 +638,517 @@ describe("streamed CLI filtered selections", () => {
       expect(Buffer.concat(chunks).toString("utf8")).toBe(expected);
     },
   );
+});
+
+describe("JSON Lines record boundaries and errors", () => {
+  it("rejects JSON Lines format when the result has no clear record boundary", async () => {
+    const chunks: Buffer[] = [];
+    const destination = new Writable({
+      write(chunk: Buffer, _encoding, callback) {
+        chunks.push(chunk);
+        callback();
+      },
+    });
+    const output = createCliResultOutput(["--format", "jsonl"], destination);
+    if (output === undefined) throw new Error("Missing CLI output owner");
+
+    const nonRowResult = {
+      format: "elf",
+      architecture: { machine: "EM_X86_64" },
+      entry: "0x400000",
+    };
+
+    const written = await output.write(nonRowResult, {
+      command: "inspect-binary",
+      duration: "1ms",
+      format: "jsonl",
+    });
+
+    expect(written).toBe(true);
+    expect(output.error).toBeDefined();
+    expect(output.error?.code).toBe("unreadable_output");
+    expect(output.error?.details?.reason).toContain(
+      "row-oriented results with a clear record boundary",
+    );
+
+    const lines = Buffer.concat(chunks).toString("utf8").trim().split("\n");
+    expect(lines).toHaveLength(1);
+    const parsed = JSON.parse(lines[0]!);
+    expect(parsed).toMatchObject({
+      $schema: JSONL_ERROR_SCHEMA,
+      type: "error",
+      ok: false,
+      error: {
+        code: "unreadable_output",
+        details: {
+          reason: expect.stringContaining(
+            "row-oriented results with a clear record boundary",
+          ),
+        },
+        remediation: {
+          action: expect.stringContaining("Use --format json"),
+        },
+      },
+    });
+  });
+
+  it("preserves original command failures in JSON Lines without conversion to unreadable_output", async () => {
+    const chunks: Buffer[] = [];
+    const destination = new Writable({
+      write(chunk: Buffer, _encoding, callback) {
+        chunks.push(chunk);
+        callback();
+      },
+    });
+    const output = createCliResultOutput(["--format", "jsonl"], destination);
+    if (output === undefined) throw new Error("Missing CLI output owner");
+
+    const failurePayload = {
+      code: "provider_unavailable",
+      category: "environment",
+      message: "Ghidra not installed",
+      retryable: false,
+    };
+
+    const written = await output.write(failurePayload, {
+      command: "decompile",
+      duration: "1ms",
+      format: "jsonl",
+    });
+
+    expect(written).toBe(true);
+    // Boundary rejection must NOT have overwritten this error
+    expect(output.error).toBeUndefined();
+
+    const lines = Buffer.concat(chunks).toString("utf8").trim().split("\n");
+    expect(lines).toHaveLength(1);
+    const parsed = JSON.parse(lines[0]!);
+    expect(parsed).toMatchObject({
+      $schema: JSONL_ERROR_SCHEMA,
+      type: "error",
+      ok: false,
+      error: failurePayload,
+    });
+  });
+});
+
+describe("JSON Lines classified failures and composite rejections", () => {
+  it("rejects JSON Lines format when the result contains unrepresented non-row facets", async () => {
+    const chunks: Buffer[] = [];
+    const destination = new Writable({
+      write(chunk: Buffer, _encoding, callback) {
+        chunks.push(chunk);
+        callback();
+      },
+    });
+    const output = createCliResultOutput(["--format", "jsonl"], destination);
+    if (output === undefined) throw new Error("Missing CLI output owner");
+
+    const compositeCatalog = {
+      target_sha256: "a".repeat(64),
+      catalogs: [{ path: "Assets.car" }],
+      records: [{ name: "AppIcon", idiom: "universal" }],
+      resource_key_matches: [],
+    };
+
+    const written = await output.write(compositeCatalog, {
+      command: "inspect-asset-catalog",
+      duration: "1ms",
+      format: "jsonl",
+    });
+
+    expect(written).toBe(true);
+    expect(output.error?.code).toBe("unreadable_output");
+    expect(output.error?.details?.reason).toContain(
+      "row-oriented results with a clear record boundary",
+    );
+  });
+
+  it("frames classified report failures as JSONL error records", async () => {
+    const chunks: Buffer[] = [];
+    const destination = new Writable({
+      write(chunk: Buffer, _encoding, callback) {
+        chunks.push(chunk);
+        callback();
+      },
+    });
+    const output = createCliResultOutput(["--format", "jsonl"], destination);
+    if (output === undefined) throw new Error("Missing CLI output owner");
+
+    const unhealthyDoctor = {
+      healthy: false,
+      checks: [{ name: "ghidra", status: "unsupported" }],
+    };
+
+    const written = await output.write(unhealthyDoctor, {
+      command: "doctor",
+      duration: "1ms",
+      format: "jsonl",
+    });
+
+    expect(written).toBe(true);
+    const lines = Buffer.concat(chunks).toString("utf8").trim().split("\n");
+    expect(lines).toHaveLength(1);
+    const parsed = JSON.parse(lines[0]!);
+    expect(parsed).toMatchObject({
+      $schema: JSONL_ERROR_SCHEMA,
+      type: "error",
+      ok: false,
+      error: unhealthyDoctor,
+    });
+  });
+});
+
+describe("JSON Lines token counting", () => {
+  it("emits boundary error and skips token counting when non-row result is passed with --token-count", async () => {
+    const chunks: Buffer[] = [];
+    const destination = new Writable({
+      write(chunk: Buffer, _encoding, callback) {
+        chunks.push(chunk);
+        callback();
+      },
+    });
+    const output = createCliResultOutput(
+      ["--format", "jsonl", "--token-count"],
+      destination,
+    );
+    if (output === undefined) throw new Error("Missing CLI output owner");
+
+    const nonRowResult = { name: "test", version: 1 };
+    await output.write(nonRowResult, {
+      command: "inspect-binary",
+      duration: "1ms",
+      format: "jsonl",
+    });
+
+    expect(output.error?.code).toBe("unreadable_output");
+    const lines = Buffer.concat(chunks).toString("utf8").trim().split("\n");
+    expect(lines).toHaveLength(1);
+    const parsed = JSON.parse(lines[0]!);
+    expect(parsed.error.code).toBe("unreadable_output");
+  });
+
+  it("counts tokens for valid JSON Lines result with --token-count", async () => {
+    const chunks: Buffer[] = [];
+    const destination = new Writable({
+      write(chunk: Buffer, _encoding, callback) {
+        chunks.push(chunk);
+        callback();
+      },
+    });
+    const output = createCliResultOutput(
+      ["--format", "jsonl", "--token-count"],
+      destination,
+    );
+    if (output === undefined) throw new Error("Missing CLI output owner");
+
+    const result = {
+      rows: [
+        { id: 1, name: "Alpha" },
+        { id: 2, name: "Beta" },
+      ],
+    };
+    await output.write(result, {
+      command: "inspect-members",
+      duration: "1ms",
+      format: "jsonl",
+    });
+
+    const outputText = Buffer.concat(chunks).toString("utf8").trim();
+    const tokenCount = Number.parseInt(outputText, 10);
+    expect(Number.isFinite(tokenCount)).toBe(true);
+    expect(tokenCount).toBeGreaterThan(0);
+  });
+});
+
+describe("JSON Lines streaming collections and coverage", () => {
+  it("emits deterministic rows followed by final coverage metadata for analysis-view collections", async () => {
+    const value = {
+      rows: [
+        { id: "row-1", name: "Alpha", ordinal: 0 },
+        { id: "row-2", name: "Beta", ordinal: 1 },
+      ],
+      coverage: {
+        status: "complete-within-view",
+        examined: 2,
+        total: 2,
+        exhausted: true,
+        next_offset: null,
+      },
+      limitations: ["Deterministic sample caveat"],
+      unknowns: [],
+    };
+
+    const raw = await collect(value, "jsonl");
+    const lines = raw.trim().split("\n");
+    expect(lines).toHaveLength(3);
+
+    const parsedLines = lines.map((line) => JSON.parse(line));
+    expect(parsedLines[0]).toEqual(value.rows[0]);
+    expect(parsedLines[1]).toEqual(value.rows[1]);
+    expect(parsedLines[2]).toEqual({
+      $schema: JSONL_COVERAGE_SCHEMA,
+      type: "coverage",
+      coverage: value.coverage,
+      limitations: ["Deterministic sample caveat"],
+    });
+  });
+
+  it("handles empty collection results with final coverage metadata and no data rows", async () => {
+    const value = {
+      items: [],
+      coverage: {
+        status: "empty",
+        examined: 0,
+        total: 0,
+        exhausted: true,
+        next_offset: null,
+      },
+      limitations: [],
+      unknowns: ["Unexplored scope"],
+    };
+
+    const raw = await collect(value, "jsonl");
+    const lines = raw.trim().split("\n");
+    expect(lines).toHaveLength(1);
+
+    const parsed = JSON.parse(lines[0]!);
+    expect(parsed).toEqual({
+      $schema: JSONL_COVERAGE_SCHEMA,
+      type: "coverage",
+      coverage: value.coverage,
+      unknowns: ["Unexplored scope"],
+    });
+  });
+
+  it("encodes multiline strings on single JSON Lines rows", async () => {
+    const value = {
+      rows: [
+        { id: 1, message: "Line 1\nLine 2\r\nLine 3\n" },
+        { id: 2, message: "Another\nmultiline\nrecord" },
+      ],
+      coverage: {
+        status: "complete-within-view",
+        examined: 2,
+        total: 2,
+        exhausted: true,
+      },
+    };
+
+    const raw = await collect(value, "jsonl");
+    // Ensure that line count matches exactly records + coverage metadata (3 lines)
+    const lines = raw.trim().split("\n");
+    expect(lines).toHaveLength(3);
+
+    expect(JSON.parse(lines[0]!)).toEqual(value.rows[0]);
+    expect(JSON.parse(lines[1]!)).toEqual(value.rows[1]);
+    expect(JSON.parse(lines[2]!)).toMatchObject({
+      $schema: JSONL_COVERAGE_SCHEMA,
+      type: "coverage",
+      coverage: value.coverage,
+    });
+  });
+
+  it("preserves partial coverage without implying complete coverage", async () => {
+    const value = {
+      rows: [
+        { id: "row-10", address: "0x1000" },
+        { id: "row-11", address: "0x1010" },
+      ],
+      coverage: {
+        status: "page",
+        examined: 2,
+        total: 100,
+        exhausted: false,
+        next_offset: 12,
+      },
+    };
+
+    const raw = await collect(value, "jsonl");
+    const lines = raw.trim().split("\n");
+    expect(lines).toHaveLength(3);
+
+    const metaLine = JSON.parse(lines[2]!);
+    expect(metaLine).toMatchObject({
+      $schema: JSONL_COVERAGE_SCHEMA,
+      type: "coverage",
+      coverage: {
+        status: "page",
+        examined: 2,
+        total: 100,
+        exhausted: false,
+        next_offset: 12,
+      },
+    });
+    // Explicitly verify that partial coverage does NOT claim exhaustion
+    expect(metaLine.coverage.exhausted).toBe(false);
+  });
+});
+
+describe("JSON Lines nested views and pagination metadata", () => {
+  it("extracts rows from nested view collections with page.rows", async () => {
+    const value = {
+      kind: "managed-members",
+      page: {
+        collection: "methods",
+        rows: [
+          { method: "Start", token: 1 },
+          { method: "Update", token: 2 },
+        ],
+      },
+      total: 2,
+      parent_evidence_id: "ev_parent_view_123",
+    };
+
+    const raw = await collect(value, "jsonl");
+    const lines = raw.trim().split("\n");
+    expect(lines).toHaveLength(3);
+
+    expect(JSON.parse(lines[0]!)).toEqual({ method: "Start", token: 1 });
+    expect(JSON.parse(lines[1]!)).toEqual({ method: "Update", token: 2 });
+    const meta = JSON.parse(lines[2]!);
+    expect(meta).toMatchObject({
+      $schema: JSONL_COVERAGE_SCHEMA,
+      type: "coverage",
+      parent_evidence_id: "ev_parent_view_123",
+      pagination: { total: 2 },
+    });
+  });
+
+  it("extracts items from nested view collections with page.items", async () => {
+    const value = {
+      kind: "pcap",
+      page: {
+        facet: "endpoints",
+        items: [{ ip: "127.0.0.1", port: 8080 }],
+      },
+      total: 1,
+    };
+
+    const raw = await collect(value, "jsonl");
+    const lines = raw.trim().split("\n");
+    expect(lines).toHaveLength(2);
+
+    expect(JSON.parse(lines[0]!)).toEqual({ ip: "127.0.0.1", port: 8080 });
+    const meta = JSON.parse(lines[1]!);
+    expect(meta).toMatchObject({
+      $schema: JSONL_COVERAGE_SCHEMA,
+      type: "coverage",
+      pagination: { total: 1 },
+    });
+  });
+
+  it("emits pagination metadata when coverage object is absent (asset catalog)", async () => {
+    const catalogResult = {
+      records: [{ name: "AppIcon", idiom: "universal" }],
+      total_records: 1,
+      offset: 0,
+      limit: 50,
+      next_offset: null,
+      truncated: false,
+      limitations: ["No embedded previews"],
+    };
+
+    const raw = await collect(catalogResult, "jsonl");
+    const lines = raw.trim().split("\n");
+    expect(lines).toHaveLength(2);
+
+    expect(JSON.parse(lines[0]!)).toEqual({
+      name: "AppIcon",
+      idiom: "universal",
+    });
+    const meta = JSON.parse(lines[1]!);
+    expect(meta).toEqual({
+      $schema: JSONL_COVERAGE_SCHEMA,
+      type: "coverage",
+      pagination: {
+        total_records: 1,
+        offset: 0,
+        limit: 50,
+        next_offset: null,
+        truncated: false,
+      },
+      limitations: ["No embedded previews"],
+    });
+  });
+});
+
+describe("JSON Lines chunked streaming and evidence unwrapping", () => {
+  it("streams records with large fields in bounded chunks without truncation", async () => {
+    const largeText = "A".repeat(128 * 1024);
+    const value = {
+      items: [
+        { id: 1, payload: largeText },
+        { id: 2, payload: "small" },
+      ],
+      coverage: {
+        status: "complete-within-view",
+        examined: 2,
+        total: 2,
+        exhausted: true,
+      },
+    };
+
+    const raw = await collect(value, "jsonl");
+    const lines = raw.trim().split("\n");
+    expect(lines).toHaveLength(3);
+
+    const first = JSON.parse(lines[0]!);
+    expect(first.id).toBe(1);
+    expect(first.payload.length).toBe(128 * 1024);
+
+    const second = JSON.parse(lines[1]!);
+    expect(second).toEqual({ id: 2, payload: "small" });
+
+    const coverage = JSON.parse(lines[2]!);
+    expect(coverage.type).toBe("coverage");
+    expect(coverage.coverage.total).toBe(2);
+  });
+
+  it("unwraps Evidence normalized_result and includes provenance links", async () => {
+    const evidence = {
+      evidence_id: "ev_fixture_123",
+      parent_evidence_id: "ev_parent_456",
+      evidence_links: ["ev_link_789"],
+      operation: "inspect_analysis_view",
+      normalized_result: {
+        rows: [{ symbol: "_main", address: "0x1000" }],
+        coverage: {
+          status: "complete-within-view",
+          examined: 1,
+          total: 1,
+          exhausted: true,
+        },
+        limitations: ["Symbol resolution limitation"],
+        unknowns: ["Dynamic jump table targets"],
+      },
+      limitations: ["Parent Evidence limitation"],
+    };
+
+    const raw = await collect(evidence, "jsonl");
+    const lines = raw.trim().split("\n");
+    expect(lines).toHaveLength(2);
+
+    expect(JSON.parse(lines[0]!)).toEqual({
+      symbol: "_main",
+      address: "0x1000",
+    });
+
+    const meta = JSON.parse(lines[1]!);
+    expect(meta).toEqual({
+      $schema: JSONL_COVERAGE_SCHEMA,
+      type: "coverage",
+      evidence_id: "ev_fixture_123",
+      parent_evidence_id: "ev_parent_456",
+      evidence_links: ["ev_link_789"],
+      coverage: {
+        status: "complete-within-view",
+        examined: 1,
+        total: 1,
+        exhausted: true,
+      },
+      limitations: ["Symbol resolution limitation"],
+      unknowns: ["Dynamic jump table targets"],
+    });
+  });
 });

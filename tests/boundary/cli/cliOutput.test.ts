@@ -33,7 +33,14 @@ describe("CLI output argument boundary", () => {
       if (!validation.ok) {
         const rendered = renderCliOutputArgumentError(validation);
         expect(rendered).not.toContain("[truncated:");
-        if (format === "json" || format === "jsonl")
+        if (format === "jsonl")
+          expect(JSON.parse(rendered)).toMatchObject({
+            $schema: "https://rea.dev/schemas/jsonl-error-v1.json",
+            type: "error",
+            ok: false,
+            error: { code: "UNSUPPORTED_OUTPUT_COMBINATION" },
+          });
+        else if (format === "json")
           expect(JSON.parse(rendered)).toMatchObject({
             ok: false,
             error: { code: "UNSUPPORTED_OUTPUT_COMBINATION" },
