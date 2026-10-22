@@ -2,8 +2,11 @@ import { RecordedCrashService } from "../application/binaryDiagnostics/RecordedC
 import { PwntoolsRecordedCrashProvider } from "../native/pwntools/PwntoolsRecordedCrashProvider.js";
 import { BinaryLayoutService } from "../application/binaryDiagnostics/BinaryLayoutService.js";
 import { PwntoolsLayoutProvider } from "../native/pwntools/PwntoolsLayoutProvider.js";
+import { pwntoolsHostSupported } from "../native/pwntools/PwntoolsDecoder.js";
 import { PeResourcesService } from "../application/binaryDiagnostics/PeResourcesService.js";
 import { PeResourcesProvider } from "../native/pe/PeResourcesProvider.js";
+
+export { pwntoolsHostSupported };
 
 /** Portable PE inspection with no engine, installation or target acquisition. */
 export const createPeResourcesService = (): PeResourcesService =>

@@ -2,10 +2,16 @@ import { createGpuCodeObjectsService } from "../composition/gpu.js";
 import { registerGpuCodeObjectsTools } from "./registerGpuCodeObjectsTools.js";
 import type { PacketCaptureService } from "../application/captures/PacketCaptureService.js";
 import { UNTRUSTED_CONTENT_INSTRUCTIONS } from "./toolResultEncoding.js";
-import { createPacketCaptureService } from "../composition/captures.js";
+import {
+  createPacketCaptureService,
+  tsharkHostSupported,
+} from "../composition/captures.js";
 import { registerCaptureTools } from "./registerCaptureTools.js";
 import type { SignalRecordingService } from "../application/signals/SignalRecordingService.js";
-import { createSignalRecordingService } from "../composition/signals.js";
+import {
+  createSignalRecordingService,
+  sigrokHostSupported,
+} from "../composition/signals.js";
 import { registerSignalTools } from "./registerSignalTools.js";
 import type { WasmArtifactService } from "../application/wasm/WasmArtifactService.js";
 import { wasmArtifactModule } from "../composition/wasm.js";
@@ -17,6 +23,7 @@ import type { PeResourcesService } from "../application/binaryDiagnostics/PeReso
 import { registerPeResourcesTool } from "./registerPeResourcesTool.js";
 import type { EvmInterfaceService } from "../application/evm/EvmInterfaceService.js";
 import {
+  evmHostSupported,
   evmInterfaceModule,
   evmLimiterAvailability,
 } from "../composition/evm.js";
@@ -46,7 +53,10 @@ import { registerAnalysisViewTool } from "./registerAnalysisViewTool.js";
 import { registerBinaryDiagnosticsTools } from "./registerBinaryDiagnosticsTools.js";
 import { FridaInstrumentationManager } from "../frida/FridaInstrumentationManager.js";
 import { registerFridaTools } from "./registerFridaTools.js";
-import { createBinaryLayoutService } from "../composition/binaryDiagnostics.js";
+import {
+  createBinaryLayoutService,
+  pwntoolsHostSupported,
+} from "../composition/binaryDiagnostics.js";
 import type { BinaryLayoutService } from "../application/binaryDiagnostics/BinaryLayoutService.js";
 import { createCatalogIdentity } from "../catalogIdentity.js";
 import { EvidenceMcpServer } from "./EvidenceMcpServer.js";
@@ -95,7 +105,10 @@ import { registerWebNetworkCaptureTool } from "./registerWebNetworkCaptureTool.j
 import { registerJavaScriptRecoveryTool } from "./registerJavaScriptRecoveryTool.js";
 import { JavaScriptRecoveryService } from "../application/javascript/JavaScriptRecoveryService.js";
 import type { JavaScriptRecoveryPort } from "../application/javascript/JavaScriptRecoveryPort.js";
-import { createJavaScriptRecoveryProvider } from "../composition/javascriptRecovery.js";
+import {
+  createJavaScriptRecoveryProvider,
+  wakaruHostSupported,
+} from "../composition/javascriptRecovery.js";
 import { registerElectronTools } from "./registerElectronTools.js";
 import { ArtifactResourceScope } from "../artifacts/ArtifactResourceScope.js";
 import { registerEnhancedTools } from "./registerEnhancedTools.js";
@@ -104,7 +117,10 @@ import { registerManagedTools } from "./registerManagedTools.js";
 import { registerFirmwareTools } from "./registerFirmwareTools.js";
 import { FirmwareAnalysisService } from "../application/firmware/FirmwareAnalysisService.js";
 import type { FirmwareAnalysisPort } from "../application/firmware/FirmwareAnalysisPort.js";
-import { createFirmwareAnalysisProvider } from "../composition/firmware.js";
+import {
+  createFirmwareAnalysisProvider,
+  firmwareHostSupported,
+} from "../composition/firmware.js";
 import { registerAndroidTools } from "./registerAndroidTools.js";
 import { registerApktoolTools } from "./registerApktoolTools.js";
 import { registerPcapTools } from "./registerPcapTools.js";
@@ -212,23 +228,72 @@ const installSessionToolAvailability = (
   fridaInstrumentation: FridaInstrumentationPort,
 ) => {
   if (session === undefined) return undefined;
-  const linux = process.platform === "linux";
-  const linuxX64 = linux && process.arch === "x64";
+  const { platform, arch } = process;
+  // Each provider owns its verified host; discovery and execution share it.
+  const verifiedHost = {
+    packetCapture: tsharkHostSupported(platform),
+    signalRecording: sigrokHostSupported(platform),
+    evmInterface: evmHostSupported(platform, arch),
+    pwntools: pwntoolsHostSupported(platform, arch),
+    firmware: firmwareHostSupported(platform),
+    javascriptRecovery: wakaruHostSupported(platform, arch),
+  };
   const pwntools =
-    linuxX64 && isAbsolute(environment.REA_PWNTOOLS_PYTHON ?? "");
+    verifiedHost.pwntools && isAbsolute(environment.REA_PWNTOOLS_PYTHON ?? "");
+  // Injected services own their availability on any host. Otherwise no
+  // configuration lets an integration pass its execution host check.
+  const outsideVerifiedHost = (injected: unknown, supported: boolean) =>
+    injected === undefined && !supported;
   const basePolicy = sessionAvailabilityPolicy(options.availabilityPolicy, {
     optionalProviderLoadFailures: options.optionalProviderLoadFailures,
+    hostUnsupported: {
+      packetCapture: outsideVerifiedHost(
+        options.packetCapture,
+        verifiedHost.packetCapture,
+      ),
+      signalRecording: outsideVerifiedHost(
+        options.signalRecording,
+        verifiedHost.signalRecording,
+      ),
+      evmInterface: outsideVerifiedHost(
+        options.evmInterface,
+        verifiedHost.evmInterface,
+      ),
+      binaryLayout: outsideVerifiedHost(
+        options.binaryLayout,
+        verifiedHost.pwntools,
+      ),
+      recordedCrash: outsideVerifiedHost(
+        options.recordedCrash,
+        verifiedHost.pwntools,
+      ),
+      firmwareInspection: outsideVerifiedHost(
+        options.firmwareAnalysis,
+        verifiedHost.firmware,
+      ),
+      firmwareExtraction: outsideVerifiedHost(
+        options.firmwareAnalysis,
+        verifiedHost.firmware,
+      ),
+      javascriptRecovery: outsideVerifiedHost(
+        options.javascriptRecovery,
+        verifiedHost.javascriptRecovery,
+      ),
+    },
     optionalFeatures: {
       packetCaptureEnabled:
         options.packetCapture !== undefined ||
-        (linux && isAbsolute(environment.REA_TSHARK_COMMAND ?? "")),
+        (verifiedHost.packetCapture &&
+          isAbsolute(environment.REA_TSHARK_COMMAND ?? "")),
       signalRecordingEnabled:
         options.signalRecording !== undefined ||
-        (linux && isAbsolute(environment.REA_SIGROK_COMMAND ?? "")),
+        (verifiedHost.signalRecording &&
+          isAbsolute(environment.REA_SIGROK_COMMAND ?? "")),
       wasmArtifactEnabled:
         options.wasmArtifact !== undefined ||
         isAbsolute(environment.REA_WABT_BIN_DIRECTORY ?? ""),
-      evmInterfaceEnabled: options.evmInterface !== undefined || linuxX64,
+      evmInterfaceEnabled:
+        options.evmInterface !== undefined || verifiedHost.evmInterface,
       webModuleResolutionEnabled:
         options.webModuleTrace !== undefined ||
         isAbsolute(environment.REA_BROWSER_EXECUTABLE ?? ""),
@@ -236,14 +301,17 @@ const installSessionToolAvailability = (
       binaryLayoutEnabled: options.binaryLayout !== undefined || pwntools,
       firmwareInspectionEnabled:
         options.firmwareAnalysis !== undefined ||
-        (linux && isAbsolute(environment.REA_BINWALK_COMMAND ?? "")),
+        (verifiedHost.firmware &&
+          isAbsolute(environment.REA_BINWALK_COMMAND ?? "")),
       firmwareExtractionEnabled:
         options.firmwareAnalysis !== undefined ||
-        (linux && isAbsolute(environment.REA_UNBLOB_COMMAND ?? "")),
+        (verifiedHost.firmware &&
+          isAbsolute(environment.REA_UNBLOB_COMMAND ?? "")),
       browserObservationEnabled: options.browserObservation !== undefined,
       javascriptRecoveryEnabled:
         options.javascriptRecovery !== undefined ||
-        (linuxX64 && isAbsolute(environment.REA_WAKARU_COMMAND ?? "")),
+        (verifiedHost.javascriptRecovery &&
+          isAbsolute(environment.REA_WAKARU_COMMAND ?? "")),
       browserScenarioEnabled: options.browserScenarioCapture !== undefined,
       electronObservationEnabled: options.electronObservation !== undefined,
       electronAutomationEnabled:
@@ -269,7 +337,7 @@ const installSessionToolAvailability = (
   };
   return {
     policy,
-    ...(options.evmInterface !== undefined || !linuxX64
+    ...(options.evmInterface !== undefined || !verifiedHost.evmInterface
       ? {}
       : {
           evmLimiterAvailability: (signal: AbortSignal) =>
