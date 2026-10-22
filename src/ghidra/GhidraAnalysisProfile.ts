@@ -143,6 +143,8 @@ export const resolveGhidraAnalysisProfile = async (
           procedure_file_offset_resolution:
             "address-first-unique-target-source-mapping-v2",
           instruction_flow_evidence: "decoded-return-pcode-v1",
+          indirect_branch_inventory:
+            "listing-computed-jumps-decompiler-comment-warnings-bounded-v2",
           instruction_references: instructionReferenceCoverage,
           function_boundary_observations: functionBoundaryObservations,
           no_return_repair:
@@ -253,6 +255,8 @@ export const resolveGhidraAnalysisProfile = async (
         procedure_file_offset_resolution:
           "address-first-unique-target-source-mapping-v2",
         instruction_flow_evidence: "decoded-return-pcode-v1",
+        indirect_branch_inventory:
+          "listing-computed-jumps-decompiler-comment-warnings-bounded-v2",
         instruction_references: instructionReferenceCoverage,
         function_boundary_observations: functionBoundaryObservations,
         no_return_repair:
