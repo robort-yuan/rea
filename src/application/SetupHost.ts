@@ -12,6 +12,7 @@ import { PRODUCT_IDENTITY } from "../identity.js";
 import {
   invokingPackageRunner,
   packageRunnerRegistrationCommand,
+  versionScopedStoreEntrypoint,
   type PackageRunner,
 } from "./ClientRegistrationIdentity.js";
 import {
@@ -74,6 +75,12 @@ export const setupRegistrationCommand = (
   if (packageRunner !== undefined)
     return packageRunnerRegistrationCommand(packageRunner, platform);
   if (entrypointPath === undefined || entrypointPath.length === 0) return [];
+  // A version-scoped package store removes this exact path when the package
+  // manager installs and prunes another version, so an agent would lose REA
+  // after an upgrade. Register the pinned package-runner launcher, which the
+  // entrypoint's install already publishes, instead of a path that expires.
+  if (versionScopedStoreEntrypoint(entrypointPath, platform))
+    return packageRunnerRegistrationCommand("npx", platform);
   return platform === "win32"
     ? [process.execPath, entrypointPath, "mcp"]
     : [entrypointPath, "mcp"];

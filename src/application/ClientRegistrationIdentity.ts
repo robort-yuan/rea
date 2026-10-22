@@ -70,6 +70,25 @@ export const npxRegistrationCommand = (
   platform: NodeJS.Platform = process.platform,
 ): readonly string[] => packageRunnerRegistrationCommand("npx", platform);
 
+/**
+ * Whether a resolved entrypoint lives inside a version-scoped package store,
+ * such as a pnpm or aube/mise install
+ * (`.../rea-agents@1.2.3/node_modules/rea-agents/scripts/rea.mjs`). Those
+ * directories are removed once the package manager installs another version,
+ * so a registration that points into one stops existing after an upgrade.
+ * Only the running package's own `name@version` segment counts; a version
+ * number in an unrelated directory name is not a package store.
+ */
+export const versionScopedStoreEntrypoint = (
+  entrypointPath: string,
+  platform: NodeJS.Platform = process.platform,
+): boolean =>
+  entrypointPath
+    .split(platform === "win32" ? /[\\/]/u : "/")
+    .includes(
+      `${PRODUCT_IDENTITY.packageName}@${PRODUCT_IDENTITY.packageVersion}`,
+    );
+
 const unwrapCmdCommand = (command: readonly string[]): readonly string[] => {
   const executable = command[0]?.toLowerCase();
   if (executable !== "cmd" && executable !== "cmd.exe") return command;
