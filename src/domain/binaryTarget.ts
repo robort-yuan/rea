@@ -143,6 +143,40 @@ const parseThinMachO = (
     return err(
       `truncated Mach-O load commands: the header declares ${commandBytes} bytes after its ${headerSize}-byte header; the file has ${fileSize}`,
     );
+  // Walk the declared table when its bytes are present, so a table that
+  // cannot be walked (cmdsize below the header minimum, misaligned, running
+  // past sizeofcmds, or not adding up to sizeofcmds) is rejected here at
+  // admission instead of failing later inside a provider.
+  const tableEnd = headerSize + commandBytes;
+  if (tableEnd <= bytes.length) {
+    const commandCount = read(16);
+    const alignment = is64 ? 8 : 4;
+    let offset = headerSize;
+    for (let i = 0; i < commandCount; i++) {
+      if (offset + 8 > tableEnd)
+        return err(
+          `corrupt Mach-O load commands: command ${i} at offset ${offset} leaves ${tableEnd - offset} of the declared ${commandBytes} bytes, fewer than an 8-byte command header`,
+        );
+      const cmdsize = read(offset + 4);
+      if (cmdsize < 8)
+        return err(
+          `corrupt Mach-O load commands: command ${i} at offset ${offset} declares cmdsize ${cmdsize}, below the 8-byte minimum`,
+        );
+      if (cmdsize % alignment !== 0)
+        return err(
+          `corrupt Mach-O load commands: command ${i} at offset ${offset} declares cmdsize ${cmdsize}, not ${alignment}-byte aligned`,
+        );
+      if (offset + cmdsize > tableEnd)
+        return err(
+          `corrupt Mach-O load commands: command ${i} at offset ${offset} declares cmdsize ${cmdsize}, running past the declared ${commandBytes} bytes`,
+        );
+      offset += cmdsize;
+    }
+    if (offset !== tableEnd)
+      return err(
+        `corrupt Mach-O load commands: ${commandCount} commands consume ${offset - headerSize} of the declared ${commandBytes} bytes`,
+      );
+  }
   return ok({
     format: "mach-o",
     architecture,

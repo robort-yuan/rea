@@ -280,6 +280,84 @@ describe("executable header completeness", () => {
   });
 });
 
+describe("Mach-O load-command table validation (#6154)", () => {
+  const reason = (bytes: Buffer, fileSize = bytes.length) => {
+    const result = parseExecutableHeader(bytes, "arm64", fileSize);
+    return result.ok ? null : result.error;
+  };
+
+  const thinMach64le = (ncmds: number, sizeofcmds: number, size: number) => {
+    const bytes = Buffer.alloc(size);
+    bytes.writeUInt32BE(0xcffaedfe, 0);
+    bytes.writeUInt32LE(0x0100000c, 4);
+    bytes.writeUInt32LE(ncmds, 16);
+    bytes.writeUInt32LE(sizeofcmds, 20);
+    return bytes;
+  };
+
+  it("rejects a Mach-O whose load commands cannot be walked (#6154)", () => {
+    // The reporter's fixture: a valid thin arm64 header whose load-command
+    // table is 0xff bytes - cmd and cmdsize both 0xffffffff.
+    const corrupt = thinMach64le(17, 1056, 32 + 1056);
+    corrupt.fill(0xff, 32);
+    expect(reason(corrupt)).toBe(
+      "corrupt Mach-O load commands: command 0 at offset 32 declares cmdsize 4294967295, not 8-byte aligned",
+    );
+  });
+
+  it.each([
+    {
+      label: "cmdsize below the 8-byte minimum",
+      cmdsize: 4,
+      ncmds: 1,
+      sizeofcmds: 16,
+      error:
+        "corrupt Mach-O load commands: command 0 at offset 32 declares cmdsize 4, below the 8-byte minimum",
+    },
+    {
+      label: "cmdsize running past sizeofcmds",
+      cmdsize: 32,
+      ncmds: 1,
+      sizeofcmds: 16,
+      error:
+        "corrupt Mach-O load commands: command 0 at offset 32 declares cmdsize 32, running past the declared 16 bytes",
+    },
+  ])(
+    "rejects a Mach-O with $label",
+    ({ cmdsize, ncmds, sizeofcmds, error }) => {
+      const bytes = thinMach64le(ncmds, sizeofcmds, 32 + sizeofcmds);
+      bytes.writeUInt32LE(1, 32);
+      bytes.writeUInt32LE(cmdsize, 36);
+      expect(reason(bytes)).toBe(error);
+    },
+  );
+
+  it("rejects a Mach-O whose commands do not add up to sizeofcmds", () => {
+    const bytes = thinMach64le(1, 24, 32 + 24);
+    bytes.writeUInt32LE(1, 32);
+    bytes.writeUInt32LE(8, 36);
+    expect(reason(bytes)).toBe(
+      "corrupt Mach-O load commands: 1 commands consume 8 of the declared 24 bytes",
+    );
+  });
+
+  it("still admits a Mach-O whose declared table outlives the probed prefix", () => {
+    const bytes = thinMach64le(3, 4096, 32 + 8);
+    bytes.writeUInt32LE(1, 32);
+    bytes.writeUInt32LE(8, 36);
+    expect(reason(bytes, 32 + 4096)).toBeNull();
+  });
+
+  it("admits a Mach-O whose load commands walk cleanly", () => {
+    const bytes = thinMach64le(2, 16, 32 + 16);
+    bytes.writeUInt32LE(1, 32);
+    bytes.writeUInt32LE(8, 36);
+    bytes.writeUInt32LE(2, 40);
+    bytes.writeUInt32LE(8, 44);
+    expect(reason(bytes)).toBeNull();
+  });
+});
+
 const setFatSliceRange = (
   bytes: Buffer,
   options: {
