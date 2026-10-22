@@ -624,6 +624,7 @@ const normalizeSourceMap = (
         const sanitized =
           resolved === null ? null : cachedSanitized(sourcesByRaw, resolved);
         const content = leaf.map.sourcesContent?.[index] ?? null;
+        const mediaType = sourceMediaType(resolved ?? rawSource);
         consumeExpandedBytes(
           context.budget,
           (sanitized === null
@@ -634,7 +635,7 @@ const normalizeSourceMap = (
             (content === null
               ? 0
               : jsonBytes(content) +
-                artifactMetadataBytes(sourceMediaType(rawSource), content) -
+                artifactMetadataBytes(mediaType, content) -
                 4),
         );
         originalSources.push({
@@ -642,9 +643,7 @@ const normalizeSourceMap = (
           declaration_index: declarationIndex++,
           source: sanitized,
           artifact:
-            content === null
-              ? null
-              : createWebTextArtifact(content, sourceMediaType(rawSource)),
+            content === null ? null : createWebTextArtifact(content, mediaType),
         });
       }
     }
@@ -778,7 +777,7 @@ const originalModuleEdges = (
     }
     const parsed = parseJavaScriptSource(
       source.artifact.text,
-      sourceParserPath(sourceName),
+      originalSourcePath(sourceName),
     );
     check();
     if (parsed === null) {
@@ -833,8 +832,8 @@ const originalModuleEdges = (
   return { edges, incomplete };
 };
 
-/** Select parser semantics from the source URL path, excluding query/fragment. */
-const sourceParserPath = (source: string): string => {
+/** Select source language from the URL path, excluding query/fragment. */
+const originalSourcePath = (source: string): string => {
   try {
     return new URL(source).pathname;
   } catch (cause: unknown) {
@@ -1090,13 +1089,15 @@ const resolveOriginalSource = (
   }
 };
 
-const sourceMediaType = (source: string | null): string =>
-  source?.endsWith(".ts") ||
-  source?.endsWith(".tsx") ||
-  source?.endsWith(".mts") ||
-  source?.endsWith(".cts")
+const sourceMediaType = (source: string | null): string => {
+  const path = source === null ? null : originalSourcePath(source);
+  return path?.endsWith(".ts") ||
+    path?.endsWith(".tsx") ||
+    path?.endsWith(".mts") ||
+    path?.endsWith(".cts")
     ? "text/typescript"
     : "text/javascript";
+};
 
 const originalDependency = (
   node: t.Node,
