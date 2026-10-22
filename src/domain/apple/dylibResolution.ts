@@ -39,7 +39,7 @@ const rootRelativePathSchema = z
 /** Caller selection of process roots and one CPU slice. */
 export const dylibResolutionInputSchema = z.strictObject({
   roots: z.array(rootRelativePathSchema).min(1).optional(),
-  architecture: z.enum(["arm64", "arm64e", "x86_64"]).optional(),
+  architecture: z.enum(["arm64", "arm64e", "arm64e.x1", "x86_64"]).optional(),
 });
 
 const dependencyCommandSchema = z.enum([

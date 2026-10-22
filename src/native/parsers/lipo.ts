@@ -72,7 +72,14 @@ export const parseLipoOutput = (
             ? (name.split(" is architecture: ").at(-1) ?? name)
             : name,
           cpu_type: current.cputype ?? null,
-          cpu_subtype: current.cpusubtype ?? null,
+          cpu_subtype:
+            current.cpusubtype?.startsWith("unknown ") === true
+              ? (CPU_SUBTYPE_NAME_SYMBOLS[
+                  name.includes(" is architecture: ")
+                    ? (name.split(" is architecture: ").at(-1) ?? name)
+                    : name
+                ] ?? current.cpusubtype)
+              : (current.cpusubtype ?? null),
           cpu_type_code: cpuTypeCode(current.cputype),
           cpu_subtype_code: cpuSubtypeCode(
             current.cpusubtype,
@@ -137,6 +144,7 @@ const CPU_SUBTYPES: Readonly<Record<string, number>> = {
   CPU_SUBTYPE_ARM64_ALL: 0,
   CPU_SUBTYPE_ARM64_V8: 1,
   CPU_SUBTYPE_ARM64E: 2,
+  CPU_SUBTYPE_ARM64E_X1: 12,
   CPU_SUBTYPE_ARM64_32_ALL: 0,
   CPU_SUBTYPE_ARM64_32_V8: 1,
   CPU_SUBTYPE_ARM_V7: 9,
@@ -144,6 +152,15 @@ const CPU_SUBTYPES: Readonly<Record<string, number>> = {
   CPU_SUBTYPE_ARM_V7K: 12,
   CPU_SUBTYPE_POWERPC_ALL: 0,
   CPU_SUBTYPE_POWERPC_970: 100,
+};
+
+/**
+ * lipo prints "unknown arm64 cpusubtype" for the pointer-authentication x1
+ * subtype while still naming the slice arm64e.x1. Prefer the name's symbol so
+ * build metadata does not report an unknown subtype for a known slice.
+ */
+const CPU_SUBTYPE_NAME_SYMBOLS: Readonly<Record<string, string>> = {
+  "arm64e.x1": "CPU_SUBTYPE_ARM64E_X1",
 };
 
 /** Normalize known lipo names while retaining the producer's original text. */

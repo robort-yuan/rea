@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  dylibResolutionInputSchema,
   traceDylibLoading,
   type DylibTreeEntry,
   type DylibTreeView,
@@ -108,6 +109,20 @@ const edgeFor = (
     throw new Error(`missing ${loader} -> ${installName}`);
   return edge;
 };
+
+describe("architecture selection", () => {
+  it("accepts the arm64e.x1 slice selector", () => {
+    expect(
+      dylibResolutionInputSchema.parse({ architecture: "arm64e.x1" }),
+    ).toEqual({ architecture: "arm64e.x1" });
+  });
+
+  it("still rejects unknown architectures", () => {
+    expect(() =>
+      dylibResolutionInputSchema.parse({ architecture: "arm64e.v9" }),
+    ).toThrow();
+  });
+});
 
 describe("dyld path expansion", () => {
   it("searches the loading image's rpaths before its loaders'", async () => {

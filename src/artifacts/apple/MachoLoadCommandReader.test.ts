@@ -575,6 +575,18 @@ it("selects matching arm64e subtype slices when tracing a mixed FAT image", asyn
   ]);
 });
 
+it("names the arm64e x1 slice exactly as lipo does", async () => {
+  const image = machoImage({
+    cpu: CPU.arm64eX1,
+    commands: [buildVersionCommand(1)],
+  });
+  const facts = await read(image);
+  if (facts.status !== "parsed") throw new Error(facts.status);
+  expect(facts.slices.map(({ architecture }) => architecture)).toEqual([
+    "arm64e.x1",
+  ]);
+});
+
 describe("Mach-O load command reader: decodes thin-image load commands", () => {
   it("preserves leading U+FEFF in load-command strings", async () => {
     const image = machoImage({

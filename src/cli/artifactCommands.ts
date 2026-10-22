@@ -87,7 +87,7 @@ const registerDylibResolutionCommand = (
           "Process root relative to the bundle or the Mach-O's directory (repeatable)",
         ),
       architecture: z
-        .enum(["arm64", "arm64e", "x86_64"])
+        .enum(["arm64", "arm64e", "arm64e.x1", "x86_64"])
         .optional()
         .describe("Trace only this slice of each root"),
     }),

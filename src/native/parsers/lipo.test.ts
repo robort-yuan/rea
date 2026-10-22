@@ -67,6 +67,21 @@ architecture arm64e
     ]);
   });
 
+  it("names the x1 subtype from the slice name when lipo prints unknown", () => {
+    const { architectures } = parseLipoOutput(`Fat header in: /fixture/app
+fat_magic 0xcafebabe
+nfat_arch 1
+architecture arm64e.x1
+    cputype CPU_TYPE_ARM64
+    cpusubtype unknown arm64 cpusubtype
+    capabilities PTR_AUTH_VERSION USERSPACE 0
+    offset 16384
+    size 32
+    align 2^14 (16384)
+`);
+    expect(architectures[0]?.cpu_subtype).toBe("CPU_SUBTYPE_ARM64E_X1");
+  });
+
   it("keeps unknown symbolic CPU values as source text without a code", () => {
     expect(
       parseLipoOutput(
