@@ -487,6 +487,10 @@ cliTest(
       REA_JEB_MCP_TIMEOUT_MS: "2900003",
       REA_MCP_INPUT_SCHEMA_PROFILE: "full",
       REA_REGEX_MATCHING_DEADLINE_MS: "10000",
+      REA_MCP_INITIALIZE_BUDGET_MS: "16000",
+      REA_MCP_TOOLS_LIST_BUDGET_MS: "6000",
+      REA_MCP_FIRST_CATALOG_BUDGET_MS: "21000",
+      REA_MCP_DOCTOR_DEADLINE_MS: "31000",
       REA_UNRELATED_MARKER: "do-not-persist",
     };
     const run = (arguments_: readonly string[]) =>
@@ -516,6 +520,10 @@ cliTest(
     expect(codexRegistration).toMatchObject({ tool_timeout_sec: 3021 });
     expect(codexConfig).toContain('REA_JEB_MCP_TIMEOUT_MS = "2900003"');
     expect(codexConfig).toContain('REA_REGEX_MATCHING_DEADLINE_MS = "10000"');
+    expect(codexConfig).toContain('REA_MCP_INITIALIZE_BUDGET_MS = "16000"');
+    expect(codexConfig).toContain('REA_MCP_TOOLS_LIST_BUDGET_MS = "6000"');
+    expect(codexConfig).toContain('REA_MCP_FIRST_CATALOG_BUDGET_MS = "21000"');
+    expect(codexConfig).toContain('REA_MCP_DOCTOR_DEADLINE_MS = "31000"');
     expect(codexConfig).not.toContain("REA_UNRELATED_MARKER");
 
     const kimiPath = join(kimiHome, "mcp.json");
@@ -532,6 +540,10 @@ cliTest(
         REA_JEB_MCP_TIMEOUT_MS: "2900003",
         REA_MCP_INPUT_SCHEMA_PROFILE: "full",
         REA_REGEX_MATCHING_DEADLINE_MS: "10000",
+        REA_MCP_INITIALIZE_BUDGET_MS: "16000",
+        REA_MCP_TOOLS_LIST_BUDGET_MS: "6000",
+        REA_MCP_FIRST_CATALOG_BUDGET_MS: "21000",
+        REA_MCP_DOCTOR_DEADLINE_MS: "31000",
       },
     });
     expect(await readFile(kimiPath, "utf8")).not.toContain(

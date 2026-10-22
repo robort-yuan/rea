@@ -16,6 +16,10 @@ import { TOOL_CONTRACTS } from "./contracts/toolContracts.js";
 import { err, ok } from "./domain/result.js";
 import { PRODUCT_IDENTITY } from "./identity.js";
 import {
+  parseMcpStartupBudgets,
+  type McpPhaseBudget,
+} from "./config/mcpStartupBudgets.js";
+import {
   MCP_STARTUP_POLICY,
   mcpDoctorDeadlineRecovery,
 } from "./mcpStartupPolicy.js";
@@ -83,8 +87,35 @@ interface McpDoctorCheck {
 
 /** Diagnose the actual production stdio adapter with one startup-bounded SDK session. */
 export const runProductionMcpDoctor = async (options: McpDoctorOptions) => {
+  const parsedBudgets = parseMcpStartupBudgets(options.environment);
+  if (!parsedBudgets.ok)
+    return {
+      healthy: false as const,
+      adapter: "production-stdio" as const,
+      server: null,
+      inventory: null,
+      identity: null,
+      request_flow: {
+        tool: "binary_session" as const,
+        ok: false as const,
+      },
+      checks: parsedBudgets.error.settings.map((issue) => ({
+        name: issue.setting,
+        ok: false as const,
+        detail: issue.constraint,
+      })),
+      diagnostics: {
+        stderr: "",
+        stderr_bytes: 0,
+        stderr_truncated: false,
+      },
+    };
   const catalog = catalogIdentityForEnvironment(options.environment);
-  const budgetMs = options.deadlineMs ?? MCP_STARTUP_POLICY.doctorDeadlineMs;
+  const budget = appliedDoctorBudget(
+    parsedBudgets.value.doctor,
+    options.deadlineMs,
+  );
+  const budgetMs = budget.milliseconds;
   const deadline = performance.now() + budgetMs;
   const controller = new AbortController();
   const timer = setTimeout(
@@ -113,7 +144,7 @@ export const runProductionMcpDoctor = async (options: McpDoctorOptions) => {
       deadline,
       controller.signal,
       catalog,
-      budgetMs,
+      budget,
     );
   } catch (cause: unknown) {
     result = {
@@ -127,7 +158,7 @@ export const runProductionMcpDoctor = async (options: McpDoctorOptions) => {
         {
           name: "transport",
           ok: false,
-          detail: doctorTransportDetail(cause, budgetMs),
+          detail: doctorTransportDetail(cause, budget),
         },
       ],
     };
@@ -200,7 +231,7 @@ const inspectProductionMcpSession = async (
   deadline: number,
   signal: AbortSignal,
   catalog: ReturnType<typeof createCatalogIdentity>,
-  budgetMs: number,
+  budget: McpPhaseBudget,
 ) => {
   const request = requestOptions(deadline, signal);
   const [tools, prompts] = await Promise.all([
@@ -219,7 +250,7 @@ const inspectProductionMcpSession = async (
     .then(ok, (cause: unknown) =>
       err({
         kind: "request-flow" as const,
-        detail: doctorTransportDetail(cause, budgetMs),
+        detail: doctorTransportDetail(cause, budget),
       }),
     );
   const inventory = {
@@ -560,10 +591,36 @@ const doctorDeadlineFired = (cause: unknown): boolean => {
   );
 };
 
-/** Name the fixed doctor deadline when it fires, without turning Codex's 30s into a REA knob. */
-const doctorTransportDetail = (cause: unknown, budgetMs: number): string => {
+/**
+ * Name the applied doctor deadline when it fires. Codex's 30 second startup
+ * figure stays client guidance and is not this deadline.
+ */
+const doctorTransportDetail = (
+  cause: unknown,
+  budget: McpPhaseBudget,
+): string => {
   const message = errorMessage(cause);
   return doctorDeadlineFired(cause)
-    ? `${message} ${mcpDoctorDeadlineRecovery(budgetMs)}`
+    ? `${message} ${mcpDoctorDeadlineRecovery(budget)}`
     : message;
 };
+
+/**
+ * `deadlineMs` is a caller-selected applied deadline, used by tests. Omitted
+ * means the budget resolved from `REA_MCP_DOCTOR_DEADLINE_MS`.
+ */
+const appliedDoctorBudget = (
+  resolved: McpPhaseBudget,
+  deadlineMs: number | undefined,
+): McpPhaseBudget =>
+  deadlineMs === undefined
+    ? resolved
+    : {
+        ...resolved,
+        milliseconds: deadlineMs,
+        source:
+          deadlineMs === resolved.defaultMilliseconds &&
+          resolved.source === "default"
+            ? "default"
+            : "setting",
+      };

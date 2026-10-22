@@ -165,6 +165,10 @@ describe("doctor native analysis configuration", () => {
   it.each([
     ["REA_ANALYSIS_PROVIDER", "Hopper"],
     ["REA_REGEX_MATCHING_DEADLINE_MS", "0"],
+    ["REA_MCP_INITIALIZE_BUDGET_MS", "0"],
+    ["REA_MCP_TOOLS_LIST_BUDGET_MS", "0"],
+    ["REA_MCP_FIRST_CATALOG_BUDGET_MS", "0"],
+    ["REA_MCP_DOCTOR_DEADLINE_MS", "0"],
     ["REA_GHIDRA_STARTUP_TIMEOUT_MS", "abc"],
     ["REA_SWIFTC_COMPILE_TIMEOUT_MS", "0"],
     ["REA_LOG_LEVEL", "verbose"],
