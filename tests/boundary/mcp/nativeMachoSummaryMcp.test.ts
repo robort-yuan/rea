@@ -82,7 +82,12 @@ describe.skipIf(process.platform !== "darwin")(
         const report = full.normalized_result;
         expect(summary.summary.uuid).toBe(report.uuid);
         expect(summary.summary.provenance_count).toBe(report.provenance.length);
-        for (const name of ["imports", "exports", "dependencies"] as const)
+        for (const name of [
+          "imports",
+          "exports",
+          "dependencies",
+          "encryption",
+        ] as const)
           expect(summary.summary.collections[name]).toEqual({
             returned: report[name].items.length,
             total: report[name].total,
@@ -105,6 +110,7 @@ describe.skipIf(process.platform !== "darwin")(
           "imports",
           "exports",
           "segments",
+          "encryption",
           "provenance",
         ] as const;
         for (const facet of facets) {

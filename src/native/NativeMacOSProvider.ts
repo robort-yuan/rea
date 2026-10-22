@@ -8,7 +8,14 @@ import {
   unreadablePlist,
   type NativePlistSelection,
 } from "./NativePlistSource.js";
-import { bindArtifactFileCleanup } from "../artifacts/ArtifactFileOperation.js";
+import {
+  assertArtifactReadActive,
+  bindArtifactFileCleanup,
+  withArtifactRegularFile,
+} from "../artifacts/ArtifactFileOperation.js";
+import { readMachoEncryption } from "../artifacts/apple/MachoEncryptionReader.js";
+import type { ReadAt } from "../artifacts/apple/MachoLoadCommandReader.js";
+import { sameRegularFileState } from "../filesystem/RegularFile.js";
 import { snapshotEnvironment } from "../process/snapshotEnvironment.js";
 import {
   APPLE_DISPATCH_METADATA_ANALYSIS_PROFILE,
@@ -26,7 +33,7 @@ import {
 import { NativeUiCleanupError } from "./NativeUiCleanupError.js";
 import { LldbCallTracer, type NativeCallTracer } from "./LldbCallTracer.js";
 import { observeNativeCalls } from "./NativeCallObservation.js";
-import { realpath } from "node:fs/promises";
+import { lstat, realpath, type FileHandle } from "node:fs/promises";
 
 import { z } from "zod";
 
@@ -51,6 +58,7 @@ import { toolContract } from "../contracts/toolContracts.js";
 import { analysisInputErrorFromIssues } from "../domain/inputIssueProjection.js";
 import type { EvidenceLocation } from "../domain/evidence.js";
 import {
+  AnalysisArtifactChangedError,
   AnalysisCancelledError,
   AnalysisCapabilityUnavailableError,
   AnalysisInputError,
@@ -123,6 +131,7 @@ import {
 import {
   architectureLocations,
   inspectNativeMacho,
+  type MachoEncryptionRead,
 } from "./NativeMachoInspection.js";
 import { analysisErrorWithCleanupFailure } from "../domain/analysisErrorCleanup.js";
 import { ArtifactResourceScope } from "../artifacts/ArtifactResourceScope.js";
@@ -213,6 +222,7 @@ class NativeMacOSClient implements AnalysisClient {
   readonly #plistResources = new ArtifactResourceScope();
   readonly #callResources = new ArtifactResourceScope();
   readonly #dispatchResources = new ArtifactResourceScope();
+  readonly #machoResources = new ArtifactResourceScope();
   #nativeUiTail: Promise<void> = Promise.resolve();
   #closed = false;
 
@@ -390,6 +400,10 @@ class NativeMacOSClient implements AnalysisClient {
       this.#dispatchResources,
       "native-dispatch-metadata-target",
     );
+    const machoCleanup = await closeNativeFileScope(
+      this.#machoResources,
+      "native-macho-target",
+    );
     const commandCleanup = await this.#retryNativeCommandCleanup();
     let result = await this.tracer.close();
     const cleanupErrors = [
@@ -401,6 +415,7 @@ class NativeMacOSClient implements AnalysisClient {
       ...(plistCleanup === undefined ? [] : [plistCleanup]),
       ...(callCleanup === undefined ? [] : [callCleanup]),
       ...(dispatchCleanup === undefined ? [] : [dispatchCleanup]),
+      ...(machoCleanup === undefined ? [] : [machoCleanup]),
     ];
     for (const cleanupError of cleanupErrors)
       result = result.ok
@@ -1141,17 +1156,71 @@ class NativeMacOSClient implements AnalysisClient {
           "Active artifact is not Mach-O.",
         ),
       );
-    return inspectNativeMacho({
-      target: this.target,
-      ...(signal === undefined ? {} : { signal }),
-      run: (tool, arguments_, commandSignal, acceptNonZeroIf) =>
-        this.#run("inspect_macho", tool, arguments_, {
-          signal: commandSignal,
-          timeoutMs,
-          ...(acceptNonZeroIf === undefined ? {} : { acceptNonZeroIf }),
+    const inspect = (readEncryption: () => Promise<MachoEncryptionRead>) =>
+      inspectNativeMacho({
+        target: this.target,
+        ...(signal === undefined ? {} : { signal }),
+        run: (tool, arguments_, commandSignal, acceptNonZeroIf) =>
+          this.#run("inspect_macho", tool, arguments_, {
+            signal: commandSignal,
+            timeoutMs,
+            ...(acceptNonZeroIf === undefined ? {} : { acceptNonZeroIf }),
+          }),
+        invocation: (capture) => invocation(capture, this.target.path),
+        readEncryption,
+      });
+    const { path } = this.target;
+    let admitted = false;
+    try {
+      // The tools read the path; the in-process read and both identity checks
+      // bracket them, so every fact describes one unchanged regular file.
+      return await this.#machoResources.run(() =>
+        withArtifactRegularFile(
+          path,
+          this.#machoResources,
+          signal,
+          async (file) => {
+            admitted = true;
+            const before = await file.stat({ bigint: true });
+            const result = await inspect(() =>
+              readMachoEncryption(
+                fileReadAt(file, signal),
+                Number(before.size),
+              ),
+            );
+            // Failures are thrown so a descriptor close failure keeps them
+            // as its primary error instead of reporting a completed read.
+            if (!result.ok) throw result.error;
+            const [after, current] = await Promise.all([
+              file.stat({ bigint: true }),
+              lstat(path, { bigint: true }),
+            ]);
+            if (
+              !sameRegularFileState(before, after) ||
+              !sameRegularFileState(before, current)
+            )
+              throw new AnalysisArtifactChangedError(
+                "inspect_macho",
+                path,
+                "the Mach-O file changed while it was inspected",
+              );
+            return result;
+          },
+          "reject",
+        ),
+      );
+    } catch (cause: unknown) {
+      // Only an unopenable target leaves the tool facts without a byte read;
+      // cancellation, read and cleanup failures stay errors.
+      if (admitted || signal?.aborted === true || !isUnopenableTarget(cause))
+        return err(appleDispatchMetadataFailure(cause, path, "inspect_macho"));
+      return inspect(() =>
+        Promise.resolve({
+          status: "unread",
+          reason: `the target could not be opened for reading (${cause.code})`,
         }),
-      invocation: (capture) => invocation(capture, this.target.path),
-    });
+      );
+    }
   }
 
   async #run(
@@ -1667,3 +1736,25 @@ const plutilDiagnostic = (
     ? "plutil printed no diagnostic"
     : diagnostics.join("\n");
 };
+
+/** Positioned reads that observe the caller's cancellation before each read. */
+const fileReadAt =
+  (file: FileHandle, signal: AbortSignal | undefined): ReadAt =>
+  async (offset, length) => {
+    assertArtifactReadActive(signal);
+    const bytes = Buffer.alloc(length);
+    const { bytesRead } = await file.read(bytes, 0, length, offset);
+    return bytes.subarray(0, bytesRead);
+  };
+
+// Only absence or denied access leaves the path for the tools to report;
+// non-regular, changed or symlinked targets and descriptor exhaustion stay errors.
+const UNOPENABLE_TARGET_CODES = new Set(["ENOENT", "EACCES", "EPERM"]);
+
+const isUnopenableTarget = (
+  cause: unknown,
+): cause is NodeJS.ErrnoException & { readonly code: string } =>
+  cause instanceof Error &&
+  "code" in cause &&
+  typeof cause.code === "string" &&
+  UNOPENABLE_TARGET_CODES.has(cause.code);

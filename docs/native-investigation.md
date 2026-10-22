@@ -375,6 +375,31 @@ segments do not produce file ranges. When the selected slice's container offset
 is unknown, those mapped locations are omitted with an explicit limitation;
 architecture inventory locations remain available.
 
+`inspect_macho.encryption` reports the `LC_ENCRYPTION_INFO(_64)` state of every
+slice, not only the selected one, read from load commands without reading code
+bytes. A slice is `encrypted` when its single encryption command has a nonzero
+`cryptid`, `not-encrypted` when `cryptid` is zero, and `absent` only when every
+load command was read and none was an encryption command. A command whose width
+or `cmdsize` contradicts the image, more than one such command, or a range past
+the slice is `malformed`; a slice whose commands could not be fully read is
+`malformed` or `unknown` with a reason, keeping any commands seen before the
+failure. Each slice's `range` is end-exclusive in slice and input-file
+coordinates and maps to file-backed segment fragments, VM addresses and the
+overlapping nonempty sections; bytes outside every segment remain unmapped
+fragments. `architecture` is the lipo name of the record at the same offset,
+size and CPU identity, and is null when no single record matches. A ciphertext
+range adds a limitation naming its input-file bytes, because disassembly,
+decompilation, strings and references derived from them do not describe
+program code. The in-process read holds one regular-file descriptor while the
+native tools read the path; the descriptor's and the path's stat identity
+(device, inode, size, mode and timestamps) must match before and after inspection,
+or the call reports `artifact_changed`. The comparison checks only those
+endpoints and does not re-hash the bytes, so a path swapped and restored with
+identical metadata while the tools ran is not detected. A symlinked,
+non-regular or changing target is refused. A target that cannot be opened keeps the
+tool facts and reports the encryption collection as non-exhaustive with the
+missing-file or access failure, never as absent.
+
 Hopper's `address_to_file_offset` combines the native image-relative mapping with
 original-file coordinates only after checking the source against the session's
 SHA-256. FAT tables and embedded Mach-O headers come from that same hashing pass.

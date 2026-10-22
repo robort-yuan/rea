@@ -3,7 +3,10 @@ import { z } from "zod";
 import type { AnalysisError } from "../analysisErrorBase.js";
 import { uniqueSorted } from "../canonicalOrdering.js";
 import { isMachOFormat } from "../binaryTargetTypes.js";
-import { inspectMachoSchema } from "../native/nativeInspection.js";
+import {
+  inspectMachoSchema,
+  retainedInspectMachoSchema,
+} from "../native/nativeInspection.js";
 import { err, ok, type Result } from "../result.js";
 import { parseAnalysisViewResult } from "./analysisViewParent.js";
 import type {
@@ -25,6 +28,7 @@ const MACHO_COLLECTIONS = [
   "imports",
   "exports",
   "segments",
+  "encryption",
 ] as const;
 type MachoCollection = (typeof MACHO_COLLECTIONS)[number];
 
@@ -54,6 +58,7 @@ export const machoViewItemSchema = z.union([
   // Imports and exports share one row shape.
   exactRows(shape.imports.shape.items),
   exactRows(shape.segments.shape.items),
+  exactRows(shape.encryption.shape.items),
   exactRows(shape.provenance),
 ]);
 
@@ -93,7 +98,7 @@ type MachoReport = z.output<typeof inspectMachoSchema>;
 const parseMachoReport = (
   parent: AnalysisViewParent,
 ): Result<MachoReport, AnalysisError> => {
-  const parsed = parseAnalysisViewResult(inspectMachoSchema, parent);
+  const parsed = parseAnalysisViewResult(retainedInspectMachoSchema, parent);
   if (!parsed.ok) return parsed;
   if (parent.subject != null && !isMachOFormat(parent.subject.format))
     return err(
@@ -186,7 +191,7 @@ export const projectMachoView = (
       ...(incomplete.length === 0
         ? []
         : [
-            `Native tools did not report exhaustive ${incomplete.join(", ")}; page exhaustion does not establish absence of unreturned rows.`,
+            `inspect_macho did not report exhaustive ${incomplete.join(", ")}; page exhaustion does not establish absence of unreturned rows.`,
           ]),
       ...(parent.subject == null
         ? [
