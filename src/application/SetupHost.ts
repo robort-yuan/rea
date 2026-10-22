@@ -121,25 +121,11 @@ export const filterClientsNeedingConfigure = async (
   return detectedClients.filter((_, index) => needs[index]);
 };
 
-export const hostRemediation = async (
-  host: SetupHost,
-  installHopper: boolean,
-): Promise<string | undefined> => {
-  if (!supportsNodeVersion(host.nodeVersion))
-    return `Install ${SUPPORTED_NODE_VERSION_PROSE} and rerun setup.`;
-  if (!installHopper) return undefined;
-  if (host.platform !== "darwin" && host.platform !== "linux")
-    return "REA supports Hopper on macOS and selected 64-bit Linux distributions.";
-  if (host.platform === "darwin") {
-    const version = await host.macosVersion();
-    return version === undefined || major(version) < 12
-      ? "Upgrade to macOS 12 or newer."
-      : undefined;
-  }
-  if ((await host.linuxDistribution())?.hopperSetupSupported === true)
-    return undefined;
-  return "Automated Hopper setup supports Ubuntu 24.04+, Fedora 41+, Nobara 44+, 64-bit Arch Linux, CachyOS, and Omarchy; configure an existing supported provider instead.";
-};
+/** Refuse a Node.js runtime REA does not support before any setup work. */
+export const hostRemediation = (host: SetupHost): string | undefined =>
+  supportsNodeVersion(host.nodeVersion)
+    ? undefined
+    : `Install ${SUPPORTED_NODE_VERSION_PROSE} and rerun setup.`;
 
 /** Production setup effects for Hopper, agent configuration, and the canonical skill directory. */
 export const systemSetupHost = (
@@ -478,8 +464,6 @@ export const detectClients = async (
   return detected;
 };
 
-const major = (version: string): number =>
-  Number.parseInt(version.split(".")[0] ?? "0", 10);
 const clientEvidencePresent = async (client: SetupClient): Promise<boolean> => {
   for (const path of clientEvidencePaths(client))
     if (await exists(path)) return true;
