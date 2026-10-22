@@ -372,6 +372,7 @@ const managedParseIssueSchema = z.object({
     "invalid-string",
     "invalid-blob",
     "unsupported-signature",
+    "invalid-signature-kind",
     "invalid-guid",
     "invalid-resource",
   ]),

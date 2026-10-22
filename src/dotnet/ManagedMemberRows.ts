@@ -16,6 +16,7 @@ import {
   type ManagedFieldAccess,
   type ManagedMemberRef,
   type ManagedMethod,
+  type ManagedSignature,
   type MemberCore,
   type SignatureTypeName,
   type TypeRange,
@@ -45,6 +46,32 @@ const isSelected = (
 ): boolean =>
   selected === null || (declared !== undefined && selected.has(declared.token));
 
+/**
+ * A row owns its table's signature kind; a blob decoding to the other kind is
+ * malformed, not clean coverage — report the authorized kind on the mismatch.
+ */
+const signatureKindGuard = (
+  issues: ManagedParseIssue[],
+  table: "Field" | "MethodDef",
+) => {
+  const authorized = table === "Field" ? "field" : "method";
+  return (
+    decoded: ReturnType<typeof signature>,
+    token: string,
+    offset: number,
+  ): ManagedSignature => {
+    if (decoded.kind === authorized || decoded.kind === "unknown")
+      return decoded;
+    issues.push({
+      code: "invalid-signature-kind",
+      scope: `metadata.${table}:${token}`,
+      offset,
+      detail: `${table} signature decoded as a ${decoded.kind} signature; a ${table} requires a ${authorized} signature.`,
+    });
+    return { ...decoded, kind: authorized, parse_status: "malformed" };
+  };
+};
+
 export const parseFields = (
   bytes: Buffer,
   layout: ManagedMetadataLayout,
@@ -65,6 +92,7 @@ export const parseFields = (
   const fields: ManagedField[] = [];
   const core = new Map<string, MemberCore>();
   const issues: ManagedParseIssue[] = [];
+  const guardKind = signatureKindGuard(issues, "Field");
   const table = layout.table(4);
   const ownerRow = readManagedValue(
     () => memberDeclaringTypeRowLookup(bytes, layout, 4, memberLists),
@@ -99,6 +127,8 @@ export const parseFields = (
         cursor.readIndex(layout.blobIndexSize),
         layout.blob.size,
       );
+      const decoded = budgetedSignature(sig, layout, signatureTypeName);
+      const signature = guardKind(decoded, token, cursor.start);
       fields.push({
         token,
         row_offset: cursor.start,
@@ -106,7 +136,7 @@ export const parseFields = (
         declaring_type: declared?.fullName ?? null,
         name,
         flags,
-        signature: budgetedSignature(sig, layout, signatureTypeName),
+        signature,
       });
     }, issues);
   }
@@ -273,6 +303,17 @@ interface ParseMethodsInput {
   readonly methodLimit?: number;
 }
 
+type ParseMethodsResult = {
+  readonly methods: readonly ManagedMethod[];
+  readonly core: ReadonlyMap<string, MemberCore>;
+  readonly issues: readonly ManagedParseIssue[];
+  /**
+   * Methods that may belong to a selected type but whose CIL was not fully
+   * scanned: rows that produced no method, or bodies whose decoding stopped.
+   */
+  readonly unscannedMethods: number;
+};
+
 export const parseMethods = ({
   bytes,
   layout,
@@ -283,21 +324,14 @@ export const parseMethods = ({
   selected = null,
   methodOffset = 0,
   methodLimit = Number.MAX_SAFE_INTEGER,
-}: ParseMethodsInput): {
-  readonly methods: readonly ManagedMethod[];
-  readonly core: ReadonlyMap<string, MemberCore>;
-  readonly issues: readonly ManagedParseIssue[];
-  /**
-   * Methods that may belong to a selected type but whose CIL was not fully
-   * scanned: rows that produced no method, or bodies whose decoding stopped.
-   */
-  readonly unscannedMethods: number;
-} => {
+}: ParseMethodsInput): ParseMethodsResult => {
   const methods: ManagedMethod[] = [];
   const core = new Map<string, MemberCore>();
   const issues: ManagedParseIssue[] = [];
   let unscannedMethods = 0;
   const table = layout.table(6);
+  const decodeBudget = managedDecodeBudget(layout);
+  const guardKind = signatureKindGuard(issues, "MethodDef");
   const ownerRow = readManagedValue(
     () => memberDeclaringTypeRowLookup(bytes, layout, 6, memberLists),
     issues,
@@ -305,19 +339,19 @@ export const parseMethods = ({
   for (let row = 1; row <= (table?.rowCount ?? 0); row += 1) {
     // The owner is read first: a row that produced no method hides a selected
     // body only when its owner is selected, unknown, or unreadably named.
-    const owner =
-      ownerRow === undefined
-        ? undefined
-        : readManagedValue(() => ownerRow(row), issues);
+    const owner = readManagedValue(
+      () => (ownerRow === undefined ? undefined : ownerRow(row)),
+      issues,
+    );
     const declared = owner === undefined ? undefined : ranges[owner - 1];
     const inPage = row > methodOffset && row - methodOffset <= methodLimit;
+    // Unreadable names may belong to a type the caller requested.
     const mayBeSelected =
       inPage &&
       (selected === null ||
         owner === undefined ||
-        isSelected(selected, declared) ||
-        // A type whose name is unreadable may be one the caller requested.
-        declared?.fullName === null);
+        declared?.fullName === null ||
+        isSelected(selected, declared));
     const produced = methods.length;
     readManagedValue(() => {
       const cursor = metadataRowCursor(bytes, layout, 6, row);
@@ -357,7 +391,7 @@ export const parseMethods = ({
         pe,
         rva,
         { implFlags, flags },
-        managedDecodeBudget(layout),
+        decodeBudget,
       );
       if (!read.scanned) unscannedMethods += 1;
       methods.push({
@@ -369,7 +403,7 @@ export const parseMethods = ({
         rva,
         impl_flags: implFlags,
         flags,
-        signature: decoded,
+        signature: guardKind(decoded, token, cursor.start),
         body: read.body,
       });
     }, issues);
